@@ -1,0 +1,6 @@
+kind: group
+created: 2026-06-16
+execution_mode: serial
+suggested_focus: 04-polish-persistence
+active_subchange:
+recommended_order: 01-meter-controls-detail-shell,02-dsp-metric-engine,03-process-loopback-integration,04-polish-persistence

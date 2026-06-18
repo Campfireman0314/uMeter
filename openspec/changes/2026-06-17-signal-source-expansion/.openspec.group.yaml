@@ -1,0 +1,6 @@
+kind: group
+created: 2026-06-17
+execution_mode: mixed
+suggested_focus: 04-source-management-polish
+active_subchange:
+recommended_order: 01-signal-source-foundation,02-local-loopback-ingest,03-plugin-sender-prototypes,04-source-management-polish,05-juce-vst3-sender

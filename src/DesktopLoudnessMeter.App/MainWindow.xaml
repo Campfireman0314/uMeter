@@ -1,0 +1,892 @@
+<Window x:Class="DesktopLoudnessMeter.App.MainWindow"
+        xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+        xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+        xmlns:controls="clr-namespace:DesktopLoudnessMeter.App.Controls"
+        xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
+        xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
+        xmlns:shell="clr-namespace:System.Windows.Shell;assembly=PresentationFramework"
+        xmlns:viewModels="clr-namespace:DesktopLoudnessMeter.App.ViewModels"
+        mc:Ignorable="d"
+        Title="uMeter"
+        Icon="Assets/desktop-loudness-meter.ico"
+        Width="460"
+        Height="860"
+        MinWidth="380"
+        MinHeight="700"
+        Topmost="{Binding IsAlwaysOnTop, Mode=OneWay}"
+        WindowStyle="None"
+        ResizeMode="CanResize"
+        WindowStartupLocation="CenterScreen"
+        Background="{StaticResource AppChromeBrush}"
+        ShowInTaskbar="True"
+        d:DataContext="{d:DesignInstance}">
+    <shell:WindowChrome.WindowChrome>
+        <shell:WindowChrome CaptionHeight="0"
+                            CornerRadius="0"
+                            GlassFrameThickness="0"
+                            ResizeBorderThickness="6"
+                            UseAeroCaptionButtons="False" />
+    </shell:WindowChrome.WindowChrome>
+    <Border Background="{StaticResource AppChromeBrush}"
+            BorderBrush="#3A424D"
+            BorderThickness="1"
+            SnapsToDevicePixels="True">
+        <Grid>
+            <Grid.RowDefinitions>
+                <RowDefinition Height="44" />
+                <RowDefinition Height="*" />
+            </Grid.RowDefinitions>
+
+            <Border Grid.Row="0"
+                    Padding="14,0,8,0"
+                    Background="{StaticResource AppChromeBrush}"
+                    MouseLeftButtonDown="Header_OnMouseLeftButtonDown">
+                <Grid>
+                    <Grid.ColumnDefinitions>
+                        <ColumnDefinition Width="*" />
+                        <ColumnDefinition Width="32" />
+                        <ColumnDefinition Width="32" />
+                    </Grid.ColumnDefinitions>
+
+                    <StackPanel VerticalAlignment="Center">
+                        <TextBlock FontSize="14"
+                                   FontWeight="SemiBold"
+                                   Foreground="{StaticResource TextBrush}"
+                                   Text="uMeter" />
+                        <TextBlock FontSize="10"
+                                   Foreground="{StaticResource SubtleTextBrush}"
+                                   Text="WASAPI / VST3 source metering" />
+                    </StackPanel>
+
+                    <Button Grid.Column="1"
+                            Style="{StaticResource ChromeIconButton}"
+                            Click="MinimizeButton_OnClick"
+                            Content="-"
+                            ToolTip="Hide to tray" />
+
+                    <Button Grid.Column="2"
+                            Style="{StaticResource ChromeIconButton}"
+                            Click="CloseButton_OnClick"
+                            Content="X"
+                            ToolTip="Close" />
+                </Grid>
+            </Border>
+
+            <Grid Grid.Row="1">
+                <Grid.Style>
+                    <Style TargetType="Grid">
+                        <Setter Property="Visibility" Value="Visible" />
+                        <Style.Triggers>
+                            <DataTrigger Binding="{Binding IsDetailViewVisible}" Value="True">
+                                <Setter Property="Visibility" Value="Collapsed" />
+                            </DataTrigger>
+                        </Style.Triggers>
+                    </Style>
+                </Grid.Style>
+
+                <Grid.RowDefinitions>
+                    <RowDefinition Height="Auto" />
+                    <RowDefinition Height="Auto" />
+                    <RowDefinition Height="*" />
+                    <RowDefinition Height="28" />
+                </Grid.RowDefinitions>
+
+                <Border Grid.Row="0"
+                        Margin="12,10,12,6"
+                        Padding="10,7"
+                        Background="{StaticResource PanelAltBrush}"
+                        CornerRadius="6">
+                    <Grid>
+                        <Grid.ColumnDefinitions>
+                            <ColumnDefinition Width="*" />
+                            <ColumnDefinition Width="Auto" />
+                        </Grid.ColumnDefinitions>
+                        <TextBlock Foreground="{StaticResource SubtleTextBrush}"
+                                   FontSize="11"
+                                   Text="{Binding StatusText, FallbackValue=Waiting for audio sources}" />
+                        <TextBlock Grid.Column="1"
+                                   Foreground="{StaticResource WarmBrush}"
+                                   FontSize="11"
+                                   Text="{Binding RefreshLabel, FallbackValue=33 ms}" />
+                    </Grid>
+                </Border>
+
+                <Border Grid.Row="1"
+                        Margin="12,0,12,8"
+                        Padding="10"
+                        Background="{StaticResource PanelBrush}"
+                        CornerRadius="6">
+                    <Grid>
+                        <Grid.RowDefinitions>
+                            <RowDefinition Height="Auto" />
+                            <RowDefinition Height="8" />
+                            <RowDefinition Height="Auto" />
+                        </Grid.RowDefinitions>
+
+                        <Grid>
+                            <Grid.ColumnDefinitions>
+                                <ColumnDefinition Width="*" />
+                                <ColumnDefinition Width="12" />
+                                <ColumnDefinition Width="*" />
+                            </Grid.ColumnDefinitions>
+
+                            <StackPanel>
+                                <TextBlock FontSize="10"
+                                           Foreground="{StaticResource SubtleTextBrush}"
+                                           Text="Mode" />
+                                <ComboBox Height="26"
+                                          ItemsSource="{Binding DisplayModeOptions}"
+                                          SelectedItem="{Binding SelectedDisplayMode, Mode=TwoWay}" />
+                            </StackPanel>
+
+                            <StackPanel Grid.Column="2">
+                                <TextBlock FontSize="10"
+                                           Foreground="{StaticResource SubtleTextBrush}"
+                                           Text="True Peak" />
+                                <Grid>
+                                    <Grid.ColumnDefinitions>
+                                        <ColumnDefinition Width="Auto" />
+                                        <ColumnDefinition Width="8" />
+                                        <ColumnDefinition Width="*" />
+                                    </Grid.ColumnDefinitions>
+                                    <CheckBox VerticalAlignment="Center"
+                                              IsChecked="{Binding TruePeakEnabled, Mode=TwoWay}" />
+                                    <ComboBox Grid.Column="2"
+                                              Height="26"
+                                              ItemsSource="{Binding TruePeakOversamplingOptions}"
+                                              SelectedItem="{Binding SelectedTruePeakOversampling, Mode=TwoWay}">
+                                        <ComboBox.ItemTemplate>
+                                            <DataTemplate>
+                                                <TextBlock Text="{Binding StringFormat={}{0:D}x}" />
+                                            </DataTemplate>
+                                        </ComboBox.ItemTemplate>
+                                    </ComboBox>
+                                </Grid>
+                            </StackPanel>
+                        </Grid>
+
+                        <Grid Grid.Row="2">
+                            <Grid.ColumnDefinitions>
+                                <ColumnDefinition Width="*" />
+                                <ColumnDefinition Width="8" />
+                                <ColumnDefinition Width="Auto" />
+                            </Grid.ColumnDefinitions>
+
+                            <CheckBox VerticalAlignment="Center"
+                                      Content="Always on top"
+                                      Foreground="{StaticResource TextBrush}"
+                                      IsChecked="{Binding IsAlwaysOnTop, Mode=TwoWay}" />
+
+                            <Button Grid.Column="2"
+                                    MinWidth="82"
+                                    Height="26"
+                                    Command="{Binding ResetAllCommand}"
+                                    Content="Reset All" />
+                        </Grid>
+                    </Grid>
+                </Border>
+
+                <ScrollViewer Grid.Row="2"
+                              Margin="12,0,12,4"
+                              HorizontalScrollBarVisibility="Disabled"
+                              VerticalScrollBarVisibility="Auto">
+                    <ItemsControl ItemsSource="{Binding Sessions}">
+                        <ItemsControl.ItemTemplate>
+                            <DataTemplate>
+                                <Border Margin="0,0,0,8"
+                                        Padding="10"
+                                        Background="{StaticResource PanelBrush}"
+                                        CornerRadius="6">
+                                    <Grid>
+                                        <Grid.RowDefinitions>
+                                            <RowDefinition Height="Auto" />
+                                            <RowDefinition Height="10" />
+                                            <RowDefinition Height="Auto" />
+                                            <RowDefinition Height="Auto" />
+                                        </Grid.RowDefinitions>
+
+                                        <Grid>
+                                            <Grid.ColumnDefinitions>
+                                                <ColumnDefinition Width="Auto" />
+                                                <ColumnDefinition Width="8" />
+                                                <ColumnDefinition Width="*" />
+                                                <ColumnDefinition Width="Auto" />
+                                            </Grid.ColumnDefinitions>
+                                            <Border Padding="6,2"
+                                                    VerticalAlignment="Center"
+                                                    Background="{StaticResource PanelAltBrush}"
+                                                    BorderBrush="{StaticResource ControlBorderBrush}"
+                                                    BorderThickness="1"
+                                                    CornerRadius="4">
+                                                <TextBlock Foreground="{StaticResource SubtleTextBrush}"
+                                                           FontSize="10"
+                                                           FontWeight="SemiBold"
+                                                           Text="{Binding SourceKindLabel}" />
+                                            </Border>
+                                            <TextBlock Grid.Column="2"
+                                                       Foreground="{StaticResource TextBrush}"
+                                                       FontSize="13"
+                                                       FontWeight="SemiBold"
+                                                       Text="{Binding DisplayTitle}"
+                                                       TextTrimming="CharacterEllipsis" />
+                                            <Border Grid.Column="3"
+                                                    Margin="10,0,0,0"
+                                                    MinWidth="74"
+                                                    Padding="8,3"
+                                                    HorizontalAlignment="Right"
+                                                    VerticalAlignment="Center"
+                                                    BorderThickness="1"
+                                                    CornerRadius="5">
+                                                <Border.Style>
+                                                    <Style TargetType="Border">
+                                                        <Setter Property="Background" Value="#27303A" />
+                                                        <Setter Property="BorderBrush" Value="#42505E" />
+                                                        <Style.Triggers>
+                                                            <DataTrigger Binding="{Binding PrimaryValueSeverity}" Value="{x:Static viewModels:ReadoutSeverity.Muted}">
+                                                                <Setter Property="Background" Value="#222832" />
+                                                                <Setter Property="BorderBrush" Value="#313A45" />
+                                                                <Setter Property="Opacity" Value="0.68" />
+                                                            </DataTrigger>
+                                                            <DataTrigger Binding="{Binding PrimaryValueSeverity}" Value="{x:Static viewModels:ReadoutSeverity.Warm}">
+                                                                <Setter Property="Background" Value="#4A3B1E" />
+                                                                <Setter Property="BorderBrush" Value="{StaticResource WarmBrush}" />
+                                                            </DataTrigger>
+                                                            <DataTrigger Binding="{Binding PrimaryValueSeverity}" Value="{x:Static viewModels:ReadoutSeverity.Hot}">
+                                                                <Setter Property="Background" Value="#76351D" />
+                                                                <Setter Property="BorderBrush" Value="#FF8A3D" />
+                                                            </DataTrigger>
+                                                            <DataTrigger Binding="{Binding PrimaryValueSeverity}" Value="{x:Static viewModels:ReadoutSeverity.Critical}">
+                                                                <Setter Property="Background" Value="#C92A2A" />
+                                                                <Setter Property="BorderBrush" Value="#FF6B6B" />
+                                                            </DataTrigger>
+                                                            <DataTrigger Binding="{Binding PrimaryValueSeverity}" Value="{x:Static viewModels:ReadoutSeverity.Over}">
+                                                                <Setter Property="Background" Value="#F8FAFC" />
+                                                                <Setter Property="BorderBrush" Value="#FF2D2D" />
+                                                            </DataTrigger>
+                                                        </Style.Triggers>
+                                                    </Style>
+                                                </Border.Style>
+                                                <TextBlock HorizontalAlignment="Center"
+                                                           FontFamily="Consolas"
+                                                           FontSize="12"
+                                                           FontWeight="SemiBold"
+                                                           Text="{Binding PrimaryValueText}">
+                                                    <TextBlock.Style>
+                                                        <Style TargetType="TextBlock">
+                                                            <Setter Property="Foreground" Value="#D7E0EA" />
+                                                            <Style.Triggers>
+                                                                <DataTrigger Binding="{Binding PrimaryValueSeverity}" Value="{x:Static viewModels:ReadoutSeverity.Muted}">
+                                                                    <Setter Property="Foreground" Value="{StaticResource DisabledTextBrush}" />
+                                                                </DataTrigger>
+                                                                <DataTrigger Binding="{Binding PrimaryValueSeverity}" Value="{x:Static viewModels:ReadoutSeverity.Warm}">
+                                                                    <Setter Property="Foreground" Value="#FFE8A8" />
+                                                                </DataTrigger>
+                                                                <DataTrigger Binding="{Binding PrimaryValueSeverity}" Value="{x:Static viewModels:ReadoutSeverity.Hot}">
+                                                                    <Setter Property="Foreground" Value="#FFF0E8" />
+                                                                </DataTrigger>
+                                                                <DataTrigger Binding="{Binding PrimaryValueSeverity}" Value="{x:Static viewModels:ReadoutSeverity.Critical}">
+                                                                    <Setter Property="Foreground" Value="White" />
+                                                                    <Setter Property="FontWeight" Value="Bold" />
+                                                                </DataTrigger>
+                                                                <DataTrigger Binding="{Binding PrimaryValueSeverity}" Value="{x:Static viewModels:ReadoutSeverity.Over}">
+                                                                    <Setter Property="Foreground" Value="#B00020" />
+                                                                    <Setter Property="FontWeight" Value="Bold" />
+                                                                </DataTrigger>
+                                                            </Style.Triggers>
+                                                        </Style>
+                                                    </TextBlock.Style>
+                                                </TextBlock>
+                                            </Border>
+                                        </Grid>
+
+                                        <Grid Grid.Row="2" Height="8">
+                                            <Border Background="#111419"
+                                                    CornerRadius="4" />
+                                            <ProgressBar Maximum="1"
+                                                         Value="{Binding DisplayLevel, Mode=OneWay}"
+                                                         Background="Transparent"
+                                                         BorderThickness="0"
+                                                         Foreground="{StaticResource AccentBrush}" />
+                                        </Grid>
+
+                                        <StackPanel Grid.Row="3"
+                                                    Margin="0,9,0,0"
+                                                    Orientation="Horizontal"
+                                                    HorizontalAlignment="Right">
+                                            <Button MinWidth="64"
+                                                    Height="24"
+                                                    Command="{Binding OpenDetailCommand}"
+                                                    Content="Details" />
+                                            <Button Margin="8,0,0,0"
+                                                    MinWidth="64"
+                                                    Height="24"
+                                                    Command="{Binding OpenPopupCommand}"
+                                                    Content="Pop-up" />
+                                            <Button Margin="8,0,0,0"
+                                                    MinWidth="56"
+                                                    Height="24"
+                                                    Command="{Binding ResetCommand}"
+                                                    Content="Reset" />
+                                        </StackPanel>
+                                    </Grid>
+                                </Border>
+                            </DataTemplate>
+                        </ItemsControl.ItemTemplate>
+                    </ItemsControl>
+                </ScrollViewer>
+
+                <TextBlock Grid.Row="3"
+                           Margin="14,0,14,8"
+                           VerticalAlignment="Center"
+                           Foreground="{StaticResource SubtleTextBrush}"
+                           FontSize="10"
+                           Text="Per-process LUFS metrics warm up after active audio starts." />
+            </Grid>
+
+            <Grid Grid.Row="1"
+                  Margin="12">
+                <Grid.Style>
+                    <Style TargetType="Grid">
+                        <Setter Property="Visibility" Value="Collapsed" />
+                        <Style.Triggers>
+                            <DataTrigger Binding="{Binding IsDetailViewVisible}" Value="True">
+                                <Setter Property="Visibility" Value="Visible" />
+                            </DataTrigger>
+                        </Style.Triggers>
+                    </Style>
+                </Grid.Style>
+
+                <Grid.RowDefinitions>
+                    <RowDefinition Height="Auto" />
+                    <RowDefinition Height="*" />
+                    <RowDefinition Height="Auto" />
+                </Grid.RowDefinitions>
+
+                <Grid Grid.Row="0">
+                    <Grid.ColumnDefinitions>
+                        <ColumnDefinition Width="Auto" />
+                        <ColumnDefinition Width="*" />
+                        <ColumnDefinition Width="Auto" />
+                    </Grid.ColumnDefinitions>
+
+                    <Button Width="72"
+                            Height="28"
+                            Command="{Binding BackToGlobalCommand}"
+                            Content="Back" />
+
+                    <StackPanel Grid.Column="2"
+                                Orientation="Horizontal"
+                                VerticalAlignment="Center">
+                        <TextBlock Margin="0,0,8,0"
+                                   VerticalAlignment="Center"
+                                   Foreground="{StaticResource SubtleTextBrush}"
+                                   FontSize="11"
+                                   Text="True Peak" />
+                        <ComboBox Width="72"
+                                  Height="26"
+                                  ItemsSource="{Binding TruePeakOversamplingOptions}"
+                                  SelectedItem="{Binding SelectedDetailSession.TruePeakOversampling, Mode=TwoWay}">
+                            <ComboBox.ItemTemplate>
+                                <DataTemplate>
+                                    <TextBlock Text="{Binding StringFormat={}{0:D}x}" />
+                                </DataTemplate>
+                            </ComboBox.ItemTemplate>
+                        </ComboBox>
+                    </StackPanel>
+                </Grid>
+
+                <ScrollViewer Grid.Row="1"
+                              Grid.RowSpan="2"
+                              Margin="0,10,0,0"
+                              HorizontalScrollBarVisibility="Disabled"
+                              VerticalScrollBarVisibility="Auto">
+                    <ScrollViewer.Style>
+                        <Style TargetType="ScrollViewer">
+                            <Setter Property="Opacity" Value="1" />
+                            <Style.Triggers>
+                                <DataTrigger Binding="{Binding SelectedDetailSession.IsInstanceMissing}" Value="True">
+                                    <Setter Property="Opacity" Value="0.38" />
+                                </DataTrigger>
+                            </Style.Triggers>
+                        </Style>
+                    </ScrollViewer.Style>
+                    <StackPanel Margin="0,0,0,42">
+                        <StackPanel Margin="0,0,0,12">
+                            <TextBlock FontSize="18"
+                                       FontWeight="SemiBold"
+                                       Foreground="{StaticResource TextBrush}"
+                                       Text="{Binding SelectedDetailSession.DisplayName}"
+                                       TextTrimming="CharacterEllipsis" />
+                            <TextBlock FontSize="11"
+                                       Foreground="{StaticResource SubtleTextBrush}"
+                                       Text="{Binding SelectedDetailSession.SourceIdentityText}" />
+                            <TextBlock FontSize="10"
+                                       Foreground="{StaticResource SubtleTextBrush}"
+                                       Text="{Binding SelectedDetailSession.SourceStatusText}" />
+                        </StackPanel>
+
+                <StackPanel>
+                    <controls:ScaledLevelMeter Height="46"
+                                               Margin="0,0,0,6"
+                                               Label="Momentary loudness"
+                                               Level="{Binding SelectedDetailSession.MomentaryLufsLevel, Mode=OneWay}"
+                                               ScaleMaximum="0"
+                                               ScaleMinimum="-60"
+                                               TickValues="-60,-48,-36,-24,-12,0"
+                                               ValueText="{Binding SelectedDetailSession.MomentaryLufsText}" />
+
+                    <controls:ScaledLevelMeter Height="46"
+                                               Margin="0,0,0,6"
+                                               Label="Short-term loudness"
+                                               Level="{Binding SelectedDetailSession.ShortTermLufsLevel, Mode=OneWay}"
+                                               ScaleMaximum="0"
+                                               ScaleMinimum="-60"
+                                               TickValues="-60,-48,-36,-24,-12,0"
+                                               ValueText="{Binding SelectedDetailSession.ShortTermLufsText}" />
+
+                    <controls:ScaledLevelMeter Height="46"
+                                               Margin="0,0,0,6"
+                                               Label="Integrated loudness"
+                                               Level="{Binding SelectedDetailSession.IntegratedLufsLevel, Mode=OneWay}"
+                                               ScaleMaximum="0"
+                                               ScaleMinimum="-60"
+                                               TickValues="-60,-48,-36,-24,-12,0"
+                                               ValueText="{Binding SelectedDetailSession.IntegratedLufsText}" />
+
+                    <controls:ScaledLevelMeter Height="46"
+                                               Margin="0,0,0,6"
+                                               Label="True-peak level"
+                                               Level="{Binding SelectedDetailSession.TruePeakLevel, Mode=OneWay}"
+                                               ScaleMaximum="3"
+                                               ScaleMinimum="-60"
+                                               TickValues="-60,-48,-36,-24,-12,0,+3"
+                                               ValueSeverity="{Binding SelectedDetailSession.TruePeakReadoutSeverity}"
+                                               ValueSubtext="{Binding SelectedDetailSession.TruePeakMaxText}"
+                                               ValueText="{Binding SelectedDetailSession.TruePeakText}" />
+
+                    <controls:ScaledLevelMeter Height="46"
+                                               Margin="0,0,0,6"
+                                               Label="100 ms RMS level"
+                                               Level="{Binding SelectedDetailSession.Rms100MsLevel, Mode=OneWay}"
+                                               ScaleMaximum="0"
+                                               ScaleMinimum="-60"
+                                               TickValues="-60,-48,-36,-24,-12,0"
+                                               ValueText="{Binding SelectedDetailSession.Rms100MsText}" />
+                </StackPanel>
+
+                <Border Margin="0,6,0,0"
+                        Padding="12"
+                        Background="{StaticResource PanelBrush}"
+                        CornerRadius="6">
+                    <Grid>
+                        <Grid.RowDefinitions>
+                            <RowDefinition Height="Auto" />
+                            <RowDefinition Height="Auto" />
+                            <RowDefinition Height="Auto" />
+                        </Grid.RowDefinitions>
+
+                        <Grid>
+                            <Grid.ColumnDefinitions>
+                                <ColumnDefinition Width="Auto" />
+                                <ColumnDefinition Width="8" />
+                                <ColumnDefinition Width="Auto" />
+                                <ColumnDefinition Width="*" />
+                                <ColumnDefinition Width="Auto" />
+                            </Grid.ColumnDefinitions>
+                            <TextBlock Foreground="{StaticResource SubtleTextBrush}"
+                                       VerticalAlignment="Center"
+                                       FontSize="11"
+                                       Text="Stereo image" />
+                            <Button Grid.Column="2"
+                                    Style="{StaticResource ChromeIconButton}"
+                                    FontFamily="Segoe MDL2 Assets"
+                                    FontSize="14"
+                                    Click="InlineStereoSettingsButton_OnClick"
+                                    Content="&#xE713;"
+                                    ToolTip="Stereo image scale settings" />
+                            <TextBlock Grid.Column="4"
+                                       Width="88"
+                                       TextAlignment="Right"
+                                       Foreground="{StaticResource SubtleTextBrush}"
+                                       FontSize="11"
+                                       Text="{Binding SelectedDetailSession.StereoImageText}" />
+                        </Grid>
+
+                        <controls:StereoFanView Grid.Row="1"
+                                                MinHeight="190"
+                                                Margin="0,8,0,8"
+                                                Correlation="{Binding SelectedDetailSession.CorrelationValue, Mode=OneWay}"
+                                                ImageX="{Binding SelectedDetailSession.StereoImageX, Mode=OneWay}"
+                                                ImageY="{Binding SelectedDetailSession.StereoImageY, Mode=OneWay}"
+                                                Points="{Binding SelectedDetailSession.StereoImagePoints, Mode=OneWay}"
+                                                AutoScale="{Binding InlineStereoSettings.IsAutoScale, Mode=OneWay}"
+                                                ScaleRangeDb="{Binding InlineStereoSettings.ScaleRangeDb, Mode=OneWay}"
+                                                ManualCeilingDb="{Binding InlineStereoSettings.ManualCeilingDb, Mode=OneWay}"
+                                                AutoScaleFloorDb="{Binding InlineStereoSettings.AutoScaleFloorDb, Mode=OneWay}"
+                                                AutoScaleSpeedDbPerSecond="{Binding InlineStereoSettings.AutoScaleSpeedDbPerSecond, Mode=OneWay}"
+                                                TracePersistenceSeconds="{Binding InlineStereoSettings.TracePersistenceSeconds, Mode=OneWay}" />
+
+                        <controls:CorrelationMeter Grid.Row="2"
+                                                   Height="52"
+                                                   Value="{Binding SelectedDetailSession.CorrelationValue, Mode=OneWay}"
+                                                   ValueText="{Binding SelectedDetailSession.CorrelationText}" />
+                    </Grid>
+                </Border>
+
+                <WrapPanel Margin="0,10,0,6"
+                           VerticalAlignment="Center">
+                    <CheckBox Content="Waveform"
+                              IsChecked="{Binding IsInlineWaveformVisible, Mode=TwoWay}" />
+                    <CheckBox Margin="14,0,0,0"
+                              Content="Spectrum"
+                              IsChecked="{Binding IsInlineSpectrumVisible, Mode=TwoWay}" />
+                    <Button x:Name="InlineRollSettingsButton"
+                            Margin="14,0,0,0"
+                            Style="{StaticResource ChromeIconButton}"
+                            FontFamily="Segoe MDL2 Assets"
+                            FontSize="14"
+                            Content="&#xE713;"
+                            ToolTip="Roll display modes"
+                            Click="InlineRollSettingsButton_OnClick" />
+                    <Popup x:Name="InlineRollSettingsPopup"
+                           AllowsTransparency="True"
+                           DataContext="{Binding PlacementTarget.DataContext, RelativeSource={RelativeSource Self}}"
+                           Placement="Bottom"
+                           PlacementTarget="{Binding ElementName=InlineRollSettingsButton}"
+                           PopupAnimation="Fade"
+                           StaysOpen="False">
+                        <Border MinWidth="166"
+                                Padding="10"
+                                Background="{StaticResource PanelBrush}"
+                                BorderBrush="{StaticResource ControlBorderBrush}"
+                                BorderThickness="1"
+                                CornerRadius="6">
+                            <Grid>
+                                <Grid.ColumnDefinitions>
+                                    <ColumnDefinition Width="Auto" />
+                                    <ColumnDefinition Width="10" />
+                                    <ColumnDefinition Width="*" />
+                                </Grid.ColumnDefinitions>
+                                <Grid.RowDefinitions>
+                                    <RowDefinition Height="Auto" />
+                                    <RowDefinition Height="8" />
+                                    <RowDefinition Height="Auto" />
+                                </Grid.RowDefinitions>
+                                <TextBlock VerticalAlignment="Center"
+                                           Foreground="{StaticResource SubtleTextBrush}"
+                                           FontSize="11"
+                                           Text="Wave" />
+                                <ComboBox Grid.Column="2"
+                                          Width="96"
+                                          Height="26"
+                                          ItemsSource="{Binding WaveformDisplayModeOptions}"
+                                          SelectedItem="{Binding SelectedDetailSession.WaveformDisplayMode, Mode=TwoWay}" />
+                                <TextBlock Grid.Row="2"
+                                           VerticalAlignment="Center"
+                                           Foreground="{StaticResource SubtleTextBrush}"
+                                           FontSize="11"
+                                           Text="Spec" />
+                                <ComboBox Grid.Row="2"
+                                          Grid.Column="2"
+                                          Width="96"
+                                          Height="26"
+                                          ItemsSource="{Binding SpectrumDisplayModeOptions}"
+                                          SelectedItem="{Binding SelectedDetailSession.SpectrumDisplayMode, Mode=TwoWay}" />
+                            </Grid>
+                        </Border>
+                    </Popup>
+                </WrapPanel>
+
+                <StackPanel>
+                    <StackPanel.Style>
+                        <Style TargetType="StackPanel">
+                            <Setter Property="Visibility" Value="Collapsed" />
+                            <Style.Triggers>
+                                <DataTrigger Binding="{Binding IsInlineWaveformOnlyVisible}" Value="True">
+                                    <Setter Property="Visibility" Value="Visible" />
+                                </DataTrigger>
+                            </Style.Triggers>
+                        </Style>
+                    </StackPanel.Style>
+                    <Border x:Name="InlineWaveformOnlyPanel"
+                            Height="{Binding InlineWaveformOnlyPanelDefaultHeight}"
+                            MinHeight="{Binding InlineWaveformOnlyPanelMinHeight}"
+                            MaxHeight="900"
+                            Padding="10"
+                            Background="{StaticResource PanelBrush}"
+                            CornerRadius="6">
+                        <Grid>
+                            <controls:WaveformRollView WaveformSamples="{Binding SelectedDetailSession.WaveformSamples, Mode=OneWay}">
+                                <controls:WaveformRollView.Style>
+                                    <Style TargetType="controls:WaveformRollView">
+                                        <Setter Property="Visibility" Value="Collapsed" />
+                                        <Style.Triggers>
+                                            <DataTrigger Binding="{Binding SelectedDetailSession.IsOverallWaveformVisible}" Value="True">
+                                                <Setter Property="Visibility" Value="Visible" />
+                                            </DataTrigger>
+                                        </Style.Triggers>
+                                    </Style>
+                                </controls:WaveformRollView.Style>
+                            </controls:WaveformRollView>
+                            <Grid>
+                                <Grid.Style>
+                                    <Style TargetType="Grid">
+                                        <Setter Property="Visibility" Value="Collapsed" />
+                                        <Style.Triggers>
+                                            <DataTrigger Binding="{Binding SelectedDetailSession.IsChannelWaveformVisible}" Value="True">
+                                                <Setter Property="Visibility" Value="Visible" />
+                                            </DataTrigger>
+                                        </Style.Triggers>
+                                    </Style>
+                                </Grid.Style>
+                                <Grid.RowDefinitions>
+                                    <RowDefinition Height="Auto" />
+                                    <RowDefinition Height="*" MinHeight="185" />
+                                    <RowDefinition Height="Auto" />
+                                    <RowDefinition Height="*" MinHeight="185" />
+                                </Grid.RowDefinitions>
+                                <TextBlock Foreground="{StaticResource SubtleTextBrush}" FontSize="10" Text="L" />
+                                <controls:WaveformRollView Grid.Row="1" WaveformSamples="{Binding SelectedDetailSession.LeftWaveformSamples, Mode=OneWay}" />
+                                <TextBlock Grid.Row="2" Margin="0,5,0,0" Foreground="{StaticResource SubtleTextBrush}" FontSize="10" Text="R" />
+                                <controls:WaveformRollView Grid.Row="3" WaveformSamples="{Binding SelectedDetailSession.RightWaveformSamples, Mode=OneWay}" />
+                            </Grid>
+                        </Grid>
+                    </Border>
+                    <controls:VerticalResizeThumb TargetElement="{Binding ElementName=InlineWaveformOnlyPanel}" />
+                </StackPanel>
+
+                <StackPanel>
+                    <StackPanel.Style>
+                        <Style TargetType="StackPanel">
+                            <Setter Property="Visibility" Value="Collapsed" />
+                            <Style.Triggers>
+                                <DataTrigger Binding="{Binding IsInlineSpectrumOnlyVisible}" Value="True">
+                                    <Setter Property="Visibility" Value="Visible" />
+                                </DataTrigger>
+                            </Style.Triggers>
+                        </Style>
+                    </StackPanel.Style>
+                    <Border x:Name="InlineSpectrumOnlyPanel"
+                            Height="{Binding InlineSpectrumOnlyPanelDefaultHeight}"
+                            MinHeight="{Binding InlineSpectrumOnlyPanelMinHeight}"
+                            MaxHeight="900"
+                            Padding="10"
+                            Background="{StaticResource PanelBrush}"
+                            CornerRadius="6">
+                        <Grid>
+                            <controls:SpectrumRollView SpectrumBuckets="{Binding SelectedDetailSession.SpectrumBuckets, Mode=OneWay}">
+                                <controls:SpectrumRollView.Style>
+                                    <Style TargetType="controls:SpectrumRollView">
+                                        <Setter Property="Visibility" Value="Collapsed" />
+                                        <Style.Triggers>
+                                            <DataTrigger Binding="{Binding SelectedDetailSession.IsOverallSpectrumVisible}" Value="True">
+                                                <Setter Property="Visibility" Value="Visible" />
+                                            </DataTrigger>
+                                        </Style.Triggers>
+                                    </Style>
+                                </controls:SpectrumRollView.Style>
+                            </controls:SpectrumRollView>
+                            <Grid>
+                                <Grid.Style>
+                                    <Style TargetType="Grid">
+                                        <Setter Property="Visibility" Value="Collapsed" />
+                                        <Style.Triggers>
+                                            <DataTrigger Binding="{Binding SelectedDetailSession.IsChannelSpectrumVisible}" Value="True">
+                                                <Setter Property="Visibility" Value="Visible" />
+                                            </DataTrigger>
+                                        </Style.Triggers>
+                                    </Style>
+                                </Grid.Style>
+                                <Grid.RowDefinitions>
+                                    <RowDefinition Height="Auto" />
+                                    <RowDefinition Height="*" MinHeight="185" />
+                                    <RowDefinition Height="Auto" />
+                                    <RowDefinition Height="*" MinHeight="185" />
+                                </Grid.RowDefinitions>
+                                <TextBlock Foreground="{StaticResource SubtleTextBrush}" FontSize="10" Text="L" />
+                                <controls:SpectrumRollView Grid.Row="1" SpectrumBuckets="{Binding SelectedDetailSession.LeftSpectrumBuckets, Mode=OneWay}" />
+                                <TextBlock Grid.Row="2" Margin="0,5,0,0" Foreground="{StaticResource SubtleTextBrush}" FontSize="10" Text="R" />
+                                <controls:SpectrumRollView Grid.Row="3" SpectrumBuckets="{Binding SelectedDetailSession.RightSpectrumBuckets, Mode=OneWay}" />
+                            </Grid>
+                        </Grid>
+                    </Border>
+                    <controls:VerticalResizeThumb TargetElement="{Binding ElementName=InlineSpectrumOnlyPanel}" />
+                </StackPanel>
+
+                <Grid x:Name="InlineRollsPanel"
+                      Height="{Binding InlineRollsPanelDefaultHeight}"
+                      MinHeight="{Binding InlineRollsPanelMinHeight}"
+                      MaxHeight="1200">
+                    <Grid.Style>
+                        <Style TargetType="Grid">
+                            <Setter Property="Visibility" Value="Collapsed" />
+                            <Style.Triggers>
+                                <DataTrigger Binding="{Binding AreInlineRollsVisible}" Value="True">
+                                    <Setter Property="Visibility" Value="Visible" />
+                                </DataTrigger>
+                            </Style.Triggers>
+                        </Style>
+                    </Grid.Style>
+                    <Grid.RowDefinitions>
+                        <RowDefinition x:Name="InlineWaveformRollRow"
+                                       Height="155*"
+                                       MinHeight="{Binding DataContext.InlineWaveformRollGroupMinHeight, ElementName=InlineRollsPanel}" />
+                        <RowDefinition Height="8" />
+                        <RowDefinition Height="185*" MinHeight="{Binding DataContext.InlineSpectrumRollGroupMinHeight, ElementName=InlineRollsPanel}" />
+                    </Grid.RowDefinitions>
+                    <Border Grid.Row="0"
+                            Padding="10"
+                            Background="{StaticResource PanelBrush}"
+                            CornerRadius="6">
+                        <Grid>
+                            <controls:WaveformRollView WaveformSamples="{Binding SelectedDetailSession.WaveformSamples, Mode=OneWay}">
+                                <controls:WaveformRollView.Style>
+                                    <Style TargetType="controls:WaveformRollView">
+                                        <Setter Property="Visibility" Value="Collapsed" />
+                                        <Style.Triggers>
+                                            <DataTrigger Binding="{Binding SelectedDetailSession.IsOverallWaveformVisible}" Value="True">
+                                                <Setter Property="Visibility" Value="Visible" />
+                                            </DataTrigger>
+                                        </Style.Triggers>
+                                    </Style>
+                                </controls:WaveformRollView.Style>
+                            </controls:WaveformRollView>
+                            <Grid>
+                                <Grid.Style>
+                                    <Style TargetType="Grid">
+                                        <Setter Property="Visibility" Value="Collapsed" />
+                                        <Style.Triggers>
+                                            <DataTrigger Binding="{Binding SelectedDetailSession.IsChannelWaveformVisible}" Value="True">
+                                                <Setter Property="Visibility" Value="Visible" />
+                                            </DataTrigger>
+                                        </Style.Triggers>
+                                    </Style>
+                                </Grid.Style>
+                                <Grid.RowDefinitions>
+                                    <RowDefinition Height="Auto" />
+                                    <RowDefinition Height="*" MinHeight="185" />
+                                    <RowDefinition Height="Auto" />
+                                    <RowDefinition Height="*" MinHeight="185" />
+                                </Grid.RowDefinitions>
+                                <TextBlock Foreground="{StaticResource SubtleTextBrush}" FontSize="10" Text="L" />
+                                <controls:WaveformRollView Grid.Row="1" WaveformSamples="{Binding SelectedDetailSession.LeftWaveformSamples, Mode=OneWay}" />
+                                <TextBlock Grid.Row="2" Margin="0,5,0,0" Foreground="{StaticResource SubtleTextBrush}" FontSize="10" Text="R" />
+                                <controls:WaveformRollView Grid.Row="3" WaveformSamples="{Binding SelectedDetailSession.RightWaveformSamples, Mode=OneWay}" />
+                            </Grid>
+                        </Grid>
+                    </Border>
+                    <controls:GridRowResizeThumb Grid.Row="1"
+                                                 ContainerElement="{Binding ElementName=InlineRollsPanel}"
+                                                 TargetRow="{Binding ElementName=InlineWaveformRollRow}" />
+                    <Border Grid.Row="2"
+                            Padding="10"
+                            Background="{StaticResource PanelBrush}"
+                            CornerRadius="6">
+                        <Grid>
+                            <controls:SpectrumRollView SpectrumBuckets="{Binding SelectedDetailSession.SpectrumBuckets, Mode=OneWay}">
+                                <controls:SpectrumRollView.Style>
+                                    <Style TargetType="controls:SpectrumRollView">
+                                        <Setter Property="Visibility" Value="Collapsed" />
+                                        <Style.Triggers>
+                                            <DataTrigger Binding="{Binding SelectedDetailSession.IsOverallSpectrumVisible}" Value="True">
+                                                <Setter Property="Visibility" Value="Visible" />
+                                            </DataTrigger>
+                                        </Style.Triggers>
+                                    </Style>
+                                </controls:SpectrumRollView.Style>
+                            </controls:SpectrumRollView>
+                            <Grid>
+                                <Grid.Style>
+                                    <Style TargetType="Grid">
+                                        <Setter Property="Visibility" Value="Collapsed" />
+                                        <Style.Triggers>
+                                            <DataTrigger Binding="{Binding SelectedDetailSession.IsChannelSpectrumVisible}" Value="True">
+                                                <Setter Property="Visibility" Value="Visible" />
+                                            </DataTrigger>
+                                        </Style.Triggers>
+                                    </Style>
+                                </Grid.Style>
+                                <Grid.RowDefinitions>
+                                    <RowDefinition Height="Auto" />
+                                    <RowDefinition Height="*" MinHeight="185" />
+                                    <RowDefinition Height="Auto" />
+                                    <RowDefinition Height="*" MinHeight="185" />
+                                </Grid.RowDefinitions>
+                                <TextBlock Foreground="{StaticResource SubtleTextBrush}" FontSize="10" Text="L" />
+                                <controls:SpectrumRollView Grid.Row="1" SpectrumBuckets="{Binding SelectedDetailSession.LeftSpectrumBuckets, Mode=OneWay}" />
+                                <TextBlock Grid.Row="2" Margin="0,5,0,0" Foreground="{StaticResource SubtleTextBrush}" FontSize="10" Text="R" />
+                                <controls:SpectrumRollView Grid.Row="3" SpectrumBuckets="{Binding SelectedDetailSession.RightSpectrumBuckets, Mode=OneWay}" />
+                            </Grid>
+                        </Grid>
+                    </Border>
+                </Grid>
+                <controls:VerticalResizeThumb TargetElement="{Binding ElementName=InlineRollsPanel}">
+                    <controls:VerticalResizeThumb.Style>
+                        <Style TargetType="controls:VerticalResizeThumb" BasedOn="{StaticResource {x:Type controls:VerticalResizeThumb}}">
+                            <Setter Property="Visibility" Value="Collapsed" />
+                            <Style.Triggers>
+                                <DataTrigger Binding="{Binding AreInlineRollsVisible}" Value="True">
+                                    <Setter Property="Visibility" Value="Visible" />
+                                </DataTrigger>
+                            </Style.Triggers>
+                        </Style>
+                    </controls:VerticalResizeThumb.Style>
+                </controls:VerticalResizeThumb>
+                    </StackPanel>
+                </ScrollViewer>
+
+                <Border Grid.Row="1"
+                        Grid.RowSpan="2"
+                        Margin="0,10,0,0"
+                        Background="#809199A3"
+                        CornerRadius="6"
+                        IsHitTestVisible="True"
+                        Visibility="{Binding SelectedDetailSession.IsInstanceMissing, Converter={StaticResource BooleanToVisibilityConverter}}">
+                    <Border HorizontalAlignment="Center"
+                            VerticalAlignment="Center"
+                            Padding="18,10"
+                            Background="#D020252D"
+                            BorderBrush="{StaticResource ControlBorderBrush}"
+                            BorderThickness="1"
+                            CornerRadius="6">
+                        <StackPanel>
+                            <TextBlock HorizontalAlignment="Center"
+                                       Foreground="{StaticResource TextBrush}"
+                                       FontSize="15"
+                                       FontWeight="SemiBold"
+                                       Text="Instance not found" />
+                            <Button Margin="0,10,0,0"
+                                    MinWidth="112"
+                                    Height="28"
+                                    Click="SwitchDetailButton_OnClick"
+                                    Content="Switch to...">
+                                <Button.ContextMenu>
+                                    <ContextMenu ItemsSource="{Binding PlacementTarget.DataContext.DetailSwitchTargets, RelativeSource={RelativeSource Self}}">
+                                        <ContextMenu.ItemContainerStyle>
+                                            <Style TargetType="{x:Type MenuItem}"
+                                                   BasedOn="{StaticResource {x:Type MenuItem}}">
+                                                <Setter Property="Header" Value="{Binding DisplayTitle}" />
+                                                <Setter Property="ToolTip" Value="{Binding SourceIdentityText}" />
+                                                <Setter Property="Command"
+                                                        Value="{Binding PlacementTarget.DataContext.SwitchDetailSessionCommand, RelativeSource={RelativeSource AncestorType={x:Type ContextMenu}}}" />
+                                                <Setter Property="CommandParameter" Value="{Binding}" />
+                                            </Style>
+                                        </ContextMenu.ItemContainerStyle>
+                                    </ContextMenu>
+                                </Button.ContextMenu>
+                            </Button>
+                        </StackPanel>
+                    </Border>
+                </Border>
+
+                <Button Grid.Row="2"
+                        Margin="0,0,16,0"
+                        HorizontalAlignment="Right"
+                        MinWidth="82"
+                        Height="28"
+                        Command="{Binding SelectedDetailSession.ResetCommand}"
+                        Content="Reset" />
+            </Grid>
+        </Grid>
+    </Border>
+</Window>

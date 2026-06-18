@@ -1,0 +1,6 @@
+kind: group
+created: 2026-06-16
+execution_mode: mixed
+suggested_focus: 01-session-meter-mvp
+active_subchange: 
+recommended_order: 01-session-meter-mvp,02-process-loopback-loudness,03-packaging-polish

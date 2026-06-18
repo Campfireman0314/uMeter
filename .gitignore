@@ -1,0 +1,12 @@
+bin/
+obj/
+x64/
+artifacts/
+build/
+.vs/
+.vscode/
+TestResults/
+*.user
+*.suo
+*.nupkg
+*.log

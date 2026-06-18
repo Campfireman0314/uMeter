@@ -1,0 +1,183 @@
+<Window x:Class="DesktopLoudnessMeter.App.StereoImageSettingsWindow"
+        xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+        xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+        Title="Stereo Scale"
+        Icon="Assets/desktop-loudness-meter.ico"
+        Width="320"
+        Height="392"
+        MinWidth="300"
+        MinHeight="372"
+        WindowStyle="None"
+        ResizeMode="NoResize"
+        WindowStartupLocation="CenterOwner"
+        Background="{StaticResource AppChromeBrush}"
+        ShowInTaskbar="False">
+    <Border Padding="14"
+            Background="{StaticResource AppChromeBrush}"
+            BorderBrush="#3A424D"
+            BorderThickness="1">
+        <Grid>
+            <Grid.RowDefinitions>
+                <RowDefinition Height="Auto" />
+                <RowDefinition Height="14" />
+                <RowDefinition Height="Auto" />
+                <RowDefinition Height="12" />
+                <RowDefinition Height="Auto" />
+                <RowDefinition Height="12" />
+                <RowDefinition Height="Auto" />
+                <RowDefinition Height="12" />
+                <RowDefinition Height="Auto" />
+                <RowDefinition Height="12" />
+                <RowDefinition Height="Auto" />
+                <RowDefinition Height="12" />
+                <RowDefinition Height="Auto" />
+                <RowDefinition Height="*" />
+                <RowDefinition Height="Auto" />
+            </Grid.RowDefinitions>
+
+            <Grid MouseLeftButtonDown="Header_OnMouseLeftButtonDown">
+                <Grid.ColumnDefinitions>
+                    <ColumnDefinition Width="*" />
+                    <ColumnDefinition Width="Auto" />
+                    <ColumnDefinition Width="32" />
+                </Grid.ColumnDefinitions>
+                <TextBlock Foreground="{StaticResource TextBrush}"
+                           FontSize="15"
+                           FontWeight="SemiBold"
+                           Text="Stereo Scale" />
+                <TextBlock Grid.Column="1"
+                           Foreground="{StaticResource WarmBrush}"
+                           FontSize="12"
+                           Text="{Binding ScaleSummary}" />
+                <Button Grid.Column="2"
+                        Margin="8,0,0,0"
+                        Style="{StaticResource ChromeIconButton}"
+                        Click="CloseButton_OnClick"
+                        Content="X"
+                        ToolTip="Close" />
+            </Grid>
+
+            <CheckBox Grid.Row="2"
+                      Content="Auto scale"
+                      Foreground="{StaticResource TextBrush}"
+                      IsChecked="{Binding IsAutoScale, Mode=TwoWay}" />
+
+            <StackPanel Grid.Row="4">
+                <Grid>
+                    <Grid.ColumnDefinitions>
+                        <ColumnDefinition Width="*" />
+                        <ColumnDefinition Width="Auto" />
+                    </Grid.ColumnDefinitions>
+                    <TextBlock Foreground="{StaticResource SubtleTextBrush}"
+                               FontSize="11"
+                               Text="Scale range" />
+                    <TextBlock Grid.Column="1"
+                               Foreground="{StaticResource TextBrush}"
+                               FontSize="11"
+                               Text="{Binding ScaleRangeDb, StringFormat={}{0:0} dB}" />
+                </Grid>
+                <Slider Minimum="12"
+                        Maximum="96"
+                        TickFrequency="6"
+                        Value="{Binding ScaleRangeDb, Mode=TwoWay}" />
+            </StackPanel>
+
+            <StackPanel Grid.Row="6">
+                <Grid>
+                    <Grid.ColumnDefinitions>
+                        <ColumnDefinition Width="*" />
+                        <ColumnDefinition Width="Auto" />
+                    </Grid.ColumnDefinitions>
+                    <TextBlock Foreground="{StaticResource SubtleTextBrush}"
+                               FontSize="11"
+                               Text="Manual top" />
+                    <TextBlock Grid.Column="1"
+                               Foreground="{StaticResource TextBrush}"
+                               FontSize="11"
+                               Text="{Binding ManualCeilingDb, StringFormat={}{0:0} dB}" />
+                </Grid>
+                <Slider Minimum="-60"
+                        Maximum="12"
+                        TickFrequency="6"
+                        Value="{Binding ManualCeilingDb, Mode=TwoWay}" />
+            </StackPanel>
+
+            <StackPanel Grid.Row="8">
+                <Grid>
+                    <Grid.ColumnDefinitions>
+                        <ColumnDefinition Width="*" />
+                        <ColumnDefinition Width="Auto" />
+                    </Grid.ColumnDefinitions>
+                    <TextBlock Foreground="{StaticResource SubtleTextBrush}"
+                               FontSize="11"
+                               Text="Auto lower limit" />
+                    <TextBlock Grid.Column="1"
+                               Foreground="{StaticResource TextBrush}"
+                               FontSize="11"
+                               Text="{Binding AutoScaleFloorDb, StringFormat={}{0:0} dB}" />
+                </Grid>
+                <Slider Minimum="-72"
+                        Maximum="0"
+                        TickFrequency="6"
+                        Value="{Binding AutoScaleFloorDb, Mode=TwoWay}" />
+            </StackPanel>
+
+            <StackPanel Grid.Row="10">
+                <Grid>
+                    <Grid.ColumnDefinitions>
+                        <ColumnDefinition Width="*" />
+                        <ColumnDefinition Width="Auto" />
+                    </Grid.ColumnDefinitions>
+                    <TextBlock Foreground="{StaticResource SubtleTextBrush}"
+                               FontSize="11"
+                               Text="Auto speed" />
+                    <TextBlock Grid.Column="1"
+                               Foreground="{StaticResource TextBrush}"
+                               FontSize="11"
+                               Text="{Binding AutoScaleSpeedDbPerSecond, StringFormat={}{0:0} dB/s}" />
+                </Grid>
+                <Slider Minimum="1"
+                        Maximum="24"
+                        TickFrequency="1"
+                        Value="{Binding AutoScaleSpeedDbPerSecond, Mode=TwoWay}" />
+            </StackPanel>
+
+            <StackPanel Grid.Row="12">
+                <Grid>
+                    <Grid.ColumnDefinitions>
+                        <ColumnDefinition Width="*" />
+                        <ColumnDefinition Width="Auto" />
+                    </Grid.ColumnDefinitions>
+                    <TextBlock Foreground="{StaticResource SubtleTextBrush}"
+                               FontSize="11"
+                               Text="Trace persistence" />
+                    <TextBlock Grid.Column="1"
+                               Foreground="{StaticResource TextBrush}"
+                               FontSize="11"
+                               Text="{Binding TracePersistenceMilliseconds, StringFormat={}{0:0} ms}" />
+                </Grid>
+                <Slider Minimum="0.02"
+                        Maximum="0.25"
+                        TickFrequency="0.01"
+                        Value="{Binding TracePersistenceSeconds, Mode=TwoWay}" />
+            </StackPanel>
+
+            <Grid Grid.Row="14">
+                <Grid.ColumnDefinitions>
+                    <ColumnDefinition Width="Auto" />
+                    <ColumnDefinition Width="*" />
+                    <ColumnDefinition Width="Auto" />
+                </Grid.ColumnDefinitions>
+                <Button Width="72"
+                        Height="28"
+                        Command="{Binding ResetCommand}"
+                        Content="Reset" />
+                <Button Grid.Column="2"
+                        Width="72"
+                        Height="28"
+                        Click="CloseButton_OnClick"
+                        Content="Close" />
+            </Grid>
+        </Grid>
+    </Border>
+</Window>

@@ -1,0 +1,55 @@
+﻿<Project Sdk="Microsoft.NET.Sdk">
+
+  <PropertyGroup>
+    <OutputType>WinExe</OutputType>
+    <TargetFramework>net8.0-windows</TargetFramework>
+    <Nullable>enable</Nullable>
+    <ImplicitUsings>enable</ImplicitUsings>
+    <UseWPF>true</UseWPF>
+    <UseWindowsForms>true</UseWindowsForms>
+    <ApplicationIcon>Assets\desktop-loudness-meter.ico</ApplicationIcon>
+    <AssemblyName>uMeter</AssemblyName>
+    <Product>uMeter</Product>
+    <Company>Campfireman Studio</Company>
+    <Authors>Campfireman Studio</Authors>
+    <Description>Per-source desktop loudness meter with WASAPI and VST3 sender support.</Description>
+    <Version>2.0.0</Version>
+    <AssemblyVersion>2.0.0.0</AssemblyVersion>
+    <FileVersion>2.0.0.0</FileVersion>
+    <InformationalVersion>2.0.0</InformationalVersion>
+    <IncludeSourceRevisionInInformationalVersion>false</IncludeSourceRevisionInInformationalVersion>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <PackageReference Include="NAudio" Version="2.3.0" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <ProjectReference Include="..\DesktopLoudnessMeter.Protocol\DesktopLoudnessMeter.Protocol.csproj" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <Using Remove="System.Drawing" />
+    <Using Remove="System.Windows.Forms" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <Resource Include="Assets\desktop-loudness-meter.ico" />
+    <Resource Include="Assets\desktop-loudness-meter-tray.ico" />
+    <Resource Include="Assets\desktop-loudness-meter.png" />
+    <Resource Include="Assets\desktop-loudness-meter-tray.png" />
+  </ItemGroup>
+
+  <ItemGroup Condition="Exists('..\DesktopLoudnessMeter.Native\x64\$(Configuration)\DesktopLoudnessMeter.Native.dll')">
+    <None Include="..\DesktopLoudnessMeter.Native\x64\$(Configuration)\DesktopLoudnessMeter.Native.dll"
+          Link="DesktopLoudnessMeter.Native.dll"
+          CopyToOutputDirectory="PreserveNewest" />
+  </ItemGroup>
+
+  <ItemGroup Condition="!Exists('..\DesktopLoudnessMeter.Native\x64\$(Configuration)\DesktopLoudnessMeter.Native.dll') And Exists('..\DesktopLoudnessMeter.Native\x64\Release\DesktopLoudnessMeter.Native.dll')">
+    <None Include="..\DesktopLoudnessMeter.Native\x64\Release\DesktopLoudnessMeter.Native.dll"
+          Link="DesktopLoudnessMeter.Native.dll"
+          CopyToOutputDirectory="PreserveNewest" />
+  </ItemGroup>
+
+</Project>

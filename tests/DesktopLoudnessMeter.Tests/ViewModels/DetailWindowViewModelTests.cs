@@ -1,0 +1,185 @@
+using DesktopLoudnessMeter.App.Audio;
+using DesktopLoudnessMeter.App.ViewModels;
+
+namespace DesktopLoudnessMeter.Tests.ViewModels;
+
+public sealed class DetailWindowViewModelTests
+{
+    [Fact]
+    public void DetailWindowOwnsIndependentTopmostAndStereoSettings()
+    {
+        var session = new AudioSessionMeterViewModel(Snapshot());
+        var first = new DetailWindowViewModel(session);
+        var second = new DetailWindowViewModel(session);
+
+        first.IsAlwaysOnTop = false;
+        first.StereoSettings.IsAutoScale = false;
+        first.StereoSettings.ScaleRangeDb = 24;
+
+        Assert.False(first.IsAlwaysOnTop);
+        Assert.True(second.IsAlwaysOnTop);
+        Assert.False(first.IsWaveformVisible);
+        Assert.False(first.IsSpectrumVisible);
+        Assert.False(first.StereoSettings.IsAutoScale);
+        Assert.True(second.StereoSettings.IsAutoScale);
+        Assert.Equal(24, first.StereoSettings.ScaleRangeDb);
+        Assert.Equal(StereoImageDisplaySettings.DefaultScaleRangeDb, second.StereoSettings.ScaleRangeDb);
+    }
+
+    [Fact]
+    public void WaveformAndSpectrumVisibilityCanBeControlledSeparately()
+    {
+        var session = new AudioSessionMeterViewModel(Snapshot());
+        var viewModel = new DetailWindowViewModel(session);
+
+        viewModel.IsSpectrumVisible = true;
+
+        Assert.True(viewModel.IsSpectrumOnlyVisible);
+        Assert.False(viewModel.IsWaveformOnlyVisible);
+        Assert.False(viewModel.AreRollsVisible);
+
+        viewModel.IsWaveformVisible = true;
+
+        Assert.False(viewModel.IsSpectrumOnlyVisible);
+        Assert.True(viewModel.AreRollsVisible);
+    }
+
+    [Fact]
+    public void ResetCommandDelegatesToSessionReset()
+    {
+        var session = new AudioSessionMeterViewModel(Snapshot(momentaryLufs: -18));
+        var viewModel = new DetailWindowViewModel(session);
+
+        viewModel.ResetCommand.Execute(null);
+
+        Assert.Equal(1, session.ResetCount);
+        Assert.Equal("LUFS n/a", session.MomentaryLufsText);
+    }
+
+    [Fact]
+    public void SwitchCommandMovesPopupToLiveTarget()
+    {
+        var first = new AudioSessionMeterViewModel(Snapshot("app:first", "First"));
+        var second = new AudioSessionMeterViewModel(Snapshot("app:second", "Second"));
+        var active = new List<AudioSessionMeterViewModel> { first, second };
+        var viewModel = new DetailWindowViewModel(first, () => active);
+
+        Assert.Same(second, Assert.Single(viewModel.SwitchTargets));
+
+        viewModel.SwitchSessionCommand.Execute(second);
+
+        Assert.Same(second, viewModel.Session);
+        Assert.Same(first, Assert.Single(viewModel.SwitchTargets));
+    }
+
+    [Fact]
+    public void SwitchCommandIgnoresTargetThatDisappearedAfterMenuOpened()
+    {
+        var first = new AudioSessionMeterViewModel(Snapshot("app:first", "First"));
+        var second = new AudioSessionMeterViewModel(Snapshot("app:second", "Second"));
+        var active = new List<AudioSessionMeterViewModel> { first, second };
+        var viewModel = new DetailWindowViewModel(first, () => active);
+
+        active.Remove(second);
+        viewModel.SwitchSessionCommand.Execute(second);
+
+        Assert.Same(first, viewModel.Session);
+        Assert.Empty(viewModel.SwitchTargets);
+    }
+
+    [Fact]
+    public void DetailWindowExposesTruePeakOversamplingOptions()
+    {
+        var session = new AudioSessionMeterViewModel(Snapshot());
+        var viewModel = new DetailWindowViewModel(session);
+
+        Assert.Equal(TruePeakOversampling.FourX, session.TruePeakOversampling);
+        Assert.Contains(TruePeakOversampling.TwoX, viewModel.TruePeakOversamplingOptions);
+        Assert.Contains(TruePeakOversampling.FourX, viewModel.TruePeakOversamplingOptions);
+        Assert.Contains(TruePeakOversampling.EightX, viewModel.TruePeakOversamplingOptions);
+        Assert.Contains(WaveformDisplayMode.Overall, viewModel.WaveformDisplayModeOptions);
+        Assert.Contains(WaveformDisplayMode.Channels, viewModel.WaveformDisplayModeOptions);
+        Assert.Contains(SpectrumDisplayMode.Overall, viewModel.SpectrumDisplayModeOptions);
+        Assert.Contains(SpectrumDisplayMode.Channels, viewModel.SpectrumDisplayModeOptions);
+    }
+
+    [Fact]
+    public void RollPanelMinimumsReserveOneHundredEightyFivePixelsPerTrack()
+    {
+        var session = new AudioSessionMeterViewModel(Snapshot());
+        var viewModel = new DetailWindowViewModel(session);
+
+        Assert.Equal(205, viewModel.WaveformOnlyPanelMinHeight);
+        Assert.Equal(205, viewModel.SpectrumOnlyPanelMinHeight);
+        Assert.Equal(418, viewModel.RollsPanelMinHeight);
+        Assert.Equal(205, viewModel.WaveformOnlyPanelDefaultHeight);
+        Assert.Equal(205, viewModel.SpectrumOnlyPanelDefaultHeight);
+        Assert.Equal(546, viewModel.RollsPanelDefaultHeight);
+
+        session.WaveformDisplayMode = WaveformDisplayMode.Channels;
+
+        Assert.Equal(430, viewModel.WaveformOnlyPanelMinHeight);
+        Assert.Equal(430, viewModel.WaveformRollGroupMinHeight);
+        Assert.Equal(643, viewModel.RollsPanelMinHeight);
+        Assert.Equal(430, viewModel.WaveformOnlyPanelDefaultHeight);
+        Assert.Equal(771, viewModel.RollsPanelDefaultHeight);
+
+        session.SpectrumDisplayMode = SpectrumDisplayMode.Channels;
+
+        Assert.Equal(430, viewModel.SpectrumOnlyPanelMinHeight);
+        Assert.Equal(430, viewModel.SpectrumRollGroupMinHeight);
+        Assert.Equal(868, viewModel.RollsPanelMinHeight);
+        Assert.Equal(430, viewModel.SpectrumOnlyPanelDefaultHeight);
+        Assert.Equal(996, viewModel.RollsPanelDefaultHeight);
+    }
+
+    [Fact]
+    public void StereoSettingsClampAndResetToDefaults()
+    {
+        var settings = new StereoImageDisplaySettings
+        {
+            IsAutoScale = false,
+            ScaleRangeDb = 200,
+            ManualCeilingDb = -100
+        };
+
+        Assert.Equal(96, settings.ScaleRangeDb);
+        Assert.Equal(-60, settings.ManualCeilingDb);
+        settings.AutoScaleFloorDb = -100;
+        settings.AutoScaleSpeedDbPerSecond = 200;
+        settings.TracePersistenceSeconds = 10;
+        Assert.Equal(-72, settings.AutoScaleFloorDb);
+        Assert.Equal(24, settings.AutoScaleSpeedDbPerSecond);
+        Assert.Equal(0.25, settings.TracePersistenceSeconds);
+
+        settings.TracePersistenceSeconds = 0;
+        Assert.Equal(0.02, settings.TracePersistenceSeconds);
+
+        settings.Reset();
+
+        Assert.True(settings.IsAutoScale);
+        Assert.Equal(StereoImageDisplaySettings.DefaultScaleRangeDb, settings.ScaleRangeDb);
+        Assert.Equal(StereoImageDisplaySettings.DefaultManualCeilingDb, settings.ManualCeilingDb);
+        Assert.Equal(StereoImageDisplaySettings.DefaultAutoScaleFloorDb, settings.AutoScaleFloorDb);
+        Assert.Equal(StereoImageDisplaySettings.DefaultAutoScaleSpeedDbPerSecond, settings.AutoScaleSpeedDbPerSecond);
+        Assert.Equal(StereoImageDisplaySettings.DefaultTracePersistenceSeconds, settings.TracePersistenceSeconds);
+    }
+
+    private static AudioSessionSnapshot Snapshot(double? momentaryLufs = null)
+    {
+        return Snapshot("pid:42", "Test App", momentaryLufs);
+    }
+
+    private static AudioSessionSnapshot Snapshot(string key, string name, double? momentaryLufs = null)
+    {
+        return new AudioSessionSnapshot(
+            key,
+            42,
+            name,
+            0.5f,
+            -6,
+            "-6.0 dB",
+            "Active",
+            MomentaryLufs: momentaryLufs);
+    }
+}
