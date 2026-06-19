@@ -103,6 +103,7 @@
                         </Grid.ColumnDefinitions>
                         <TextBlock Foreground="{StaticResource SubtleTextBrush}"
                                    FontSize="11"
+                                   TextWrapping="Wrap"
                                    Text="{Binding StatusText, FallbackValue=Waiting for audio sources}" />
                         <TextBlock Grid.Column="1"
                                    Foreground="{StaticResource WarmBrush}"
@@ -128,6 +129,8 @@
                                 <ColumnDefinition Width="*" />
                                 <ColumnDefinition Width="12" />
                                 <ColumnDefinition Width="*" />
+                                <ColumnDefinition Width="12" />
+                                <ColumnDefinition Width="Auto" />
                             </Grid.ColumnDefinitions>
 
                             <StackPanel>
@@ -162,6 +165,20 @@
                                         </ComboBox.ItemTemplate>
                                     </ComboBox>
                                 </Grid>
+                            </StackPanel>
+
+                            <StackPanel Grid.Column="4"
+                                        MinWidth="84">
+                                <TextBlock FontSize="10"
+                                           Foreground="{StaticResource SubtleTextBrush}"
+                                           Text="Performance" />
+                                <CheckBox Height="26"
+                                          VerticalContentAlignment="Center"
+                                          Content="Eco mode"
+                                          Foreground="{StaticResource TextBrush}"
+                                          IsChecked="{Binding IsEcoModeEnabled, Mode=TwoWay}"
+                                          ToolTipService.InitialShowDelay="1000"
+                                          ToolTip="Lowers CPU use by slowing UI refresh and spectrum analysis. Best for older PCs or long sessions." />
                             </StackPanel>
                         </Grid>
 

@@ -15,7 +15,8 @@ internal sealed class ProcessLoopbackCaptureWorker : IProcessLoopbackCaptureWork
     private int _truePeakOversampling = 4;
     private bool _channelWaveformEnabled;
     private bool _channelSpectrumEnabled;
-    private PcmMetricAnalyzer _analyzer = CreateAnalyzer(4, channelWaveformEnabled: false, channelSpectrumEnabled: false);
+    private PcmAnalysisPerformanceMode _performanceMode = PcmAnalysisPerformanceMode.Normal;
+    private PcmMetricAnalyzer _analyzer = CreateAnalyzer(4, channelWaveformEnabled: false, channelSpectrumEnabled: false, PcmAnalysisPerformanceMode.Normal);
     private Thread? _captureThread;
     private volatile bool _stopRequested;
     private volatile bool _isFaulted;
@@ -45,7 +46,7 @@ internal sealed class ProcessLoopbackCaptureWorker : IProcessLoopbackCaptureWork
     {
         if (!ProcessLoopbackInterop.IsSupported)
         {
-            throw new PlatformNotSupportedException("Windows process loopback requires Windows 10 build 20348 or later.");
+            throw new PlatformNotSupportedException("Windows process loopback can only be attempted on Windows 10 build 19041 or later.");
         }
 
         if (_captureThread is not null)
@@ -87,7 +88,7 @@ internal sealed class ProcessLoopbackCaptureWorker : IProcessLoopbackCaptureWork
                 return;
             }
 
-            _analyzer = CreateAnalyzer(oversampling, _channelWaveformEnabled, _channelSpectrumEnabled);
+            _analyzer = CreateAnalyzer(oversampling, _channelWaveformEnabled, _channelSpectrumEnabled, _performanceMode);
             _truePeakOversampling = oversampling;
         }
     }
@@ -117,6 +118,20 @@ internal sealed class ProcessLoopbackCaptureWorker : IProcessLoopbackCaptureWork
 
             _channelSpectrumEnabled = enabled;
             _analyzer.SetChannelSpectrumEnabled(enabled);
+        }
+    }
+
+    public void SetPerformanceMode(PcmAnalysisPerformanceMode mode)
+    {
+        lock (_lock)
+        {
+            if (_performanceMode == mode)
+            {
+                return;
+            }
+
+            _performanceMode = mode;
+            _analyzer.SetPerformanceMode(mode);
         }
     }
 
@@ -235,11 +250,13 @@ internal sealed class ProcessLoopbackCaptureWorker : IProcessLoopbackCaptureWork
     private static PcmMetricAnalyzer CreateAnalyzer(
         int truePeakOversampling,
         bool channelWaveformEnabled,
-        bool channelSpectrumEnabled)
+        bool channelSpectrumEnabled,
+        PcmAnalysisPerformanceMode performanceMode)
     {
         var analyzer = new PcmMetricAnalyzer(new PcmMetricAnalyzerOptions(SampleRate, Channels, truePeakOversampling));
         analyzer.SetChannelWaveformEnabled(channelWaveformEnabled);
         analyzer.SetChannelSpectrumEnabled(channelSpectrumEnabled);
+        analyzer.SetPerformanceMode(performanceMode);
         return analyzer;
     }
 }

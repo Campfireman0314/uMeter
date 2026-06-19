@@ -59,6 +59,37 @@ public sealed class PcmMetricAnalyzerContractTests
         Assert.Null(analyzer.Snapshot.Rms100MsDb);
     }
 
+    [Fact]
+    public void EcoModeThrottlesSpectrumFftRefreshes()
+    {
+        var normalFft = new CountingSpectrumFft();
+        var normalWindow = new RecentSampleWindow(2, 48000, 4, 4800, normalFft);
+
+        ProcessFramesWithSpectrumReads(normalWindow, 2300);
+
+        var ecoFft = new CountingSpectrumFft();
+        var ecoWindow = new RecentSampleWindow(2, 48000, 4, 4800, ecoFft);
+        ecoWindow.SetPerformanceMode(PcmAnalysisPerformanceMode.Eco);
+
+        ProcessFramesWithSpectrumReads(ecoWindow, 2300);
+
+        Assert.True(normalFft.ComputeCount > ecoFft.ComputeCount);
+        Assert.Equal(3, normalFft.ComputeCount);
+        Assert.Equal(1, ecoFft.ComputeCount);
+    }
+
+    [Fact]
+    public void EcoModeUsesSmallerSpectrumFftWindow()
+    {
+        var fft = new CountingSpectrumFft();
+        var window = new RecentSampleWindow(2, 48000, 4, 4800, fft);
+        window.SetPerformanceMode(PcmAnalysisPerformanceMode.Eco);
+
+        ProcessFramesWithSpectrumReads(window, 4800);
+
+        Assert.Equal(4096, fft.LastFftSize);
+    }
+
     private static float[] Sine(double seconds, double amplitude, double frequency = 1000)
     {
         const int sampleRate = 48000;
@@ -72,5 +103,36 @@ public sealed class PcmMetricAnalyzerContractTests
         }
 
         return samples;
+    }
+
+    private static void ProcessFramesWithSpectrumReads(RecentSampleWindow window, int frames)
+    {
+        for (var frame = 0; frame < frames; frame++)
+        {
+            var sample = Math.Sin(2 * Math.PI * 1000 * frame / 48000) * 0.25;
+            window.Add([sample, sample], [sample, sample, sample, sample]);
+            _ = window.SpectrumBuckets;
+        }
+    }
+
+    private sealed class CountingSpectrumFft : ISpectrumFft
+    {
+        public string Name => "Counting FFT";
+
+        public int ComputeCount { get; private set; }
+
+        public int LastFftSize { get; private set; }
+
+        public void ComputeMagnitudes(
+            double[] samples,
+            double[] window,
+            int fftSize,
+            double windowSum,
+            double[] magnitudes)
+        {
+            ComputeCount++;
+            LastFftSize = fftSize;
+            Array.Clear(magnitudes);
+        }
     }
 }

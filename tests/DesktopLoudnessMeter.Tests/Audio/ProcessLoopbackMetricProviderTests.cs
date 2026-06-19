@@ -132,6 +132,20 @@ public sealed class ProcessLoopbackMetricProviderTests
         Assert.True(factory.Workers[6].ChannelWaveformEnabled);
     }
 
+    [Fact]
+    public void PerformanceModeDelegatesToTrackedWorkersAndNewWorkers()
+    {
+        var factory = new FakeWorkerFactory();
+        var provider = new ProcessLoopbackMetricProvider(factory, () => DateTimeOffset.UnixEpoch);
+
+        provider.TrackProcesses([5]);
+        provider.SetPerformanceMode(PcmAnalysisPerformanceMode.Eco);
+        provider.TrackProcesses([5, 6]);
+
+        Assert.Equal(PcmAnalysisPerformanceMode.Eco, factory.Workers[5].PerformanceMode);
+        Assert.Equal(PcmAnalysisPerformanceMode.Eco, factory.Workers[6].PerformanceMode);
+    }
+
     private sealed class FakeWorkerFactory : IProcessLoopbackCaptureWorkerFactory
     {
         public List<int> CreatedProcessIds { get; } = [];
@@ -185,6 +199,8 @@ public sealed class ProcessLoopbackMetricProviderTests
 
         public bool ChannelSpectrumEnabled { get; private set; }
 
+        public PcmAnalysisPerformanceMode PerformanceMode { get; private set; } = PcmAnalysisPerformanceMode.Normal;
+
         public void SetTruePeakOversampling(int oversampling)
         {
             TruePeakOversampling = oversampling;
@@ -198,6 +214,11 @@ public sealed class ProcessLoopbackMetricProviderTests
         public void SetChannelSpectrumEnabled(bool enabled)
         {
             ChannelSpectrumEnabled = enabled;
+        }
+
+        public void SetPerformanceMode(PcmAnalysisPerformanceMode mode)
+        {
+            PerformanceMode = mode;
         }
 
         public void Dispose()

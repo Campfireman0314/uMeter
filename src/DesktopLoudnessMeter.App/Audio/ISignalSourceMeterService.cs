@@ -1,3 +1,5 @@
+using DesktopLoudnessMeter.App.Audio.Analysis;
+
 namespace DesktopLoudnessMeter.App.Audio;
 
 public interface ISignalSourceMeterService
@@ -19,4 +21,6 @@ public interface ISignalSourceAnalysisSettingsService
     void SetChannelWaveformEnabled(string sourceKey, SignalSourceKind sourceKind, int? processId, bool enabled);
 
     void SetChannelSpectrumEnabled(string sourceKey, SignalSourceKind sourceKind, int? processId, bool enabled);
+
+    void SetPerformanceMode(PcmAnalysisPerformanceMode mode);
 }

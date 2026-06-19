@@ -17,6 +17,7 @@ public sealed class ProcessLoopbackMetricProvider : IProcessMetricProvider
     private readonly Dictionary<int, int> _truePeakOversamplingByProcess = [];
     private readonly Dictionary<int, bool> _channelWaveformEnabledByProcess = [];
     private readonly Dictionary<int, bool> _channelSpectrumEnabledByProcess = [];
+    private PcmAnalysisPerformanceMode _performanceMode = PcmAnalysisPerformanceMode.Normal;
 
     public ProcessLoopbackMetricProvider()
         : this(new ProcessLoopbackCaptureWorkerFactory(), () => DateTimeOffset.Now)
@@ -77,6 +78,7 @@ public sealed class ProcessLoopbackMetricProvider : IProcessMetricProvider
                 worker.SetTruePeakOversampling(GetTruePeakOversampling(processId));
                 worker.SetChannelWaveformEnabled(GetChannelWaveformEnabled(processId));
                 worker.SetChannelSpectrumEnabled(GetChannelSpectrumEnabled(processId));
+                worker.SetPerformanceMode(_performanceMode);
                 worker.Start();
                 _workers[processId] = worker;
             }
@@ -171,6 +173,20 @@ public sealed class ProcessLoopbackMetricProvider : IProcessMetricProvider
         if (_workers.TryGetValue(processId, out var worker) && !worker.IsFaulted)
         {
             worker.SetChannelSpectrumEnabled(enabled);
+        }
+    }
+
+    public void SetPerformanceMode(PcmAnalysisPerformanceMode mode)
+    {
+        if (_performanceMode == mode)
+        {
+            return;
+        }
+
+        _performanceMode = mode;
+        foreach (var worker in _workers.Values.Where(worker => !worker.IsFaulted))
+        {
+            worker.SetPerformanceMode(mode);
         }
     }
 
@@ -270,6 +286,8 @@ public interface IProcessLoopbackCaptureWorker : IDisposable
     void SetChannelWaveformEnabled(bool enabled);
 
     void SetChannelSpectrumEnabled(bool enabled);
+
+    void SetPerformanceMode(PcmAnalysisPerformanceMode mode);
 }
 
 internal sealed class ProcessLoopbackCaptureWorkerFactory : IProcessLoopbackCaptureWorkerFactory

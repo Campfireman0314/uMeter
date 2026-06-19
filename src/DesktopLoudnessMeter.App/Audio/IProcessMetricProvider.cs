@@ -17,4 +17,6 @@ public interface IProcessMetricProvider : IDisposable
     void SetChannelWaveformEnabled(int processId, bool enabled);
 
     void SetChannelSpectrumEnabled(int processId, bool enabled);
+
+    void SetPerformanceMode(PcmAnalysisPerformanceMode mode);
 }

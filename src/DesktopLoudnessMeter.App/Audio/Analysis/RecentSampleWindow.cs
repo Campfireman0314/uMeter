@@ -6,7 +6,6 @@ internal sealed class RecentSampleWindow
 {
     private const int MaximumStereoImagePoints = 160;
     private const int MaximumWaveformPoints = 960;
-    private const int SpectrumAnalysisSamples = 16384;
     private static readonly double RootTwo = Math.Sqrt(2);
     private readonly int _channels;
     private readonly int _displaySampleRate;
@@ -22,10 +21,13 @@ internal sealed class RecentSampleWindow
     private int _displayStartIndex;
     private int _displaySampleCount;
     private long _displayVersion;
+    private long _displayFrameVersion;
     private long _waveformVersion = -1;
     private long _channelWaveformVersion = -1;
     private long _spectrumVersion = -1;
     private long _channelSpectrumVersion = -1;
+    private long _spectrumEligibleFrameVersion = -1;
+    private long _channelSpectrumEligibleFrameVersion = -1;
     private int _waveformBufferIndex;
     private int _channelWaveformBufferIndex;
     private int _spectrumBufferIndex;
@@ -38,6 +40,7 @@ internal sealed class RecentSampleWindow
     private double[] _fftMagnitudes = [];
     private double[] _fftWindow = [];
     private double _fftWindowSum;
+    private PcmAnalysisPerformanceSettings _performanceSettings = PcmAnalysisPerformanceSettings.Normal;
     private double _sampleSquareSum;
     private double _leftSquareSum;
     private double _rightSquareSum;
@@ -243,6 +246,11 @@ internal sealed class RecentSampleWindow
                 return _spectrumCache;
             }
 
+            if (!ShouldRefreshSpectrum(ref _spectrumEligibleFrameVersion, _spectrumCache is not null))
+            {
+                return _spectrumCache;
+            }
+
             _spectrumBufferIndex ^= 1;
             var buffer = _spectrumBuffers[_spectrumBufferIndex];
             FillSpectrumBuffer(buffer);
@@ -266,6 +274,11 @@ internal sealed class RecentSampleWindow
                 return _channelSpectrumCache;
             }
 
+            if (!ShouldRefreshSpectrum(ref _channelSpectrumEligibleFrameVersion, _channelSpectrumCache is not null))
+            {
+                return _channelSpectrumCache;
+            }
+
             _channelSpectrumBufferIndex ^= 1;
             var buffers = new IReadOnlyList<double>[_channels];
             for (var channel = 0; channel < _channels; channel++)
@@ -279,6 +292,24 @@ internal sealed class RecentSampleWindow
             _channelSpectrumVersion = _displayVersion;
             return buffers;
         }
+    }
+
+    public void SetPerformanceMode(PcmAnalysisPerformanceMode mode)
+    {
+        var settings = mode == PcmAnalysisPerformanceMode.Eco
+            ? PcmAnalysisPerformanceSettings.Eco
+            : PcmAnalysisPerformanceSettings.Normal;
+
+        if (_performanceSettings == settings)
+        {
+            return;
+        }
+
+        _performanceSettings = settings;
+        _spectrumVersion = -1;
+        _channelSpectrumVersion = -1;
+        _spectrumEligibleFrameVersion = -1;
+        _channelSpectrumEligibleFrameVersion = -1;
     }
 
     public void Add(ReadOnlySpan<double> samples)
@@ -308,6 +339,7 @@ internal sealed class RecentSampleWindow
             : Math.Clamp((rightMagnitude - leftMagnitude) / magnitudeSum, -1, 1);
         var polarRadius = Math.Clamp(Math.Sqrt(((left * left) + (right * right)) / 2), 0, 1);
         EnqueueDisplaySamples(oversampledMonoSamples, oversampledInterleavedSamples);
+        _displayFrameVersion++;
 
         var frame = new FrameMetrics(
             SampleSquares: _channels == 1 ? left * left : (left * left) + (right * right),
@@ -346,10 +378,13 @@ internal sealed class RecentSampleWindow
         _displayStartIndex = 0;
         _displaySampleCount = 0;
         _displayVersion++;
+        _displayFrameVersion = 0;
         _waveformVersion = -1;
         _channelWaveformVersion = -1;
         _spectrumVersion = -1;
         _channelSpectrumVersion = -1;
+        _spectrumEligibleFrameVersion = -1;
+        _channelSpectrumEligibleFrameVersion = -1;
         _waveformCache = null;
         _channelWaveformCache = null;
         _spectrumCache = null;
@@ -523,7 +558,7 @@ internal sealed class RecentSampleWindow
 
     private void FillSpectrumBuffer(SampleBuffer target, int? sourceChannel)
     {
-        var fftSize = PreviousPowerOfTwo(Math.Min(_displaySampleCount, SpectrumAnalysisSamples));
+        var fftSize = PreviousPowerOfTwo(Math.Min(_displaySampleCount, _performanceSettings.SpectrumAnalysisSamples));
         if (fftSize < 128)
         {
             target.SetCount(0);
@@ -553,6 +588,23 @@ internal sealed class RecentSampleWindow
         }
 
         target.SetCount(SpectrumScale.BucketCount);
+    }
+
+    private bool ShouldRefreshSpectrum(ref long eligibleFrameVersion, bool hasCache)
+    {
+        if (!hasCache)
+        {
+            eligibleFrameVersion = _displayFrameVersion;
+            return true;
+        }
+
+        if (_displayFrameVersion - eligibleFrameVersion < _performanceSettings.SpectrumRefreshIntervalFrames)
+        {
+            return false;
+        }
+
+        eligibleFrameVersion = _displayFrameVersion;
+        return true;
     }
 
     private void EnsureFftWorkspace(int fftSize)

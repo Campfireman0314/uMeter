@@ -4,6 +4,7 @@ using System.Windows.Input;
 using System.Windows.Threading;
 using System.Diagnostics;
 using System.ComponentModel;
+using DesktopLoudnessMeter.App.Audio.Analysis;
 
 namespace DesktopLoudnessMeter.App.ViewModels;
 
@@ -15,6 +16,8 @@ public sealed class MainViewModel : ObservableObject, IDisposable
     private const double RollChannelLabelAllowance = 40;
     private const double RollSplitterHeight = 8;
     private const double RollSplitterFlexAllowance = 128;
+    private static readonly TimeSpan NormalRefreshInterval = TimeSpan.FromMilliseconds(33);
+    private static readonly TimeSpan EcoRefreshInterval = TimeSpan.FromMilliseconds(100);
     private readonly ISignalSourceMeterService _sourceMeterService;
     private readonly DispatcherTimer? _refreshTimer;
     private readonly Dictionary<string, int> _missingTicksByKey = [];
@@ -25,6 +28,7 @@ public sealed class MainViewModel : ObservableObject, IDisposable
     private string _statusText = "Waiting for audio sources";
     private MeterDisplayMode _selectedDisplayMode = MeterDisplayMode.Peak;
     private bool _truePeakEnabled;
+    private bool _isEcoModeEnabled;
     private TruePeakOversampling _selectedTruePeakOversampling = TruePeakOversampling.FourX;
     private bool _isAlwaysOnTop = true;
     private bool _isInlineWaveformVisible;
@@ -44,8 +48,8 @@ public sealed class MainViewModel : ObservableObject, IDisposable
         _sourceWarningText = string.IsNullOrWhiteSpace(sourceWarningText) ? null : sourceWarningText.Trim();
         _missingRowRetentionTicks = Math.Max(0, missingRowRetentionTicks);
         _isProcessAlive = isProcessAlive ?? IsProcessAlive;
-        RefreshInterval = refreshInterval ?? TimeSpan.FromMilliseconds(33);
-        RefreshLabel = $"{RefreshInterval.TotalMilliseconds:0} ms";
+        RefreshInterval = refreshInterval ?? NormalRefreshInterval;
+        RefreshLabel = FormatRefreshLabel(RefreshInterval);
 
         if (startTimer)
         {
@@ -92,7 +96,7 @@ public sealed class MainViewModel : ObservableObject, IDisposable
 
     public TimeSpan RefreshInterval { get; }
 
-    public string RefreshLabel { get; }
+    public string RefreshLabel { get; private set; }
 
     public MeterDisplayMode SelectedDisplayMode
     {
@@ -113,6 +117,18 @@ public sealed class MainViewModel : ObservableObject, IDisposable
     {
         get => _truePeakEnabled;
         set => SetProperty(ref _truePeakEnabled, value);
+    }
+
+    public bool IsEcoModeEnabled
+    {
+        get => _isEcoModeEnabled;
+        set
+        {
+            if (SetProperty(ref _isEcoModeEnabled, value))
+            {
+                ApplyPerformanceMode(value ? PcmAnalysisPerformanceMode.Eco : PcmAnalysisPerformanceMode.Normal);
+            }
+        }
     }
 
     public TruePeakOversampling SelectedTruePeakOversampling
@@ -496,6 +512,28 @@ public sealed class MainViewModel : ObservableObject, IDisposable
                 session.ProcessId,
                 displayMode == SpectrumDisplayMode.Channels);
         }
+    }
+
+    private void ApplyPerformanceMode(PcmAnalysisPerformanceMode mode)
+    {
+        if (_sourceMeterService is ISignalSourceAnalysisSettingsService settingsService)
+        {
+            settingsService.SetPerformanceMode(mode);
+        }
+
+        var interval = mode == PcmAnalysisPerformanceMode.Eco ? EcoRefreshInterval : RefreshInterval;
+        if (_refreshTimer is not null)
+        {
+            _refreshTimer.Interval = interval;
+        }
+
+        RefreshLabel = FormatRefreshLabel(interval);
+        OnPropertyChanged(nameof(RefreshLabel));
+    }
+
+    private static string FormatRefreshLabel(TimeSpan interval)
+    {
+        return $"{interval.TotalMilliseconds:0} ms";
     }
 
     private void ApplyWaveformDisplayMode(AudioSessionMeterViewModel session, WaveformDisplayMode displayMode)

@@ -1,9 +1,12 @@
 using System.Runtime.InteropServices;
+using DesktopLoudnessMeter.App.Diagnostics;
 
 namespace DesktopLoudnessMeter.App.Audio.Analysis;
 
 internal sealed class NativeRfRapidSpectrumFft : ISpectrumFft
 {
+    private static readonly object LogSync = new();
+    private static bool s_loggedBackend;
     private readonly ISpectrumFft _fallback;
     private bool _disabled;
     private bool _initialized;
@@ -29,9 +32,11 @@ internal sealed class NativeRfRapidSpectrumFft : ISpectrumFft
     {
         if (!_disabled && TryComputeNative(samples, window, fftSize, windowSum, magnitudes))
         {
+            LogBackendOnce("Spectrum FFT backend: RfRapid native FFT.");
             return;
         }
 
+        LogBackendOnce($"Spectrum FFT backend: {_fallback.Name}.");
         _fallback.ComputeMagnitudes(samples, window, fftSize, windowSum, magnitudes);
     }
 
@@ -82,6 +87,20 @@ internal sealed class NativeRfRapidSpectrumFft : ISpectrumFft
 
         _disabled = true;
         return false;
+    }
+
+    private static void LogBackendOnce(string message)
+    {
+        lock (LogSync)
+        {
+            if (s_loggedBackend)
+            {
+                return;
+            }
+
+            s_loggedBackend = true;
+            AppLogger.Info(message);
+        }
     }
 
     private static partial class NativeMethods

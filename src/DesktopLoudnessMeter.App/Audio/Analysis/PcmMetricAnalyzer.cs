@@ -51,6 +51,11 @@ public sealed class PcmMetricAnalyzer
         _channelWaveformEnabled = enabled;
     }
 
+    public void SetPerformanceMode(PcmAnalysisPerformanceMode mode)
+    {
+        _recentSamples.SetPerformanceMode(mode);
+    }
+
     public void Process(ReadOnlySpan<float> interleavedSamples)
     {
         if (interleavedSamples.Length % _options.Channels != 0)

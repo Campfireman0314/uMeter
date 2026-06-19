@@ -200,6 +200,20 @@ public sealed class WasapiSessionMeterServiceTests
         Assert.Equal([(42, true)], provider.ChannelWaveformRequests);
     }
 
+    [Fact]
+    public void PerformanceModeDelegatesToProcessMetricProvider()
+    {
+        var provider = new FakeProcessMetricProvider();
+        var service = new WasapiSessionMeterService(
+            provider,
+            () => [Snapshot("a", 42)],
+            currentProcessId: 9000);
+
+        service.SetPerformanceMode(PcmAnalysisPerformanceMode.Eco);
+
+        Assert.Equal([PcmAnalysisPerformanceMode.Eco], provider.PerformanceModeRequests);
+    }
+
     private static AudioSessionSnapshot Snapshot(
         string key,
         int? processId,
@@ -230,6 +244,8 @@ public sealed class WasapiSessionMeterServiceTests
         public List<(int ProcessId, bool Enabled)> ChannelWaveformRequests { get; } = [];
 
         public List<(int ProcessId, bool Enabled)> ChannelSpectrumRequests { get; } = [];
+
+        public List<PcmAnalysisPerformanceMode> PerformanceModeRequests { get; } = [];
 
         public int ResetAllCount { get; private set; }
 
@@ -273,6 +289,11 @@ public sealed class WasapiSessionMeterServiceTests
         public void SetChannelSpectrumEnabled(int processId, bool enabled)
         {
             ChannelSpectrumRequests.Add((processId, enabled));
+        }
+
+        public void SetPerformanceMode(PcmAnalysisPerformanceMode mode)
+        {
+            PerformanceModeRequests.Add(mode);
         }
 
         public void Dispose()

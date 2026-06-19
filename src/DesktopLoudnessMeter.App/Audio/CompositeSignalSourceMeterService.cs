@@ -1,5 +1,7 @@
 namespace DesktopLoudnessMeter.App.Audio;
 
+using DesktopLoudnessMeter.App.Audio.Analysis;
+
 public sealed class CompositeSignalSourceMeterService :
     ISignalSourceMeterService,
     ISignalSourceResetService,
@@ -57,6 +59,14 @@ public sealed class CompositeSignalSourceMeterService :
         foreach (var service in _services.OfType<ISignalSourceAnalysisSettingsService>())
         {
             service.SetChannelSpectrumEnabled(sourceKey, sourceKind, processId, enabled);
+        }
+    }
+
+    public void SetPerformanceMode(PcmAnalysisPerformanceMode mode)
+    {
+        foreach (var service in _services.OfType<ISignalSourceAnalysisSettingsService>())
+        {
+            service.SetPerformanceMode(mode);
         }
     }
 

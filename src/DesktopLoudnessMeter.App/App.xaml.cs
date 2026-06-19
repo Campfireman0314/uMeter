@@ -50,7 +50,13 @@ public partial class App : Application
 
     private ISignalSourceMeterService CreateSignalSourceService(out string? warningText)
     {
-        warningText = null;
+        var warnings = new List<string>();
+        if (WasapiCompatibilityNotice.Create(Environment.OSVersion.Version) is { } compatibilityWarning)
+        {
+            warnings.Add(compatibilityWarning);
+            AppLogger.Info(compatibilityWarning);
+        }
+
         var loopbackService = new LocalLoopbackSignalSourceService();
         if (LocalLoopbackUdpReceiver.TryStart(loopbackService, out var receiver) && receiver is not null)
         {
@@ -59,10 +65,12 @@ public partial class App : Application
         }
         else
         {
-            warningText = $"Plugin receiver unavailable: UDP port {LocalLoopbackUdpReceiver.DefaultPort} is already in use.";
-            AppLogger.Info($"{warningText} Continuing with WASAPI sources.");
+            var receiverWarning = $"Plugin receiver unavailable: UDP port {LocalLoopbackUdpReceiver.DefaultPort} is already in use.";
+            warnings.Add(receiverWarning);
+            AppLogger.Info($"{receiverWarning} Continuing with WASAPI sources.");
         }
 
+        warningText = warnings.Count == 0 ? null : string.Join(" ", warnings);
         return new CompositeSignalSourceMeterService(
             new WasapiSessionMeterService(),
             loopbackService);

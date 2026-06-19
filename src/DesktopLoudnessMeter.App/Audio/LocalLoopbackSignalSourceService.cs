@@ -18,6 +18,7 @@ public sealed class LocalLoopbackSignalSourceService :
     private readonly Dictionary<string, int> _truePeakOversamplingByHandle = [];
     private readonly Dictionary<string, bool> _channelWaveformEnabledByHandle = [];
     private readonly Dictionary<string, bool> _channelSpectrumEnabledByHandle = [];
+    private PcmAnalysisPerformanceMode _performanceMode = PcmAnalysisPerformanceMode.Normal;
     private bool _isDisposed;
 
     public LocalLoopbackSignalSourceService()
@@ -159,6 +160,23 @@ public sealed class LocalLoopbackSignalSourceService :
         }
     }
 
+    public void SetPerformanceMode(PcmAnalysisPerformanceMode mode)
+    {
+        lock (_lock)
+        {
+            if (_performanceMode == mode)
+            {
+                return;
+            }
+
+            _performanceMode = mode;
+            foreach (var source in _sourcesByHandle.Values)
+            {
+                source.SetPerformanceMode(mode);
+            }
+        }
+    }
+
     public void Dispose()
     {
         lock (_lock)
@@ -194,6 +212,7 @@ public sealed class LocalLoopbackSignalSourceService :
             GetTruePeakOversampling(packet.Handle),
             GetChannelWaveformEnabled(packet.Handle),
             GetChannelSpectrumEnabled(packet.Handle),
+            _performanceMode,
             _clock());
     }
 
@@ -319,6 +338,7 @@ public sealed class LocalLoopbackSignalSourceService :
         private int _truePeakOversampling;
         private bool _channelWaveformEnabled;
         private bool _channelSpectrumEnabled;
+        private PcmAnalysisPerformanceMode _performanceMode;
 
         public SourceState(
             string handle,
@@ -329,6 +349,7 @@ public sealed class LocalLoopbackSignalSourceService :
             int truePeakOversampling,
             bool channelWaveformEnabled,
             bool channelSpectrumEnabled,
+            PcmAnalysisPerformanceMode performanceMode,
             DateTimeOffset lastSeenAt)
         {
             Handle = handle;
@@ -339,7 +360,8 @@ public sealed class LocalLoopbackSignalSourceService :
             _truePeakOversampling = truePeakOversampling;
             _channelWaveformEnabled = channelWaveformEnabled;
             _channelSpectrumEnabled = channelSpectrumEnabled;
-            _analyzer = CreateAnalyzer(sampleRate, channels, truePeakOversampling, channelWaveformEnabled, channelSpectrumEnabled);
+            _performanceMode = performanceMode;
+            _analyzer = CreateAnalyzer(sampleRate, channels, truePeakOversampling, channelWaveformEnabled, channelSpectrumEnabled, performanceMode);
             LastSeenAt = lastSeenAt;
         }
 
@@ -386,7 +408,7 @@ public sealed class LocalLoopbackSignalSourceService :
 
             _truePeakOversampling = oversampling;
             Peak = 0;
-            _analyzer = CreateAnalyzer(SampleRate, Channels, oversampling, _channelWaveformEnabled, _channelSpectrumEnabled);
+            _analyzer = CreateAnalyzer(SampleRate, Channels, oversampling, _channelWaveformEnabled, _channelSpectrumEnabled, _performanceMode);
         }
 
         public void SetChannelWaveformEnabled(bool enabled)
@@ -401,16 +423,29 @@ public sealed class LocalLoopbackSignalSourceService :
             _analyzer.SetChannelSpectrumEnabled(enabled);
         }
 
+        public void SetPerformanceMode(PcmAnalysisPerformanceMode mode)
+        {
+            if (_performanceMode == mode)
+            {
+                return;
+            }
+
+            _performanceMode = mode;
+            _analyzer.SetPerformanceMode(mode);
+        }
+
         private static PcmMetricAnalyzer CreateAnalyzer(
             int sampleRate,
             int channels,
             int truePeakOversampling,
             bool channelWaveformEnabled,
-            bool channelSpectrumEnabled)
+            bool channelSpectrumEnabled,
+            PcmAnalysisPerformanceMode performanceMode)
         {
             var analyzer = new PcmMetricAnalyzer(new PcmMetricAnalyzerOptions(sampleRate, channels, truePeakOversampling));
             analyzer.SetChannelWaveformEnabled(channelWaveformEnabled);
             analyzer.SetChannelSpectrumEnabled(channelSpectrumEnabled);
+            analyzer.SetPerformanceMode(performanceMode);
             return analyzer;
         }
 

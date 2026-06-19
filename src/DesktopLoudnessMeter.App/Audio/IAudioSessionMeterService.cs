@@ -1,3 +1,5 @@
+using DesktopLoudnessMeter.App.Audio.Analysis;
+
 namespace DesktopLoudnessMeter.App.Audio;
 
 public interface IAudioSessionMeterService
@@ -38,6 +40,10 @@ public interface IAudioSessionAnalysisSettingsService
 
     void SetChannelSpectrumEnabled(string sessionKey, int? processId, bool enabled);
 
+    new void SetPerformanceMode(PcmAnalysisPerformanceMode mode)
+    {
+    }
+
     void ISignalSourceAnalysisSettingsService.SetTruePeakOversampling(
         string sourceKey,
         SignalSourceKind sourceKind,
@@ -63,5 +69,10 @@ public interface IAudioSessionAnalysisSettingsService
         bool enabled)
     {
         SetChannelSpectrumEnabled(sourceKey, processId, enabled);
+    }
+
+    void ISignalSourceAnalysisSettingsService.SetPerformanceMode(PcmAnalysisPerformanceMode mode)
+    {
+        SetPerformanceMode(mode);
     }
 }

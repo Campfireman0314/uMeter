@@ -1,4 +1,5 @@
 using DesktopLoudnessMeter.App.Audio;
+using DesktopLoudnessMeter.App.Audio.Analysis;
 
 namespace DesktopLoudnessMeter.Tests.Audio;
 
@@ -28,6 +29,7 @@ public sealed class CompositeSignalSourceMeterServiceTests
         composite.SetTruePeakOversampling("loopback:1", SignalSourceKind.Plugin, null, 8);
         composite.SetChannelWaveformEnabled("loopback:1", SignalSourceKind.Plugin, null, true);
         composite.SetChannelSpectrumEnabled("loopback:1", SignalSourceKind.Plugin, null, true);
+        composite.SetPerformanceMode(PcmAnalysisPerformanceMode.Eco);
 
         Assert.All(new[] { first, second }, service =>
         {
@@ -36,6 +38,7 @@ public sealed class CompositeSignalSourceMeterServiceTests
             Assert.Equal([("loopback:1", SignalSourceKind.Plugin, null, 8)], service.TruePeakOversamplingRequests);
             Assert.Equal([("loopback:1", SignalSourceKind.Plugin, null, true)], service.ChannelWaveformRequests);
             Assert.Equal([("loopback:1", SignalSourceKind.Plugin, null, true)], service.ChannelSpectrumRequests);
+            Assert.Equal([PcmAnalysisPerformanceMode.Eco], service.PerformanceModeRequests);
         });
     }
 
@@ -86,6 +89,8 @@ public sealed class CompositeSignalSourceMeterServiceTests
 
         public List<(string SourceKey, SignalSourceKind SourceKind, int? ProcessId, bool Enabled)> ChannelSpectrumRequests { get; } = [];
 
+        public List<PcmAnalysisPerformanceMode> PerformanceModeRequests { get; } = [];
+
         public int ResetAllCount { get; private set; }
 
         public bool IsDisposed { get; private set; }
@@ -118,6 +123,11 @@ public sealed class CompositeSignalSourceMeterServiceTests
         public void SetChannelSpectrumEnabled(string sourceKey, SignalSourceKind sourceKind, int? processId, bool enabled)
         {
             ChannelSpectrumRequests.Add((sourceKey, sourceKind, processId, enabled));
+        }
+
+        public void SetPerformanceMode(PcmAnalysisPerformanceMode mode)
+        {
+            PerformanceModeRequests.Add(mode);
         }
 
         public void Dispose()

@@ -1,4 +1,5 @@
 using DesktopLoudnessMeter.App.Audio;
+using DesktopLoudnessMeter.App.Audio.Analysis;
 using DesktopLoudnessMeter.App.ViewModels;
 
 namespace DesktopLoudnessMeter.Tests.ViewModels;
@@ -326,6 +327,24 @@ public sealed class MainViewModelAdvancedControlsTests
     }
 
     [Fact]
+    public void EcoModeUpdatesRefreshLabelAndServicePerformanceMode()
+    {
+        var service = new StaticAudioSessionMeterService([]);
+        var viewModel = new MainViewModel(service, startTimer: false);
+
+        viewModel.IsEcoModeEnabled = true;
+
+        Assert.True(viewModel.IsEcoModeEnabled);
+        Assert.Equal("100 ms", viewModel.RefreshLabel);
+        Assert.Equal([PcmAnalysisPerformanceMode.Eco], service.PerformanceModeRequests);
+
+        viewModel.IsEcoModeEnabled = false;
+
+        Assert.Equal("33 ms", viewModel.RefreshLabel);
+        Assert.Equal([PcmAnalysisPerformanceMode.Eco, PcmAnalysisPerformanceMode.Normal], service.PerformanceModeRequests);
+    }
+
+    [Fact]
     public void DefaultRefreshCadenceIsFasterThanOriginalHundredMilliseconds()
     {
         var viewModel = CreateViewModel();
@@ -379,6 +398,8 @@ public sealed class MainViewModelAdvancedControlsTests
 
         public List<(string SessionKey, int? ProcessId, bool Enabled)> ChannelSpectrumRequests { get; } = [];
 
+        public List<PcmAnalysisPerformanceMode> PerformanceModeRequests { get; } = [];
+
         public int ResetAllCount { get; private set; }
 
         public StaticAudioSessionMeterService(IReadOnlyList<AudioSessionSnapshot> snapshots)
@@ -418,6 +439,11 @@ public sealed class MainViewModelAdvancedControlsTests
         {
             ChannelSpectrumRequests.Add((sessionKey, processId, enabled));
         }
+
+        public void SetPerformanceMode(PcmAnalysisPerformanceMode mode)
+        {
+            PerformanceModeRequests.Add(mode);
+        }
     }
 
     private sealed class StaticSignalSourceMeterService :
@@ -434,6 +460,8 @@ public sealed class MainViewModelAdvancedControlsTests
         public List<(string SourceKey, SignalSourceKind SourceKind, int? ProcessId, bool Enabled)> ChannelSpectrumRequests { get; } = [];
 
         public List<(string SourceKey, SignalSourceKind SourceKind, int? ProcessId)> ResetRequests { get; } = [];
+
+        public List<PcmAnalysisPerformanceMode> PerformanceModeRequests { get; } = [];
 
         public StaticSignalSourceMeterService(IReadOnlyList<SignalSourceSnapshot> snapshots)
         {
@@ -468,6 +496,11 @@ public sealed class MainViewModelAdvancedControlsTests
         {
             ChannelSpectrumRequests.Add((sourceKey, sourceKind, processId, enabled));
         }
+
+        public void SetPerformanceMode(PcmAnalysisPerformanceMode mode)
+        {
+            PerformanceModeRequests.Add(mode);
+        }
     }
 
     private sealed class SequenceSignalSourceMeterService :
@@ -482,6 +515,8 @@ public sealed class MainViewModelAdvancedControlsTests
         public List<(string SourceKey, SignalSourceKind SourceKind, int? ProcessId, bool Enabled)> ChannelWaveformRequests { get; } = [];
 
         public List<(string SourceKey, SignalSourceKind SourceKind, int? ProcessId, bool Enabled)> ChannelSpectrumRequests { get; } = [];
+
+        public List<PcmAnalysisPerformanceMode> PerformanceModeRequests { get; } = [];
 
         public SequenceSignalSourceMeterService(params IReadOnlyList<SignalSourceSnapshot>[] responses)
         {
@@ -514,6 +549,11 @@ public sealed class MainViewModelAdvancedControlsTests
         public void SetChannelSpectrumEnabled(string sourceKey, SignalSourceKind sourceKind, int? processId, bool enabled)
         {
             ChannelSpectrumRequests.Add((sourceKey, sourceKind, processId, enabled));
+        }
+
+        public void SetPerformanceMode(PcmAnalysisPerformanceMode mode)
+        {
+            PerformanceModeRequests.Add(mode);
         }
     }
 }

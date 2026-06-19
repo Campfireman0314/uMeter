@@ -136,6 +136,11 @@ public sealed class WasapiSessionMeterService :
         _processMetricProvider?.SetChannelSpectrumEnabled(value, enabled);
     }
 
+    public void SetPerformanceMode(PcmAnalysisPerformanceMode mode)
+    {
+        _processMetricProvider?.SetPerformanceMode(mode);
+    }
+
     public void SetChannelWaveformEnabled(string sessionKey, int? processId, bool enabled)
     {
         if (processId is not int value || value == _currentProcessId)

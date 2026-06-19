@@ -8,10 +8,12 @@ namespace DesktopLoudnessMeter.App.Audio;
 internal static class ProcessLoopbackInterop
 {
     internal const string VirtualAudioDeviceProcessLoopback = "VAD\\Process_Loopback";
+    internal const int MinimumAttemptBuild = 19041;
+    internal const int DocumentedSupportBuild = 20348;
     private const ushort VtBlob = 65;
     private static readonly Guid IidAudioClient = new("1CB9AD4C-DBFA-4c32-B178-C2F568A703B2");
 
-    public static bool IsSupported => OperatingSystem.IsWindowsVersionAtLeast(10, 0, 20348);
+    public static bool IsSupported => OperatingSystem.IsWindowsVersionAtLeast(10, 0, MinimumAttemptBuild);
 
     public static async Task<AudioClient> ActivateAudioClientAsync(uint processId)
     {
