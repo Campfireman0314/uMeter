@@ -20,12 +20,6 @@ public sealed class CorrelationMeter : FrameworkElement
 
     private static readonly Typeface TextTypeface = new("Segoe UI");
     private static readonly Typeface ValueTypeface = new(new FontFamily("Segoe UI"), FontStyles.Normal, FontWeights.SemiBold, FontStretches.Normal);
-    private static readonly Brush LabelBrush = new SolidColorBrush(Color.FromRgb(174, 183, 194));
-    private static readonly Brush TextBrush = new SolidColorBrush(Color.FromRgb(244, 247, 250));
-    private static readonly Brush ArrowBrush = new SolidColorBrush(Color.FromRgb(255, 176, 0));
-    private static readonly Brush MutedArrowBrush = new SolidColorBrush(Color.FromRgb(94, 104, 116));
-    private static readonly Pen TickPen = new(new SolidColorBrush(Color.FromArgb(160, 174, 183, 194)), 1);
-    private static readonly Pen TrackStroke = new(new SolidColorBrush(Color.FromRgb(58, 66, 77)), 1);
 
     public double Value
     {
@@ -57,13 +51,21 @@ public sealed class CorrelationMeter : FrameworkElement
 
         drawingContext.DrawRectangle(Brushes.Transparent, null, new Rect(0, 0, width, ActualHeight));
 
-        var label = CreateText("Correlation", 12, LabelBrush, TextTypeface);
-        var value = CreateText(ValueText, 13, TextBrush, ValueTypeface);
+        var labelBrush = ThemedDrawing.GetBrush(this, "SubtleTextBrush", Color.FromRgb(174, 183, 194));
+        var textBrush = ThemedDrawing.GetBrush(this, "TextBrush", Color.FromRgb(244, 247, 250));
+        var tickPen = ThemedDrawing.GetPen(this, "SubtleTextBrush", 160, 1, Color.FromRgb(174, 183, 194));
+        var label = CreateText("Correlation", 12, labelBrush, TextTypeface);
+        var value = CreateText(ValueText, 13, textBrush, ValueTypeface);
         drawingContext.DrawText(label, new Point(0, 3));
         drawingContext.DrawText(value, new Point(Math.Max(0, width - value.Width), 2));
 
         var bar = new Rect(4, 25, Math.Max(40, width - 8), 8);
-        drawingContext.DrawRoundedRectangle(CreateTrackBrush(), TrackStroke, bar, 4, 4);
+        drawingContext.DrawRoundedRectangle(
+            CreateTrackBrush(),
+            ThemedDrawing.GetPen(this, "ChromeBorderBrush", 1, Color.FromRgb(58, 66, 77)),
+            bar,
+            4,
+            4);
 
         var hasValue = !double.IsNaN(Value);
         var normalized = hasValue ? Math.Clamp((Value + 1) / 2, 0, 1) : 0.5;
@@ -72,14 +74,20 @@ public sealed class CorrelationMeter : FrameworkElement
         foreach (var tick in new[] { -1d, 0d, 1d })
         {
             var tickX = bar.Left + (bar.Width * ((tick + 1) / 2));
-            drawingContext.DrawLine(TickPen, new Point(tickX, bar.Top - 5), new Point(tickX, bar.Bottom + 5));
+            drawingContext.DrawLine(tickPen, new Point(tickX, bar.Top - 5), new Point(tickX, bar.Bottom + 5));
             var tickLabel = tick > 0 ? "+1" : tick.ToString("0", CultureInfo.InvariantCulture);
-            var text = CreateText(tickLabel, 9, LabelBrush, TextTypeface);
+            var text = CreateText(tickLabel, 9, labelBrush, TextTypeface);
             var textX = Math.Clamp(tickX - (text.Width / 2), bar.Left, bar.Right - text.Width);
             drawingContext.DrawText(text, new Point(textX, bar.Bottom + 8));
         }
 
-        DrawArrow(drawingContext, markerX, bar.Top - 4, hasValue ? ArrowBrush : MutedArrowBrush);
+        DrawArrow(
+            drawingContext,
+            markerX,
+            bar.Top - 4,
+            hasValue
+                ? ThemedDrawing.GetBrush(this, "WarmBrush", Color.FromRgb(255, 176, 0))
+                : ThemedDrawing.GetBrush(this, "DisabledTextBrush", Color.FromRgb(94, 104, 116)));
     }
 
     private static void DrawArrow(DrawingContext drawingContext, double centerX, double tipY, Brush brush)
@@ -108,13 +116,15 @@ public sealed class CorrelationMeter : FrameworkElement
             VisualTreeHelper.GetDpi(this).PixelsPerDip);
     }
 
-    private static LinearGradientBrush CreateTrackBrush()
+    private LinearGradientBrush CreateTrackBrush()
     {
+        var accent = ThemedDrawing.GetColor(this, "AccentBrush", Color.FromRgb(46, 196, 182));
+        var warm = ThemedDrawing.GetColor(this, "WarmBrush", Color.FromRgb(255, 176, 0));
         return new LinearGradientBrush(
             [
-                new GradientStop(Color.FromRgb(255, 90, 95), 0),
-                new GradientStop(Color.FromRgb(255, 176, 0), 0.5),
-                new GradientStop(Color.FromRgb(46, 196, 182), 1)
+                new GradientStop(ThemedDrawing.Blend(Color.FromRgb(255, 90, 95), warm, 0.18), 0),
+                new GradientStop(warm, 0.5),
+                new GradientStop(accent, 1)
             ],
             new Point(0, 0.5),
             new Point(1, 0.5));

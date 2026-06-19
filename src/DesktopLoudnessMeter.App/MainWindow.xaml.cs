@@ -27,6 +27,11 @@ public partial class MainWindow : Window
         Hide();
     }
 
+    private void ThemeButton_OnClick(object sender, RoutedEventArgs e)
+    {
+        OpenButtonContextMenu(sender);
+    }
+
     private void InlineStereoSettingsButton_OnClick(object sender, RoutedEventArgs e)
     {
         if (DataContext is not MainViewModel viewModel)

@@ -11,13 +11,6 @@ public sealed class WaveformRollView : FrameworkElement
     private const double MaximumValue = 1;
     private const double MinimumViewportSpan = 0.08;
     private const double PreferredPlotHeight = 122;
-    private static readonly Brush SurfaceBrush = new SolidColorBrush(Color.FromRgb(17, 20, 25));
-    private static readonly Brush EmptyBrush = new SolidColorBrush(Color.FromArgb(28, 174, 183, 194));
-    private static readonly Brush ScaleBrush = new SolidColorBrush(Color.FromArgb(180, 174, 183, 194));
-    private static readonly Pen OutlinePen = new(new SolidColorBrush(Color.FromRgb(58, 66, 77)), 1);
-    private static readonly Pen GridPen = new(new SolidColorBrush(Color.FromArgb(55, 174, 183, 194)), 1);
-    private static readonly Pen CenterPen = new(new SolidColorBrush(Color.FromArgb(105, 174, 183, 194)), 1);
-    private static readonly Pen WavePen = new(new SolidColorBrush(Color.FromRgb(46, 196, 182)), 1.45);
     private static readonly double[] DecibelMarks = [0, -6, -12, -18];
     private bool _isPanning;
     private Point _panStart;
@@ -60,7 +53,9 @@ public sealed class WaveformRollView : FrameworkElement
             return;
         }
 
-        drawingContext.DrawRoundedRectangle(SurfaceBrush, OutlinePen, new Rect(0, 0, width, height), 6, 6);
+        var surfaceBrush = ThemedDrawing.GetBrush(this, "MeterTrackBrush", Color.FromRgb(17, 20, 25));
+        var outlinePen = ThemedDrawing.GetPen(this, "ChromeBorderBrush", 1, Color.FromRgb(58, 66, 77));
+        drawingContext.DrawRoundedRectangle(surfaceBrush, outlinePen, new Rect(0, 0, width, height), 6, 6);
 
         var plot = GetPlotRect(width, height);
         NormalizeViewport(plot);
@@ -154,8 +149,10 @@ public sealed class WaveformRollView : FrameworkElement
         var centerY = ValueToY(plot, 0);
         if (IsVisibleY(plot, centerY))
         {
-            drawingContext.DrawLine(CenterPen, new Point(plot.Left, centerY), new Point(plot.Right, centerY));
-            drawingContext.DrawLine(GridPen, new Point(plot.Left - 5, centerY), new Point(plot.Left, centerY));
+            var centerPen = ThemedDrawing.GetPen(this, "SubtleTextBrush", 110, 1, Color.FromRgb(174, 183, 194));
+            var gridPen = ThemedDrawing.GetPen(this, "SubtleTextBrush", 58, 1, Color.FromRgb(174, 183, 194));
+            drawingContext.DrawLine(centerPen, new Point(plot.Left, centerY), new Point(plot.Right, centerY));
+            drawingContext.DrawLine(gridPen, new Point(plot.Left - 5, centerY), new Point(plot.Left, centerY));
             DrawLabel(drawingContext, "-inf", new Point(15, centerY - 7));
         }
     }
@@ -168,8 +165,9 @@ public sealed class WaveformRollView : FrameworkElement
             return;
         }
 
-        drawingContext.DrawLine(GridPen, new Point(plot.Left, y), new Point(plot.Right, y));
-        drawingContext.DrawLine(GridPen, new Point(plot.Left - 5, y), new Point(plot.Left, y));
+        var gridPen = ThemedDrawing.GetPen(this, "SubtleTextBrush", 58, 1, Color.FromRgb(174, 183, 194));
+        drawingContext.DrawLine(gridPen, new Point(plot.Left, y), new Point(plot.Right, y));
+        drawingContext.DrawLine(gridPen, new Point(plot.Left - 5, y), new Point(plot.Left, y));
         if (!string.IsNullOrEmpty(label))
         {
             DrawLabel(drawingContext, label, new Point(14, y - 7));
@@ -180,7 +178,12 @@ public sealed class WaveformRollView : FrameworkElement
     {
         if (WaveformSamples is not { Count: > 1 } samples)
         {
-            drawingContext.DrawRoundedRectangle(EmptyBrush, null, plot, 4, 4);
+            drawingContext.DrawRoundedRectangle(
+                ThemedDrawing.GetBrush(this, "SubtleTextBrush", 28, Color.FromRgb(174, 183, 194)),
+                null,
+                plot,
+                4,
+                4);
             return;
         }
 
@@ -193,7 +196,10 @@ public sealed class WaveformRollView : FrameworkElement
         }
 
         var geometry = CreateSmoothGeometry(points, plot);
-        drawingContext.DrawGeometry(null, WavePen, geometry);
+        drawingContext.DrawGeometry(
+            null,
+            ThemedDrawing.GetPen(this, "SignalBrush", 1.45, Color.FromRgb(46, 196, 182)),
+            geometry);
     }
 
     private static StreamGeometry CreateSmoothGeometry(IReadOnlyList<Point> points, Rect plot)
@@ -306,7 +312,7 @@ public sealed class WaveformRollView : FrameworkElement
             FlowDirection.LeftToRight,
             new Typeface("Segoe UI"),
             10,
-            ScaleBrush,
+            ThemedDrawing.GetBrush(this, "SubtleTextBrush", 180, Color.FromRgb(174, 183, 194)),
             VisualTreeHelper.GetDpi(this).PixelsPerDip);
 
         drawingContext.DrawText(formatted, origin);

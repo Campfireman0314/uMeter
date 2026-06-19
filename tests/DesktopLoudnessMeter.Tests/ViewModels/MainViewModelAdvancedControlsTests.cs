@@ -1,5 +1,6 @@
 using DesktopLoudnessMeter.App.Audio;
 using DesktopLoudnessMeter.App.Audio.Analysis;
+using DesktopLoudnessMeter.App.Themes;
 using DesktopLoudnessMeter.App.ViewModels;
 
 namespace DesktopLoudnessMeter.Tests.ViewModels;
@@ -342,6 +343,55 @@ public sealed class MainViewModelAdvancedControlsTests
 
         Assert.Equal("33 ms", viewModel.RefreshLabel);
         Assert.Equal([PcmAnalysisPerformanceMode.Eco, PcmAnalysisPerformanceMode.Normal], service.PerformanceModeRequests);
+    }
+
+    [Fact]
+    public void ThemeOptionsIncludeCustomPalettes()
+    {
+        var viewModel = CreateViewModel();
+
+        Assert.Same(AppThemes.Default, viewModel.SelectedTheme);
+        Assert.Equal("Midnight", viewModel.SelectedThemeName);
+        Assert.Contains(viewModel.ThemeOptions, theme => theme.Id == "milk-white");
+        Assert.Contains(viewModel.ThemeOptions, theme => theme.Id == "forest-green");
+        Assert.Contains(viewModel.ThemeOptions, theme => theme.Id == "pink-dream");
+    }
+
+    [Fact]
+    public void SelectThemeCommandUpdatesSelectedTheme()
+    {
+        var viewModel = CreateViewModel();
+        var theme = viewModel.ThemeOptions.Single(theme => theme.Id == "forest-green");
+
+        viewModel.SelectThemeCommand.Execute(theme);
+
+        Assert.Same(theme, viewModel.SelectedTheme);
+        Assert.Equal("Forest Green", viewModel.SelectedThemeName);
+    }
+
+    [Fact]
+    public void SelectThemeCommandRaisesPersistenceCallback()
+    {
+        AppTheme? savedTheme = null;
+        var viewModel = new MainViewModel(
+            new StaticAudioSessionMeterService([]),
+            startTimer: false,
+            selectedTheme: AppThemes.FindById("milk-white"),
+            themeSelected: theme => savedTheme = theme);
+        var theme = viewModel.ThemeOptions.Single(theme => theme.Id == "pink-dream");
+
+        viewModel.SelectThemeCommand.Execute(theme);
+
+        Assert.Same(theme, savedTheme);
+        Assert.Equal("Pink Dream", viewModel.SelectedThemeName);
+    }
+
+    [Fact]
+    public void ThemeLookupFallsBackForUnknownSavedTheme()
+    {
+        Assert.Same(AppThemes.Default, AppThemes.FindById("does-not-exist"));
+        Assert.Equal("Milk White", AppThemes.FindById("MILK-WHITE").DisplayName);
+        Assert.Equal("Pink Dream", AppThemes.FindById("teen-girl-pink").DisplayName);
     }
 
     [Fact]

@@ -1,6 +1,7 @@
 using System.Windows;
 using DesktopLoudnessMeter.App.Audio;
 using DesktopLoudnessMeter.App.Diagnostics;
+using DesktopLoudnessMeter.App.Themes;
 using DesktopLoudnessMeter.App.ViewModels;
 using Drawing = System.Drawing;
 using Forms = System.Windows.Forms;
@@ -22,8 +23,14 @@ public partial class App : Application
         RegisterExceptionLogging();
 
         AppLogger.Info("Application startup began.");
+        var initialTheme = AppThemes.FindById(UserThemeSettings.LoadThemeId());
+        ThemeManager.Apply(initialTheme);
 
-        _mainViewModel = new MainViewModel(CreateSignalSourceService(out var sourceWarningText), sourceWarningText: sourceWarningText);
+        _mainViewModel = new MainViewModel(
+            CreateSignalSourceService(out var sourceWarningText),
+            sourceWarningText: sourceWarningText,
+            selectedTheme: initialTheme,
+            themeSelected: theme => UserThemeSettings.SaveThemeId(theme.Id));
         _mainViewModel.DetailPopupRequested += OpenDetailPopup;
         _mainViewModel.RefreshNow();
 

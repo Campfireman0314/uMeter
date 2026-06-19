@@ -17,7 +17,7 @@
         WindowStyle="None"
         ResizeMode="CanResize"
         WindowStartupLocation="CenterScreen"
-        Background="{StaticResource AppChromeBrush}"
+        Background="{DynamicResource AppChromeBrush}"
         ShowInTaskbar="True"
         d:DataContext="{d:DesignInstance}">
     <shell:WindowChrome.WindowChrome>
@@ -27,8 +27,8 @@
                             ResizeBorderThickness="6"
                             UseAeroCaptionButtons="False" />
     </shell:WindowChrome.WindowChrome>
-    <Border Background="{StaticResource AppChromeBrush}"
-            BorderBrush="#3A424D"
+    <Border Background="{DynamicResource AppChromeBrush}"
+            BorderBrush="{DynamicResource ChromeBorderBrush}"
             BorderThickness="1"
             SnapsToDevicePixels="True">
         <Grid>
@@ -39,11 +39,12 @@
 
             <Border Grid.Row="0"
                     Padding="14,0,8,0"
-                    Background="{StaticResource AppChromeBrush}"
+                    Background="{DynamicResource AppChromeBrush}"
                     MouseLeftButtonDown="Header_OnMouseLeftButtonDown">
                 <Grid>
                     <Grid.ColumnDefinitions>
                         <ColumnDefinition Width="*" />
+                        <ColumnDefinition Width="32" />
                         <ColumnDefinition Width="32" />
                         <ColumnDefinition Width="32" />
                     </Grid.ColumnDefinitions>
@@ -51,20 +52,51 @@
                     <StackPanel VerticalAlignment="Center">
                         <TextBlock FontSize="14"
                                    FontWeight="SemiBold"
-                                   Foreground="{StaticResource TextBrush}"
+                                   Foreground="{DynamicResource TextBrush}"
                                    Text="uMeter" />
                         <TextBlock FontSize="10"
-                                   Foreground="{StaticResource SubtleTextBrush}"
+                                   Foreground="{DynamicResource SubtleTextBrush}"
                                    Text="WASAPI / VST3 source metering" />
                     </StackPanel>
 
                     <Button Grid.Column="1"
                             Style="{StaticResource ChromeIconButton}"
+                            Click="ThemeButton_OnClick"
+                            ToolTip="{Binding SelectedThemeName, StringFormat=Theme: {0}}">
+                        <Viewbox Width="16"
+                                 Height="16">
+                            <Path Data="M 7 3 L 10 3 C 10.4 4 11.1 4.6 12 4.9 L 14.8 3.9 L 17 7.5 L 14.5 9 L 13.4 7.8 L 13.4 17 L 3.6 17 L 3.6 7.8 L 2.5 9 L 0 7.5 L 2.2 3.9 L 5 4.9 C 5.9 4.6 6.6 4 7 3 Z"
+                                  Fill="Transparent"
+                                  Stroke="{DynamicResource SubtleTextBrush}"
+                                  StrokeLineJoin="Round"
+                                  StrokeStartLineCap="Round"
+                                  StrokeEndLineCap="Round"
+                                  StrokeThickness="1.6"
+                                  Stretch="Uniform" />
+                        </Viewbox>
+                        <Button.ContextMenu>
+                            <ContextMenu ItemsSource="{Binding PlacementTarget.DataContext.ThemeOptions, RelativeSource={RelativeSource Self}}">
+                                <ContextMenu.ItemContainerStyle>
+                                    <Style TargetType="{x:Type MenuItem}"
+                                           BasedOn="{StaticResource {x:Type MenuItem}}">
+                                        <Setter Property="Header" Value="{Binding DisplayName}" />
+                                        <Setter Property="MinWidth" Value="132" />
+                                        <Setter Property="Command"
+                                                Value="{Binding PlacementTarget.DataContext.SelectThemeCommand, RelativeSource={RelativeSource AncestorType={x:Type ContextMenu}}}" />
+                                        <Setter Property="CommandParameter" Value="{Binding}" />
+                                    </Style>
+                                </ContextMenu.ItemContainerStyle>
+                            </ContextMenu>
+                        </Button.ContextMenu>
+                    </Button>
+
+                    <Button Grid.Column="2"
+                            Style="{StaticResource ChromeIconButton}"
                             Click="MinimizeButton_OnClick"
                             Content="-"
                             ToolTip="Hide to tray" />
 
-                    <Button Grid.Column="2"
+                    <Button Grid.Column="3"
                             Style="{StaticResource ChromeIconButton}"
                             Click="CloseButton_OnClick"
                             Content="X"
@@ -94,19 +126,19 @@
                 <Border Grid.Row="0"
                         Margin="12,10,12,6"
                         Padding="10,7"
-                        Background="{StaticResource PanelAltBrush}"
+                        Background="{DynamicResource PanelAltBrush}"
                         CornerRadius="6">
                     <Grid>
                         <Grid.ColumnDefinitions>
                             <ColumnDefinition Width="*" />
                             <ColumnDefinition Width="Auto" />
                         </Grid.ColumnDefinitions>
-                        <TextBlock Foreground="{StaticResource SubtleTextBrush}"
+                        <TextBlock Foreground="{DynamicResource SubtleTextBrush}"
                                    FontSize="11"
                                    TextWrapping="Wrap"
                                    Text="{Binding StatusText, FallbackValue=Waiting for audio sources}" />
                         <TextBlock Grid.Column="1"
-                                   Foreground="{StaticResource WarmBrush}"
+                                   Foreground="{DynamicResource WarmBrush}"
                                    FontSize="11"
                                    Text="{Binding RefreshLabel, FallbackValue=33 ms}" />
                     </Grid>
@@ -115,7 +147,7 @@
                 <Border Grid.Row="1"
                         Margin="12,0,12,8"
                         Padding="10"
-                        Background="{StaticResource PanelBrush}"
+                        Background="{DynamicResource PanelBrush}"
                         CornerRadius="6">
                     <Grid>
                         <Grid.RowDefinitions>
@@ -135,7 +167,7 @@
 
                             <StackPanel>
                                 <TextBlock FontSize="10"
-                                           Foreground="{StaticResource SubtleTextBrush}"
+                                           Foreground="{DynamicResource SubtleTextBrush}"
                                            Text="Mode" />
                                 <ComboBox Height="26"
                                           ItemsSource="{Binding DisplayModeOptions}"
@@ -144,7 +176,7 @@
 
                             <StackPanel Grid.Column="2">
                                 <TextBlock FontSize="10"
-                                           Foreground="{StaticResource SubtleTextBrush}"
+                                           Foreground="{DynamicResource SubtleTextBrush}"
                                            Text="True Peak" />
                                 <Grid>
                                     <Grid.ColumnDefinitions>
@@ -170,12 +202,12 @@
                             <StackPanel Grid.Column="4"
                                         MinWidth="84">
                                 <TextBlock FontSize="10"
-                                           Foreground="{StaticResource SubtleTextBrush}"
+                                           Foreground="{DynamicResource SubtleTextBrush}"
                                            Text="Performance" />
                                 <CheckBox Height="26"
                                           VerticalContentAlignment="Center"
                                           Content="Eco mode"
-                                          Foreground="{StaticResource TextBrush}"
+                                          Foreground="{DynamicResource TextBrush}"
                                           IsChecked="{Binding IsEcoModeEnabled, Mode=TwoWay}"
                                           ToolTipService.InitialShowDelay="1000"
                                           ToolTip="Lowers CPU use by slowing UI refresh and spectrum analysis. Best for older PCs or long sessions." />
@@ -191,7 +223,7 @@
 
                             <CheckBox VerticalAlignment="Center"
                                       Content="Always on top"
-                                      Foreground="{StaticResource TextBrush}"
+                                      Foreground="{DynamicResource TextBrush}"
                                       IsChecked="{Binding IsAlwaysOnTop, Mode=TwoWay}" />
 
                             <Button Grid.Column="2"
@@ -212,7 +244,7 @@
                             <DataTemplate>
                                 <Border Margin="0,0,0,8"
                                         Padding="10"
-                                        Background="{StaticResource PanelBrush}"
+                                        Background="{DynamicResource PanelBrush}"
                                         CornerRadius="6">
                                     <Grid>
                                         <Grid.RowDefinitions>
@@ -231,17 +263,17 @@
                                             </Grid.ColumnDefinitions>
                                             <Border Padding="6,2"
                                                     VerticalAlignment="Center"
-                                                    Background="{StaticResource PanelAltBrush}"
-                                                    BorderBrush="{StaticResource ControlBorderBrush}"
+                                                    Background="{DynamicResource PanelAltBrush}"
+                                                    BorderBrush="{DynamicResource ControlBorderBrush}"
                                                     BorderThickness="1"
                                                     CornerRadius="4">
-                                                <TextBlock Foreground="{StaticResource SubtleTextBrush}"
+                                                <TextBlock Foreground="{DynamicResource SubtleTextBrush}"
                                                            FontSize="10"
                                                            FontWeight="SemiBold"
                                                            Text="{Binding SourceKindLabel}" />
                                             </Border>
                                             <TextBlock Grid.Column="2"
-                                                       Foreground="{StaticResource TextBrush}"
+                                                       Foreground="{DynamicResource TextBrush}"
                                                        FontSize="13"
                                                        FontWeight="SemiBold"
                                                        Text="{Binding DisplayTitle}"
@@ -266,7 +298,7 @@
                                                             </DataTrigger>
                                                             <DataTrigger Binding="{Binding PrimaryValueSeverity}" Value="{x:Static viewModels:ReadoutSeverity.Warm}">
                                                                 <Setter Property="Background" Value="#4A3B1E" />
-                                                                <Setter Property="BorderBrush" Value="{StaticResource WarmBrush}" />
+                                                                <Setter Property="BorderBrush" Value="{DynamicResource WarmBrush}" />
                                                             </DataTrigger>
                                                             <DataTrigger Binding="{Binding PrimaryValueSeverity}" Value="{x:Static viewModels:ReadoutSeverity.Hot}">
                                                                 <Setter Property="Background" Value="#76351D" />
@@ -293,7 +325,7 @@
                                                             <Setter Property="Foreground" Value="#D7E0EA" />
                                                             <Style.Triggers>
                                                                 <DataTrigger Binding="{Binding PrimaryValueSeverity}" Value="{x:Static viewModels:ReadoutSeverity.Muted}">
-                                                                    <Setter Property="Foreground" Value="{StaticResource DisabledTextBrush}" />
+                                                                    <Setter Property="Foreground" Value="{DynamicResource DisabledTextBrush}" />
                                                                 </DataTrigger>
                                                                 <DataTrigger Binding="{Binding PrimaryValueSeverity}" Value="{x:Static viewModels:ReadoutSeverity.Warm}">
                                                                     <Setter Property="Foreground" Value="#FFE8A8" />
@@ -317,13 +349,13 @@
                                         </Grid>
 
                                         <Grid Grid.Row="2" Height="8">
-                                            <Border Background="#111419"
+                                            <Border Background="{DynamicResource MeterTrackBrush}"
                                                     CornerRadius="4" />
                                             <ProgressBar Maximum="1"
                                                          Value="{Binding DisplayLevel, Mode=OneWay}"
                                                          Background="Transparent"
                                                          BorderThickness="0"
-                                                         Foreground="{StaticResource AccentBrush}" />
+                                                         Foreground="{DynamicResource AccentBrush}" />
                                         </Grid>
 
                                         <StackPanel Grid.Row="3"
@@ -355,7 +387,7 @@
                 <TextBlock Grid.Row="3"
                            Margin="14,0,14,8"
                            VerticalAlignment="Center"
-                           Foreground="{StaticResource SubtleTextBrush}"
+                           Foreground="{DynamicResource SubtleTextBrush}"
                            FontSize="10"
                            Text="Per-process LUFS metrics warm up after active audio starts." />
             </Grid>
@@ -396,7 +428,7 @@
                                 VerticalAlignment="Center">
                         <TextBlock Margin="0,0,8,0"
                                    VerticalAlignment="Center"
-                                   Foreground="{StaticResource SubtleTextBrush}"
+                                   Foreground="{DynamicResource SubtleTextBrush}"
                                    FontSize="11"
                                    Text="True Peak" />
                         <ComboBox Width="72"
@@ -431,14 +463,14 @@
                         <StackPanel Margin="0,0,0,12">
                             <TextBlock FontSize="18"
                                        FontWeight="SemiBold"
-                                       Foreground="{StaticResource TextBrush}"
+                                       Foreground="{DynamicResource TextBrush}"
                                        Text="{Binding SelectedDetailSession.DisplayName}"
                                        TextTrimming="CharacterEllipsis" />
                             <TextBlock FontSize="11"
-                                       Foreground="{StaticResource SubtleTextBrush}"
+                                       Foreground="{DynamicResource SubtleTextBrush}"
                                        Text="{Binding SelectedDetailSession.SourceIdentityText}" />
                             <TextBlock FontSize="10"
-                                       Foreground="{StaticResource SubtleTextBrush}"
+                                       Foreground="{DynamicResource SubtleTextBrush}"
                                        Text="{Binding SelectedDetailSession.SourceStatusText}" />
                         </StackPanel>
 
@@ -493,7 +525,7 @@
 
                 <Border Margin="0,6,0,0"
                         Padding="12"
-                        Background="{StaticResource PanelBrush}"
+                        Background="{DynamicResource PanelBrush}"
                         CornerRadius="6">
                     <Grid>
                         <Grid.RowDefinitions>
@@ -510,7 +542,7 @@
                                 <ColumnDefinition Width="*" />
                                 <ColumnDefinition Width="Auto" />
                             </Grid.ColumnDefinitions>
-                            <TextBlock Foreground="{StaticResource SubtleTextBrush}"
+                            <TextBlock Foreground="{DynamicResource SubtleTextBrush}"
                                        VerticalAlignment="Center"
                                        FontSize="11"
                                        Text="Stereo image" />
@@ -524,7 +556,7 @@
                             <TextBlock Grid.Column="4"
                                        Width="88"
                                        TextAlignment="Right"
-                                       Foreground="{StaticResource SubtleTextBrush}"
+                                       Foreground="{DynamicResource SubtleTextBrush}"
                                        FontSize="11"
                                        Text="{Binding SelectedDetailSession.StereoImageText}" />
                         </Grid>
@@ -574,8 +606,8 @@
                            StaysOpen="False">
                         <Border MinWidth="166"
                                 Padding="10"
-                                Background="{StaticResource PanelBrush}"
-                                BorderBrush="{StaticResource ControlBorderBrush}"
+                                Background="{DynamicResource PanelBrush}"
+                                BorderBrush="{DynamicResource ControlBorderBrush}"
                                 BorderThickness="1"
                                 CornerRadius="6">
                             <Grid>
@@ -590,7 +622,7 @@
                                     <RowDefinition Height="Auto" />
                                 </Grid.RowDefinitions>
                                 <TextBlock VerticalAlignment="Center"
-                                           Foreground="{StaticResource SubtleTextBrush}"
+                                           Foreground="{DynamicResource SubtleTextBrush}"
                                            FontSize="11"
                                            Text="Wave" />
                                 <ComboBox Grid.Column="2"
@@ -600,7 +632,7 @@
                                           SelectedItem="{Binding SelectedDetailSession.WaveformDisplayMode, Mode=TwoWay}" />
                                 <TextBlock Grid.Row="2"
                                            VerticalAlignment="Center"
-                                           Foreground="{StaticResource SubtleTextBrush}"
+                                           Foreground="{DynamicResource SubtleTextBrush}"
                                            FontSize="11"
                                            Text="Spec" />
                                 <ComboBox Grid.Row="2"
@@ -630,7 +662,7 @@
                             MinHeight="{Binding InlineWaveformOnlyPanelMinHeight}"
                             MaxHeight="900"
                             Padding="10"
-                            Background="{StaticResource PanelBrush}"
+                            Background="{DynamicResource PanelBrush}"
                             CornerRadius="6">
                         <Grid>
                             <controls:WaveformRollView WaveformSamples="{Binding SelectedDetailSession.WaveformSamples, Mode=OneWay}">
@@ -662,9 +694,9 @@
                                     <RowDefinition Height="Auto" />
                                     <RowDefinition Height="*" MinHeight="185" />
                                 </Grid.RowDefinitions>
-                                <TextBlock Foreground="{StaticResource SubtleTextBrush}" FontSize="10" Text="L" />
+                                <TextBlock Foreground="{DynamicResource SubtleTextBrush}" FontSize="10" Text="L" />
                                 <controls:WaveformRollView Grid.Row="1" WaveformSamples="{Binding SelectedDetailSession.LeftWaveformSamples, Mode=OneWay}" />
-                                <TextBlock Grid.Row="2" Margin="0,5,0,0" Foreground="{StaticResource SubtleTextBrush}" FontSize="10" Text="R" />
+                                <TextBlock Grid.Row="2" Margin="0,5,0,0" Foreground="{DynamicResource SubtleTextBrush}" FontSize="10" Text="R" />
                                 <controls:WaveformRollView Grid.Row="3" WaveformSamples="{Binding SelectedDetailSession.RightWaveformSamples, Mode=OneWay}" />
                             </Grid>
                         </Grid>
@@ -688,7 +720,7 @@
                             MinHeight="{Binding InlineSpectrumOnlyPanelMinHeight}"
                             MaxHeight="900"
                             Padding="10"
-                            Background="{StaticResource PanelBrush}"
+                            Background="{DynamicResource PanelBrush}"
                             CornerRadius="6">
                         <Grid>
                             <controls:SpectrumRollView SpectrumBuckets="{Binding SelectedDetailSession.SpectrumBuckets, Mode=OneWay}">
@@ -720,9 +752,9 @@
                                     <RowDefinition Height="Auto" />
                                     <RowDefinition Height="*" MinHeight="185" />
                                 </Grid.RowDefinitions>
-                                <TextBlock Foreground="{StaticResource SubtleTextBrush}" FontSize="10" Text="L" />
+                                <TextBlock Foreground="{DynamicResource SubtleTextBrush}" FontSize="10" Text="L" />
                                 <controls:SpectrumRollView Grid.Row="1" SpectrumBuckets="{Binding SelectedDetailSession.LeftSpectrumBuckets, Mode=OneWay}" />
-                                <TextBlock Grid.Row="2" Margin="0,5,0,0" Foreground="{StaticResource SubtleTextBrush}" FontSize="10" Text="R" />
+                                <TextBlock Grid.Row="2" Margin="0,5,0,0" Foreground="{DynamicResource SubtleTextBrush}" FontSize="10" Text="R" />
                                 <controls:SpectrumRollView Grid.Row="3" SpectrumBuckets="{Binding SelectedDetailSession.RightSpectrumBuckets, Mode=OneWay}" />
                             </Grid>
                         </Grid>
@@ -753,7 +785,7 @@
                     </Grid.RowDefinitions>
                     <Border Grid.Row="0"
                             Padding="10"
-                            Background="{StaticResource PanelBrush}"
+                            Background="{DynamicResource PanelBrush}"
                             CornerRadius="6">
                         <Grid>
                             <controls:WaveformRollView WaveformSamples="{Binding SelectedDetailSession.WaveformSamples, Mode=OneWay}">
@@ -785,9 +817,9 @@
                                     <RowDefinition Height="Auto" />
                                     <RowDefinition Height="*" MinHeight="185" />
                                 </Grid.RowDefinitions>
-                                <TextBlock Foreground="{StaticResource SubtleTextBrush}" FontSize="10" Text="L" />
+                                <TextBlock Foreground="{DynamicResource SubtleTextBrush}" FontSize="10" Text="L" />
                                 <controls:WaveformRollView Grid.Row="1" WaveformSamples="{Binding SelectedDetailSession.LeftWaveformSamples, Mode=OneWay}" />
-                                <TextBlock Grid.Row="2" Margin="0,5,0,0" Foreground="{StaticResource SubtleTextBrush}" FontSize="10" Text="R" />
+                                <TextBlock Grid.Row="2" Margin="0,5,0,0" Foreground="{DynamicResource SubtleTextBrush}" FontSize="10" Text="R" />
                                 <controls:WaveformRollView Grid.Row="3" WaveformSamples="{Binding SelectedDetailSession.RightWaveformSamples, Mode=OneWay}" />
                             </Grid>
                         </Grid>
@@ -797,7 +829,7 @@
                                                  TargetRow="{Binding ElementName=InlineWaveformRollRow}" />
                     <Border Grid.Row="2"
                             Padding="10"
-                            Background="{StaticResource PanelBrush}"
+                            Background="{DynamicResource PanelBrush}"
                             CornerRadius="6">
                         <Grid>
                             <controls:SpectrumRollView SpectrumBuckets="{Binding SelectedDetailSession.SpectrumBuckets, Mode=OneWay}">
@@ -829,9 +861,9 @@
                                     <RowDefinition Height="Auto" />
                                     <RowDefinition Height="*" MinHeight="185" />
                                 </Grid.RowDefinitions>
-                                <TextBlock Foreground="{StaticResource SubtleTextBrush}" FontSize="10" Text="L" />
+                                <TextBlock Foreground="{DynamicResource SubtleTextBrush}" FontSize="10" Text="L" />
                                 <controls:SpectrumRollView Grid.Row="1" SpectrumBuckets="{Binding SelectedDetailSession.LeftSpectrumBuckets, Mode=OneWay}" />
-                                <TextBlock Grid.Row="2" Margin="0,5,0,0" Foreground="{StaticResource SubtleTextBrush}" FontSize="10" Text="R" />
+                                <TextBlock Grid.Row="2" Margin="0,5,0,0" Foreground="{DynamicResource SubtleTextBrush}" FontSize="10" Text="R" />
                                 <controls:SpectrumRollView Grid.Row="3" SpectrumBuckets="{Binding SelectedDetailSession.RightSpectrumBuckets, Mode=OneWay}" />
                             </Grid>
                         </Grid>
@@ -863,12 +895,12 @@
                             VerticalAlignment="Center"
                             Padding="18,10"
                             Background="#D020252D"
-                            BorderBrush="{StaticResource ControlBorderBrush}"
+                            BorderBrush="{DynamicResource ControlBorderBrush}"
                             BorderThickness="1"
                             CornerRadius="6">
                         <StackPanel>
                             <TextBlock HorizontalAlignment="Center"
-                                       Foreground="{StaticResource TextBrush}"
+                                       Foreground="{DynamicResource TextBrush}"
                                        FontSize="15"
                                        FontWeight="SemiBold"
                                        Text="Instance not found" />

@@ -2,9 +2,9 @@
 
 ## Checkpoint
 
-`v2.0.0` - VST3-compatible public release, pinned on 2026-06-19.
+`v2.0.1` - Appearance, compatibility, and performance polish release, pinned on 2026-06-19.
 
-This checkpoint renames the product to `uMeter`, sets Campfireman Studio as the author/company identity, and promotes the JUCE VST3 sender work into a numbered release. The installer now ships the desktop app plus the `uMeter Sender.vst3` bundle and exposes both the app install folder and VST3 install folder.
+This checkpoint builds on the v2.0.0 `uMeter`/VST3 release with persisted appearance themes, themed custom plots, Eco mode performance controls, and clearer Windows process-loopback compatibility warnings. The installer still ships the desktop app plus the `uMeter Sender.vst3` bundle and exposes both the app install folder and VST3 install folder.
 
 ## What Works
 
@@ -39,7 +39,11 @@ This checkpoint renames the product to `uMeter`, sets Campfireman Studio as the 
 - Per-source analysis preferences survive reconnect while the app is running when the source key is stable.
 - Hide-to-tray main window behavior with tray restore, pop-up-app, and exit menu actions.
 - Custom app/tray icon assets.
-- Custom dark styling for buttons, combo boxes, checkboxes, and scrollbars.
+- Custom styling for buttons, combo boxes, checkboxes, scrollbars, and selectable app themes.
+- Persisted selected theme under %APPDATA%\uMeter\settings.json.
+- Themed stereo image, waveform, spectrum, and correlation plot drawing.
+- Eco mode for lower UI refresh and spectrum analysis CPU use.
+- Startup compatibility notice for unsupported or experimental Windows process-loopback builds.
 - Separate hidden waveform and spectrum panels in inline and pop-up detail views.
 - Waveform and spectrum mode menus can show either summed overall display or one plot per channel.
 - Stretchable waveform/spectrum panels with single-panel resize handles and a two-panel splitter.
@@ -92,11 +96,11 @@ Latest verified status:
 
 - Build: clean.
 - Native build: clean.
-- Tests: 158 passing.
+- Tests: 170 passing.
 - JUCE VST3 native CTest: 1 passing.
 - JUCE VST3 Release build: succeeded; local JUCE/HarfBuzz source emitted non-fatal C4819 code-page warnings.
 - Format: clean.
-- Installer build: `artifacts\uMeter-Setup-2.0.0.exe` generated.
+- Installer build: `artifacts\uMeter-Setup-2.0.1.exe` generated.
 - Installer payload: confirmed to contain `uMeter.exe` and `Plugins\VST3\uMeter Sender.vst3`.
 
 ## Installer Notes
@@ -104,7 +108,7 @@ Latest verified status:
 - Default app install folder: `%LOCALAPPDATA%\Programs\uMeter`.
 - Default VST3 install folder: `C:\Program Files\VSTPlugins`.
 - Standard VST3 mirror folder: `C:\Program Files\Common Files\VST3`.
-- Default artifacts: `artifacts\uMeter.Setup.exe` and `artifacts\uMeter-Setup-2.0.0.exe`.
+- Default artifacts: `artifacts\uMeter.Setup.exe` and `artifacts\uMeter-Setup-2.0.1.exe`.
 - Quiet install supports `--install-dir`, `--vst-dir`, `--no-vst`, `--no-desktop-shortcut`, `--no-start-menu-shortcut`, and `--no-shortcuts`.
 - Installing the VST3 sender into Program Files may trigger UAC elevation.
 - Uninstall cleanup relaunches elevated when protected app or VST3 locations need administrator permission.
@@ -119,7 +123,7 @@ Suggested release commit:
 cd D:\GitRepo\desktop-loudness-meter
 git status --short
 git add .
-git commit -m "Release uMeter v2.0.0"
+git commit -m "Release uMeter v2.0.1"
 git push
 ```
 
@@ -129,7 +133,8 @@ Before committing, review generated folders and build outputs are still ignored 
 
 - `README.md` - project overview, run commands, roadmap.
 - `CHANGELOG.md` - version history.
-- `docs/v2.0.0-release.md` - v2.0.0 release notes.
+- docs/v2.0.1-release.md - v2.0.1 release notes.
+- docs/v2.0.0-release.md - v2.0.0 release notes.
 - `docs/v1.1.0-release.md` - v1.1.0 polish release notes.
 - `docs/vst3-first-usable-version.md` - first usable JUCE VST3 sender checkpoint.
 - `docs/audio-metering-notes.md` - DSP and WASAPI behavior notes.
@@ -144,7 +149,7 @@ Before committing, review generated folders and build outputs are still ignored 
 
 ## Known Limits
 
-- Global settings and source aliases/visibility rules are not persisted yet.
+- Source aliases/visibility rules are not persisted yet.
 - Per-source analysis preferences are remembered only while the app is running.
 - Multiple detail windows watching the same process share one analyzer stream, so the latest true-peak oversampling choice for that process wins.
 - Process-loopback depends on Windows support and target-session behavior.

@@ -4,7 +4,7 @@ Fast floating Windows desktop meter for seeing which app, DAW, or plugin sender 
 
 ## Current Version
 
-`v2.0.0` is the current public release. This is the first release under the `uMeter` name by Campfireman Studio, and the first numbered release with packaged VST3 sender support.
+`v2.0.1` is the current public release. This polish release adds theme customization, persisted theme preference, Eco mode performance controls, and Windows compatibility notices while retaining the packaged VST3 sender support from v2.0.0.
 
 ## Usable Baseline
 
@@ -67,7 +67,7 @@ The generated installers are written to:
 
 ```text
 artifacts\uMeter.Setup.exe
-artifacts\uMeter-Setup-2.0.0.exe
+artifacts\uMeter-Setup-2.0.1.exe
 ```
 
 The installer contains the desktop app and `uMeter Sender.vst3`. The VST3 install path defaults to:
@@ -109,7 +109,7 @@ For mixed-source behavior, duplicate names, and reconnect preference memory, see
 - `src/DesktopLoudnessMeter.Native` - optional RfRapid-backed native FFT wrapper.
 - `tests/DesktopLoudnessMeter.Tests` - unit tests for math and view-model reconciliation.
 - `docs/current-status.md` - current release status and remaining known limits.
-- `docs/v2.0.0-release.md` - v2.0.0 release notes.
+- `docs/v2.0.1-release.md` - v2.0.1 release notes.
 - `docs/juce-vst3-sender.md` - JUCE VST3 sender build, install, and smoke-test notes.
 - `docs/source-management.md` - mixed source ordering, identity, duplicate-name, and reconnect behavior.
 
@@ -120,3 +120,4 @@ For mixed-source behavior, duplicate names, and reconnect preference memory, see
 3. Done: Mixed signal-source foundation for WASAPI, localhost loopback, and plugin-compatible sources.
 4. Done: JUCE VST3 sender with DAW routing, source rename, mute, and late receiver recovery.
 5. Done: v2.0.0 installer packaging with app rename and configurable VST3 install path.
+6. Done: v2.0.1 appearance themes, Eco mode, and Windows compatibility polish.

@@ -13,7 +13,7 @@
         WindowStyle="None"
         ResizeMode="CanResize"
         WindowStartupLocation="CenterOwner"
-        Background="{StaticResource AppChromeBrush}"
+        Background="{DynamicResource AppChromeBrush}"
         ShowInTaskbar="True">
     <shell:WindowChrome.WindowChrome>
         <shell:WindowChrome CaptionHeight="0"
@@ -22,8 +22,8 @@
                             ResizeBorderThickness="6"
                             UseAeroCaptionButtons="False" />
     </shell:WindowChrome.WindowChrome>
-    <Border Background="{StaticResource AppChromeBrush}"
-            BorderBrush="#3A424D"
+    <Border Background="{DynamicResource AppChromeBrush}"
+            BorderBrush="{DynamicResource ChromeBorderBrush}"
             BorderThickness="1"
             SnapsToDevicePixels="True">
         <Grid>
@@ -34,7 +34,7 @@
 
             <Border Grid.Row="0"
                     Padding="14,0,8,0"
-                    Background="{StaticResource AppChromeBrush}"
+                    Background="{DynamicResource AppChromeBrush}"
                     MouseLeftButtonDown="Header_OnMouseLeftButtonDown">
                 <Grid>
                     <Grid.ColumnDefinitions>
@@ -45,11 +45,11 @@
                     <StackPanel VerticalAlignment="Center">
                         <TextBlock FontSize="14"
                                    FontWeight="SemiBold"
-                                   Foreground="{StaticResource TextBrush}"
+                                   Foreground="{DynamicResource TextBrush}"
                                    Text="{Binding Session.DisplayTitle}"
                                    TextTrimming="CharacterEllipsis" />
                         <TextBlock FontSize="10"
-                                   Foreground="{StaticResource SubtleTextBrush}"
+                                   Foreground="{DynamicResource SubtleTextBrush}"
                                    Text="Detail pop-up" />
                     </StackPanel>
 
@@ -79,14 +79,14 @@
                     <StackPanel>
                         <TextBlock FontSize="18"
                                    FontWeight="SemiBold"
-                                   Foreground="{StaticResource TextBrush}"
+                                   Foreground="{DynamicResource TextBrush}"
                                    Text="{Binding Session.DisplayTitle}"
                                    TextTrimming="CharacterEllipsis" />
                         <TextBlock FontSize="11"
-                                   Foreground="{StaticResource SubtleTextBrush}"
+                                   Foreground="{DynamicResource SubtleTextBrush}"
                                    Text="{Binding Session.SourceIdentityText}" />
                         <TextBlock FontSize="10"
-                                   Foreground="{StaticResource SubtleTextBrush}"
+                                   Foreground="{DynamicResource SubtleTextBrush}"
                                    Text="{Binding Session.SourceStatusText}" />
                     </StackPanel>
 
@@ -95,7 +95,7 @@
                                 VerticalAlignment="Center">
                         <TextBlock Margin="0,0,8,0"
                                    VerticalAlignment="Center"
-                                   Foreground="{StaticResource SubtleTextBrush}"
+                                   Foreground="{DynamicResource SubtleTextBrush}"
                                    FontSize="11"
                                    Text="TP" />
                         <ComboBox Width="72"
@@ -113,7 +113,7 @@
                     <CheckBox Grid.Column="3"
                               VerticalAlignment="Center"
                               Content="Top"
-                              Foreground="{StaticResource TextBrush}"
+                              Foreground="{DynamicResource TextBrush}"
                               IsChecked="{Binding IsAlwaysOnTop, Mode=TwoWay}" />
                 </Grid>
 
@@ -184,7 +184,7 @@
 
                         <Border Margin="0,6,0,0"
                                 Padding="12"
-                                Background="{StaticResource PanelBrush}"
+                                Background="{DynamicResource PanelBrush}"
                                 CornerRadius="6">
                             <Grid>
                                 <Grid.RowDefinitions>
@@ -201,7 +201,7 @@
                                         <ColumnDefinition Width="*" />
                                         <ColumnDefinition Width="Auto" />
                                     </Grid.ColumnDefinitions>
-                                    <TextBlock Foreground="{StaticResource SubtleTextBrush}"
+                                    <TextBlock Foreground="{DynamicResource SubtleTextBrush}"
                                                VerticalAlignment="Center"
                                                FontSize="11"
                                                Text="Stereo image" />
@@ -215,7 +215,7 @@
                                     <TextBlock Grid.Column="4"
                                                Width="88"
                                                TextAlignment="Right"
-                                               Foreground="{StaticResource SubtleTextBrush}"
+                                               Foreground="{DynamicResource SubtleTextBrush}"
                                                FontSize="11"
                                                Text="{Binding Session.StereoImageText}" />
                                 </Grid>
@@ -265,8 +265,8 @@
                                    StaysOpen="False">
                                 <Border MinWidth="166"
                                         Padding="10"
-                                        Background="{StaticResource PanelBrush}"
-                                        BorderBrush="{StaticResource ControlBorderBrush}"
+                                        Background="{DynamicResource PanelBrush}"
+                                        BorderBrush="{DynamicResource ControlBorderBrush}"
                                         BorderThickness="1"
                                         CornerRadius="6">
                                     <Grid>
@@ -281,7 +281,7 @@
                                             <RowDefinition Height="Auto" />
                                         </Grid.RowDefinitions>
                                         <TextBlock VerticalAlignment="Center"
-                                                   Foreground="{StaticResource SubtleTextBrush}"
+                                                   Foreground="{DynamicResource SubtleTextBrush}"
                                                    FontSize="11"
                                                    Text="Wave" />
                                         <ComboBox Grid.Column="2"
@@ -291,7 +291,7 @@
                                                   SelectedItem="{Binding Session.WaveformDisplayMode, Mode=TwoWay}" />
                                         <TextBlock Grid.Row="2"
                                                    VerticalAlignment="Center"
-                                                   Foreground="{StaticResource SubtleTextBrush}"
+                                                   Foreground="{DynamicResource SubtleTextBrush}"
                                                    FontSize="11"
                                                    Text="Spec" />
                                         <ComboBox Grid.Row="2"
@@ -321,7 +321,7 @@
                                     MinHeight="{Binding WaveformOnlyPanelMinHeight}"
                                     MaxHeight="900"
                                     Padding="10"
-                                    Background="{StaticResource PanelBrush}"
+                                    Background="{DynamicResource PanelBrush}"
                                     CornerRadius="6">
                                 <Grid>
                                     <controls:WaveformRollView WaveformSamples="{Binding Session.WaveformSamples, Mode=OneWay}">
@@ -353,9 +353,9 @@
                                             <RowDefinition Height="Auto" />
                                             <RowDefinition Height="*" MinHeight="185" />
                                         </Grid.RowDefinitions>
-                                        <TextBlock Foreground="{StaticResource SubtleTextBrush}" FontSize="10" Text="L" />
+                                        <TextBlock Foreground="{DynamicResource SubtleTextBrush}" FontSize="10" Text="L" />
                                         <controls:WaveformRollView Grid.Row="1" WaveformSamples="{Binding Session.LeftWaveformSamples, Mode=OneWay}" />
-                                        <TextBlock Grid.Row="2" Margin="0,5,0,0" Foreground="{StaticResource SubtleTextBrush}" FontSize="10" Text="R" />
+                                        <TextBlock Grid.Row="2" Margin="0,5,0,0" Foreground="{DynamicResource SubtleTextBrush}" FontSize="10" Text="R" />
                                         <controls:WaveformRollView Grid.Row="3" WaveformSamples="{Binding Session.RightWaveformSamples, Mode=OneWay}" />
                                     </Grid>
                                 </Grid>
@@ -379,7 +379,7 @@
                                     MinHeight="{Binding SpectrumOnlyPanelMinHeight}"
                                     MaxHeight="900"
                                     Padding="10"
-                                    Background="{StaticResource PanelBrush}"
+                                    Background="{DynamicResource PanelBrush}"
                                     CornerRadius="6">
                                 <Grid>
                                     <controls:SpectrumRollView SpectrumBuckets="{Binding Session.SpectrumBuckets, Mode=OneWay}">
@@ -411,9 +411,9 @@
                                             <RowDefinition Height="Auto" />
                                             <RowDefinition Height="*" MinHeight="185" />
                                         </Grid.RowDefinitions>
-                                        <TextBlock Foreground="{StaticResource SubtleTextBrush}" FontSize="10" Text="L" />
+                                        <TextBlock Foreground="{DynamicResource SubtleTextBrush}" FontSize="10" Text="L" />
                                         <controls:SpectrumRollView Grid.Row="1" SpectrumBuckets="{Binding Session.LeftSpectrumBuckets, Mode=OneWay}" />
-                                        <TextBlock Grid.Row="2" Margin="0,5,0,0" Foreground="{StaticResource SubtleTextBrush}" FontSize="10" Text="R" />
+                                        <TextBlock Grid.Row="2" Margin="0,5,0,0" Foreground="{DynamicResource SubtleTextBrush}" FontSize="10" Text="R" />
                                         <controls:SpectrumRollView Grid.Row="3" SpectrumBuckets="{Binding Session.RightSpectrumBuckets, Mode=OneWay}" />
                                     </Grid>
                                 </Grid>
@@ -444,7 +444,7 @@
                             </Grid.RowDefinitions>
                             <Border Grid.Row="0"
                                     Padding="10"
-                                    Background="{StaticResource PanelBrush}"
+                                    Background="{DynamicResource PanelBrush}"
                                     CornerRadius="6">
                                 <Grid>
                                     <controls:WaveformRollView WaveformSamples="{Binding Session.WaveformSamples, Mode=OneWay}">
@@ -476,9 +476,9 @@
                                             <RowDefinition Height="Auto" />
                                             <RowDefinition Height="*" MinHeight="185" />
                                         </Grid.RowDefinitions>
-                                        <TextBlock Foreground="{StaticResource SubtleTextBrush}" FontSize="10" Text="L" />
+                                        <TextBlock Foreground="{DynamicResource SubtleTextBrush}" FontSize="10" Text="L" />
                                         <controls:WaveformRollView Grid.Row="1" WaveformSamples="{Binding Session.LeftWaveformSamples, Mode=OneWay}" />
-                                        <TextBlock Grid.Row="2" Margin="0,5,0,0" Foreground="{StaticResource SubtleTextBrush}" FontSize="10" Text="R" />
+                                        <TextBlock Grid.Row="2" Margin="0,5,0,0" Foreground="{DynamicResource SubtleTextBrush}" FontSize="10" Text="R" />
                                         <controls:WaveformRollView Grid.Row="3" WaveformSamples="{Binding Session.RightWaveformSamples, Mode=OneWay}" />
                                     </Grid>
                                 </Grid>
@@ -488,7 +488,7 @@
                                                          TargetRow="{Binding ElementName=DetailWaveformRollRow}" />
                             <Border Grid.Row="2"
                                     Padding="10"
-                                    Background="{StaticResource PanelBrush}"
+                                    Background="{DynamicResource PanelBrush}"
                                     CornerRadius="6">
                                 <Grid>
                                     <controls:SpectrumRollView SpectrumBuckets="{Binding Session.SpectrumBuckets, Mode=OneWay}">
@@ -520,9 +520,9 @@
                                             <RowDefinition Height="Auto" />
                                             <RowDefinition Height="*" MinHeight="185" />
                                         </Grid.RowDefinitions>
-                                        <TextBlock Foreground="{StaticResource SubtleTextBrush}" FontSize="10" Text="L" />
+                                        <TextBlock Foreground="{DynamicResource SubtleTextBrush}" FontSize="10" Text="L" />
                                         <controls:SpectrumRollView Grid.Row="1" SpectrumBuckets="{Binding Session.LeftSpectrumBuckets, Mode=OneWay}" />
-                                        <TextBlock Grid.Row="2" Margin="0,5,0,0" Foreground="{StaticResource SubtleTextBrush}" FontSize="10" Text="R" />
+                                        <TextBlock Grid.Row="2" Margin="0,5,0,0" Foreground="{DynamicResource SubtleTextBrush}" FontSize="10" Text="R" />
                                         <controls:SpectrumRollView Grid.Row="3" SpectrumBuckets="{Binding Session.RightSpectrumBuckets, Mode=OneWay}" />
                                     </Grid>
                                 </Grid>
@@ -554,12 +554,12 @@
                             VerticalAlignment="Center"
                             Padding="18,10"
                             Background="#D020252D"
-                            BorderBrush="{StaticResource ControlBorderBrush}"
+                            BorderBrush="{DynamicResource ControlBorderBrush}"
                             BorderThickness="1"
                             CornerRadius="6">
                         <StackPanel>
                             <TextBlock HorizontalAlignment="Center"
-                                       Foreground="{StaticResource TextBrush}"
+                                       Foreground="{DynamicResource TextBrush}"
                                        FontSize="15"
                                        FontWeight="SemiBold"
                                        Text="Instance not found" />

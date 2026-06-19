@@ -10,11 +10,11 @@
         WindowStyle="None"
         ResizeMode="NoResize"
         WindowStartupLocation="CenterOwner"
-        Background="{StaticResource AppChromeBrush}"
+        Background="{DynamicResource AppChromeBrush}"
         ShowInTaskbar="False">
     <Border Padding="14"
-            Background="{StaticResource AppChromeBrush}"
-            BorderBrush="#3A424D"
+            Background="{DynamicResource AppChromeBrush}"
+            BorderBrush="{DynamicResource ChromeBorderBrush}"
             BorderThickness="1">
         <Grid>
             <Grid.RowDefinitions>
@@ -41,12 +41,12 @@
                     <ColumnDefinition Width="Auto" />
                     <ColumnDefinition Width="32" />
                 </Grid.ColumnDefinitions>
-                <TextBlock Foreground="{StaticResource TextBrush}"
+                <TextBlock Foreground="{DynamicResource TextBrush}"
                            FontSize="15"
                            FontWeight="SemiBold"
                            Text="Stereo Scale" />
                 <TextBlock Grid.Column="1"
-                           Foreground="{StaticResource WarmBrush}"
+                           Foreground="{DynamicResource WarmBrush}"
                            FontSize="12"
                            Text="{Binding ScaleSummary}" />
                 <Button Grid.Column="2"
@@ -59,7 +59,7 @@
 
             <CheckBox Grid.Row="2"
                       Content="Auto scale"
-                      Foreground="{StaticResource TextBrush}"
+                      Foreground="{DynamicResource TextBrush}"
                       IsChecked="{Binding IsAutoScale, Mode=TwoWay}" />
 
             <StackPanel Grid.Row="4">
@@ -68,11 +68,11 @@
                         <ColumnDefinition Width="*" />
                         <ColumnDefinition Width="Auto" />
                     </Grid.ColumnDefinitions>
-                    <TextBlock Foreground="{StaticResource SubtleTextBrush}"
+                    <TextBlock Foreground="{DynamicResource SubtleTextBrush}"
                                FontSize="11"
                                Text="Scale range" />
                     <TextBlock Grid.Column="1"
-                               Foreground="{StaticResource TextBrush}"
+                               Foreground="{DynamicResource TextBrush}"
                                FontSize="11"
                                Text="{Binding ScaleRangeDb, StringFormat={}{0:0} dB}" />
                 </Grid>
@@ -88,11 +88,11 @@
                         <ColumnDefinition Width="*" />
                         <ColumnDefinition Width="Auto" />
                     </Grid.ColumnDefinitions>
-                    <TextBlock Foreground="{StaticResource SubtleTextBrush}"
+                    <TextBlock Foreground="{DynamicResource SubtleTextBrush}"
                                FontSize="11"
                                Text="Manual top" />
                     <TextBlock Grid.Column="1"
-                               Foreground="{StaticResource TextBrush}"
+                               Foreground="{DynamicResource TextBrush}"
                                FontSize="11"
                                Text="{Binding ManualCeilingDb, StringFormat={}{0:0} dB}" />
                 </Grid>
@@ -108,11 +108,11 @@
                         <ColumnDefinition Width="*" />
                         <ColumnDefinition Width="Auto" />
                     </Grid.ColumnDefinitions>
-                    <TextBlock Foreground="{StaticResource SubtleTextBrush}"
+                    <TextBlock Foreground="{DynamicResource SubtleTextBrush}"
                                FontSize="11"
                                Text="Auto lower limit" />
                     <TextBlock Grid.Column="1"
-                               Foreground="{StaticResource TextBrush}"
+                               Foreground="{DynamicResource TextBrush}"
                                FontSize="11"
                                Text="{Binding AutoScaleFloorDb, StringFormat={}{0:0} dB}" />
                 </Grid>
@@ -128,11 +128,11 @@
                         <ColumnDefinition Width="*" />
                         <ColumnDefinition Width="Auto" />
                     </Grid.ColumnDefinitions>
-                    <TextBlock Foreground="{StaticResource SubtleTextBrush}"
+                    <TextBlock Foreground="{DynamicResource SubtleTextBrush}"
                                FontSize="11"
                                Text="Auto speed" />
                     <TextBlock Grid.Column="1"
-                               Foreground="{StaticResource TextBrush}"
+                               Foreground="{DynamicResource TextBrush}"
                                FontSize="11"
                                Text="{Binding AutoScaleSpeedDbPerSecond, StringFormat={}{0:0} dB/s}" />
                 </Grid>
@@ -148,11 +148,11 @@
                         <ColumnDefinition Width="*" />
                         <ColumnDefinition Width="Auto" />
                     </Grid.ColumnDefinitions>
-                    <TextBlock Foreground="{StaticResource SubtleTextBrush}"
+                    <TextBlock Foreground="{DynamicResource SubtleTextBrush}"
                                FontSize="11"
                                Text="Trace persistence" />
                     <TextBlock Grid.Column="1"
-                               Foreground="{StaticResource TextBrush}"
+                               Foreground="{DynamicResource TextBrush}"
                                FontSize="11"
                                Text="{Binding TracePersistenceMilliseconds, StringFormat={}{0:0} ms}" />
                 </Grid>

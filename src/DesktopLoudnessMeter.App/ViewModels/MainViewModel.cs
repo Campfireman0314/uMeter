@@ -5,6 +5,7 @@ using System.Windows.Threading;
 using System.Diagnostics;
 using System.ComponentModel;
 using DesktopLoudnessMeter.App.Audio.Analysis;
+using DesktopLoudnessMeter.App.Themes;
 
 namespace DesktopLoudnessMeter.App.ViewModels;
 
@@ -24,11 +25,13 @@ public sealed class MainViewModel : ObservableObject, IDisposable
     private readonly Dictionary<string, SourceRowPreferences> _preferencesBySourceKey = [];
     private readonly int _missingRowRetentionTicks;
     private readonly Func<int, bool> _isProcessAlive;
+    private readonly Action<AppTheme>? _themeSelected;
     private readonly string? _sourceWarningText;
     private string _statusText = "Waiting for audio sources";
     private MeterDisplayMode _selectedDisplayMode = MeterDisplayMode.Peak;
     private bool _truePeakEnabled;
     private bool _isEcoModeEnabled;
+    private AppTheme _selectedTheme = AppThemes.Default;
     private TruePeakOversampling _selectedTruePeakOversampling = TruePeakOversampling.FourX;
     private bool _isAlwaysOnTop = true;
     private bool _isInlineWaveformVisible;
@@ -42,9 +45,13 @@ public sealed class MainViewModel : ObservableObject, IDisposable
         bool startTimer = true,
         int missingRowRetentionTicks = DefaultMissingRowRetentionTicks,
         Func<int, bool>? isProcessAlive = null,
-        string? sourceWarningText = null)
+        string? sourceWarningText = null,
+        AppTheme? selectedTheme = null,
+        Action<AppTheme>? themeSelected = null)
     {
         _sourceMeterService = sourceMeterService;
+        _themeSelected = themeSelected;
+        _selectedTheme = selectedTheme ?? AppThemes.Default;
         _sourceWarningText = string.IsNullOrWhiteSpace(sourceWarningText) ? null : sourceWarningText.Trim();
         _missingRowRetentionTicks = Math.Max(0, missingRowRetentionTicks);
         _isProcessAlive = isProcessAlive ?? IsProcessAlive;
@@ -64,6 +71,7 @@ public sealed class MainViewModel : ObservableObject, IDisposable
         ResetAllCommand = new RelayCommand(_ => ResetAllSessions());
         ToggleAlwaysOnTopCommand = new RelayCommand(_ => IsAlwaysOnTop = !IsAlwaysOnTop);
         BackToGlobalCommand = new RelayCommand(_ => SelectedDetailSession = null);
+        SelectThemeCommand = new RelayCommand(SelectTheme);
         _switchDetailSessionCommand = new RelayCommand(SwitchDetailSession, CanSwitchDetailSession);
     }
 
@@ -93,6 +101,8 @@ public sealed class MainViewModel : ObservableObject, IDisposable
         WaveformDisplayMode.Overall,
         WaveformDisplayMode.Channels
     ];
+
+    public IReadOnlyList<AppTheme> ThemeOptions => AppThemes.All;
 
     public TimeSpan RefreshInterval { get; }
 
@@ -130,6 +140,20 @@ public sealed class MainViewModel : ObservableObject, IDisposable
             }
         }
     }
+
+    public AppTheme SelectedTheme
+    {
+        get => _selectedTheme;
+        private set
+        {
+            if (SetProperty(ref _selectedTheme, value))
+            {
+                OnPropertyChanged(nameof(SelectedThemeName));
+            }
+        }
+    }
+
+    public string SelectedThemeName => SelectedTheme.DisplayName;
 
     public TruePeakOversampling SelectedTruePeakOversampling
     {
@@ -203,6 +227,8 @@ public sealed class MainViewModel : ObservableObject, IDisposable
     public ICommand ToggleAlwaysOnTopCommand { get; }
 
     public ICommand BackToGlobalCommand { get; }
+
+    public ICommand SelectThemeCommand { get; }
 
     public ICommand SwitchDetailSessionCommand => _switchDetailSessionCommand;
 
@@ -465,6 +491,18 @@ public sealed class MainViewModel : ObservableObject, IDisposable
         }
 
         SelectedDetailSession = target;
+    }
+
+    private void SelectTheme(object? parameter)
+    {
+        if (parameter is not AppTheme theme)
+        {
+            return;
+        }
+
+        ThemeManager.Apply(theme);
+        SelectedTheme = theme;
+        _themeSelected?.Invoke(theme);
     }
 
     private bool CanSwitchDetailSession(object? parameter)

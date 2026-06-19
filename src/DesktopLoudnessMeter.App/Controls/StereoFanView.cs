@@ -92,11 +92,6 @@ public sealed class StereoFanView : FrameworkElement
     ];
 
     private static readonly Typeface TextTypeface = new("Segoe UI");
-    private static readonly Brush SurfaceBrush = new SolidColorBrush(Color.FromRgb(17, 20, 25));
-    private static readonly Brush SurfaceGlowBrush = new SolidColorBrush(Color.FromArgb(45, 46, 196, 182));
-    private static readonly Pen OutlinePen = new(new SolidColorBrush(Color.FromRgb(58, 66, 77)), 1);
-    private static readonly Pen GuidePen = new(new SolidColorBrush(Color.FromArgb(105, 174, 183, 194)), 1);
-    private static readonly Brush LabelBrush = new SolidColorBrush(Color.FromRgb(174, 183, 194));
     private double? _smoothedAutoCeilingDb;
     private DateTimeOffset _lastAutoScaleUpdate = DateTimeOffset.Now;
 
@@ -205,22 +200,29 @@ public sealed class StereoFanView : FrameworkElement
             }
         }
 
-        drawingContext.DrawGeometry(SurfaceBrush, OutlinePen, fan);
-        drawingContext.DrawGeometry(SurfaceGlowBrush, null, fan);
+        drawingContext.DrawGeometry(
+            ThemedDrawing.GetBrush(this, "MeterTrackBrush", Color.FromRgb(17, 20, 25)),
+            ThemedDrawing.GetPen(this, "ChromeBorderBrush", 1, Color.FromRgb(58, 66, 77)),
+            fan);
+        drawingContext.DrawGeometry(
+            ThemedDrawing.GetBrush(this, "SignalBrush", 34, Color.FromRgb(46, 196, 182)),
+            null,
+            fan);
     }
 
-    private static void DrawGuides(DrawingContext drawingContext, double centerX, double baseY, double radius)
+    private void DrawGuides(DrawingContext drawingContext, double centerX, double baseY, double radius)
     {
+        var guidePen = ThemedDrawing.GetPen(this, "SubtleTextBrush", 105, 1, Color.FromRgb(174, 183, 194));
         foreach (var ratio in new[] { 0.33, 0.66, 1.0 })
         {
-            DrawArc(drawingContext, centerX, baseY, radius * ratio, GuidePen);
+            DrawArc(drawingContext, centerX, baseY, radius * ratio, guidePen);
         }
 
         for (var degrees = 0; degrees <= 180; degrees += 30)
         {
             var angle = Math.PI * degrees / 180;
             var end = new Point(centerX + (Math.Cos(angle) * radius), baseY - (Math.Sin(angle) * radius));
-            drawingContext.DrawLine(GuidePen, new Point(centerX, baseY), end);
+            drawingContext.DrawLine(guidePen, new Point(centerX, baseY), end);
         }
     }
 
@@ -251,11 +253,11 @@ public sealed class StereoFanView : FrameworkElement
             var projected = ProjectPolarToFan(angle, pointRadius, centerX, baseY, radius);
             var ageRatio = points.Count <= 1 ? 0 : (double)(points.Count - 1 - index) / (points.Count - 1);
             var intensity = CalculateTraceIntensity(ageRatio);
-            var glowAlpha = (byte)Math.Round(16 + (intensity * 82));
-            var dotAlpha = (byte)Math.Round(46 + (intensity * 196));
+            var glowAlpha = (byte)Math.Round(18 + (intensity * 76));
+            var dotAlpha = (byte)Math.Round(82 + (intensity * 148));
             var size = 1.2 + (intensity * 1.7);
-            var glowBrush = new SolidColorBrush(Color.FromArgb(glowAlpha, 46, 196, 182));
-            var dotBrush = new SolidColorBrush(Color.FromArgb(dotAlpha, 244, 247, 250));
+            var glowBrush = ThemedDrawing.GetBrush(this, "SignalBrush", glowAlpha, Color.FromRgb(46, 196, 182));
+            var dotBrush = ThemedDrawing.GetBrush(this, "SignalBrush", dotAlpha, Color.FromRgb(46, 196, 182));
 
             drawingContext.DrawEllipse(glowBrush, null, projected, size + 5, size + 5);
             drawingContext.DrawEllipse(dotBrush, null, projected, size, size);
@@ -338,10 +340,10 @@ public sealed class StereoFanView : FrameworkElement
             var x = Math.Clamp(baseX + (sample.X * spreadX), -1, 1);
             var y = Math.Clamp(baseDepth + (sample.Y * spreadY), 0.05, 0.98);
             var point = ProjectToFan(x, y, centerX, baseY, radius);
-            var glowAlpha = hasAggregate ? (byte)58 : (byte)24;
-            var dotAlpha = hasAggregate ? (byte)218 : (byte)92;
-            var glowBrush = new SolidColorBrush(Color.FromArgb(glowAlpha, 46, 196, 182));
-            var dotBrush = new SolidColorBrush(Color.FromArgb(dotAlpha, 244, 247, 250));
+            var glowAlpha = hasAggregate ? (byte)76 : (byte)30;
+            var dotAlpha = hasAggregate ? (byte)216 : (byte)108;
+            var glowBrush = ThemedDrawing.GetBrush(this, "SignalBrush", glowAlpha, Color.FromRgb(46, 196, 182));
+            var dotBrush = ThemedDrawing.GetBrush(this, "SignalBrush", dotAlpha, Color.FromRgb(46, 196, 182));
 
             drawingContext.DrawEllipse(glowBrush, null, point, sample.Size + 5, sample.Size + 5);
             drawingContext.DrawEllipse(dotBrush, null, point, sample.Size, sample.Size);
@@ -350,9 +352,10 @@ public sealed class StereoFanView : FrameworkElement
 
     private void DrawAxisLabels(DrawingContext drawingContext, double centerX, double baseY, double radius)
     {
-        var left = CreateText("L", 10, LabelBrush);
-        var mid = CreateText("M", 10, LabelBrush);
-        var right = CreateText("R", 10, LabelBrush);
+        var labelBrush = ThemedDrawing.GetBrush(this, "SubtleTextBrush", Color.FromRgb(174, 183, 194));
+        var left = CreateText("L", 10, labelBrush);
+        var mid = CreateText("M", 10, labelBrush);
+        var right = CreateText("R", 10, labelBrush);
 
         drawingContext.DrawText(left, new Point(centerX - radius - 3, baseY + 3));
         drawingContext.DrawText(mid, new Point(centerX - (mid.Width / 2), baseY - radius - 15));

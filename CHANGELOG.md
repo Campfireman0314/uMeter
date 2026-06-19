@@ -4,6 +4,39 @@
 
 - Nothing yet.
 
+## v2.0.1 - 2026-06-19
+
+Appearance polish and Windows compatibility release.
+
+### Added
+
+- App theme selector in the global title bar with Midnight, Milk White, Forest Green, and Pink Dream themes.
+- Theme preference persistence under `%APPDATA%\uMeter\settings.json`.
+- Eco mode toggle with a delayed hover hint for lower CPU use on older PCs.
+- Startup status warning for unsupported or experimental Windows process-loopback support.
+
+### Changed
+
+- Waveform, spectrum, stereo image, and correlation drawing colors now follow the active theme.
+- Milk White theme uses warm milk/ivory graph colors for signal, stereo sample points, and spectrum energy.
+- Spectrum analysis and UI refresh are throttled in Eco mode.
+- Spectrum FFT uses the native RfRapid backend when `DesktopLoudnessMeter.Native.dll` is present, with a logged managed fallback.
+- Process-loopback capture can attempt Windows 10 19041+ with a compatibility warning for builds below documented Windows 11 support.
+- App, setup, protocol, sender kit, and sender probe metadata now report version `2.0.1`.
+- Default versioned installer artifact is now `uMeter-Setup-2.0.1.exe`.
+
+### Fixed
+
+- Per-process meters can run on compatible Windows 10 systems where the newer documented loopback API gate was too strict.
+- Lower-end machines can reduce spectrum/UI CPU load with Eco mode.
+- Theme switching now repaints custom plot controls immediately.
+
+### Verified
+
+- `dotnet build .\desktop-loudness-meter.sln`
+- `dotnet test .\desktop-loudness-meter.sln --no-build` with 170 passing tests.
+- `.\build-installer.ps1 -Version 2.0.1 -JuceDir E:\JUCE` generated `uMeter-Setup-2.0.1.exe`.
+
 ## v2.0.0 - 2026-06-19
 
 VST3-compatible public release and first release under the `uMeter` product name.

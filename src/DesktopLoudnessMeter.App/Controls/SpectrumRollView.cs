@@ -15,17 +15,13 @@ public sealed class SpectrumRollView : FrameworkElement
     private static readonly double MaximumMel = SpectrumScale.HertzToMel(SpectrumScale.MaximumFrequencyHz);
     private static readonly double[] MajorFrequencies = [20d, 100d, 1000d, 4000d, 12000d, 22000d];
     private static readonly double[] MinorFrequencies = [31.5d, 50d, 63d, 250d, 500d, 2000d, 8000d, 16000d];
-    private static readonly Brush SurfaceBrush = new SolidColorBrush(Color.FromRgb(17, 20, 25));
-    private static readonly Brush EmptyBrush = new SolidColorBrush(Color.FromArgb(28, 174, 183, 194));
-    private static readonly Brush ScaleBrush = new SolidColorBrush(Color.FromArgb(180, 174, 183, 194));
-    private static readonly Pen OutlinePen = new(new SolidColorBrush(Color.FromRgb(58, 66, 77)), 1);
-    private static readonly Pen GridPen = new(new SolidColorBrush(Color.FromArgb(42, 174, 183, 194)), 1);
-    private static readonly Pen TickPen = new(new SolidColorBrush(Color.FromArgb(95, 174, 183, 194)), 1);
-    private static readonly int[] LevelPixels = CreateLevelPixels();
     private WriteableBitmap? _bitmap;
     private int[] _pixels = [];
+    private double[] _levels = [];
     private int _bitmapBucketCount;
     private int _filledColumns;
+    private Color _bitmapAccent;
+    private Color _bitmapWarm;
     private bool _isPanning;
     private Point _panStart;
     private double _panStartCenterMel;
@@ -38,6 +34,7 @@ public sealed class SpectrumRollView : FrameworkElement
         Cursor = Cursors.SizeNS;
         RenderOptions.SetBitmapScalingMode(this, BitmapScalingMode.Linear);
         SnapsToDevicePixels = true;
+        Loaded += (_, _) => RecolorBitmapIfNeeded();
     }
 
     public static readonly DependencyProperty SpectrumBucketsProperty = DependencyProperty.Register(
@@ -68,7 +65,11 @@ public sealed class SpectrumRollView : FrameworkElement
             return;
         }
 
-        drawingContext.DrawRoundedRectangle(SurfaceBrush, OutlinePen, new Rect(0, 0, width, height), 6, 6);
+        RecolorBitmapIfNeeded();
+
+        var surfaceBrush = ThemedDrawing.GetBrush(this, "MeterTrackBrush", Color.FromRgb(17, 20, 25));
+        var outlinePen = ThemedDrawing.GetPen(this, "ChromeBorderBrush", 1, Color.FromRgb(58, 66, 77));
+        drawingContext.DrawRoundedRectangle(surfaceBrush, outlinePen, new Rect(0, 0, width, height), 6, 6);
 
         var plot = GetPlotRect(width, height);
         NormalizeViewport(plot);
@@ -159,8 +160,8 @@ public sealed class SpectrumRollView : FrameworkElement
                 continue;
             }
 
-            drawingContext.DrawLine(GridPen, new Point(plot.Left, y), new Point(plot.Right, y));
-            drawingContext.DrawLine(TickPen, new Point(plot.Left - 3, y), new Point(plot.Left, y));
+            drawingContext.DrawLine(GridPen(), new Point(plot.Left, y), new Point(plot.Right, y));
+            drawingContext.DrawLine(TickPen(), new Point(plot.Left - 3, y), new Point(plot.Left, y));
         }
 
         foreach (var frequency in MajorFrequencies)
@@ -171,19 +172,19 @@ public sealed class SpectrumRollView : FrameworkElement
                 continue;
             }
 
-            drawingContext.DrawLine(GridPen, new Point(plot.Left, y), new Point(plot.Right, y));
-            drawingContext.DrawLine(TickPen, new Point(plot.Left - 6, y), new Point(plot.Left, y));
+            drawingContext.DrawLine(GridPen(), new Point(plot.Left, y), new Point(plot.Right, y));
+            drawingContext.DrawLine(TickPen(), new Point(plot.Left - 6, y), new Point(plot.Left, y));
             DrawLabel(drawingContext, FormatFrequency(frequency), new Point(7, y - 7));
         }
     }
 
-    private static void DrawTimeScale(DrawingContext drawingContext, Rect plot)
+    private void DrawTimeScale(DrawingContext drawingContext, Rect plot)
     {
         for (var index = 1; index < 4; index++)
         {
             var x = plot.Left + (plot.Width * index / 4);
-            drawingContext.DrawLine(GridPen, new Point(x, plot.Top), new Point(x, plot.Bottom));
-            drawingContext.DrawLine(TickPen, new Point(x, plot.Bottom), new Point(x, plot.Bottom + 5));
+            drawingContext.DrawLine(GridPen(), new Point(x, plot.Top), new Point(x, plot.Bottom));
+            drawingContext.DrawLine(TickPen(), new Point(x, plot.Bottom), new Point(x, plot.Bottom + 5));
         }
     }
 
@@ -191,7 +192,12 @@ public sealed class SpectrumRollView : FrameworkElement
     {
         if (_bitmap is null || _filledColumns == 0)
         {
-            drawingContext.DrawRoundedRectangle(EmptyBrush, null, plot, 4, 4);
+            drawingContext.DrawRoundedRectangle(
+                ThemedDrawing.GetBrush(this, "SubtleTextBrush", 28, Color.FromRgb(174, 183, 194)),
+                null,
+                plot,
+                4,
+                4);
             return;
         }
 
@@ -202,27 +208,9 @@ public sealed class SpectrumRollView : FrameworkElement
         drawingContext.Pop();
     }
 
-    private static int LevelPixel(double value)
+    private int LevelPixel(double value)
     {
-        var index = (int)Math.Round(Math.Clamp(value, 0, 1) * (LevelPixels.Length - 1));
-        return LevelPixels[index];
-    }
-
-    private static int[] CreateLevelPixels()
-    {
-        var pixels = new int[256];
-        for (var index = 0; index < pixels.Length; index++)
-        {
-            var value = (double)index / (pixels.Length - 1);
-            var color = Color.FromArgb(
-                (byte)(28 + (value * 210)),
-                (byte)(16 + (value * 180)),
-                (byte)(58 + (value * 180)),
-                (byte)(78 + (value * 74)));
-            pixels[index] = ColorToBgra(color);
-        }
-
-        return pixels;
+        return ColorToBgra(ThemedDrawing.SpectrumPixel(CurrentAccent(), CurrentWarm(), value));
     }
 
     private static int ColorToBgra(Color color)
@@ -316,7 +304,7 @@ public sealed class SpectrumRollView : FrameworkElement
             FlowDirection.LeftToRight,
             new Typeface("Segoe UI"),
             10,
-            ScaleBrush,
+            ThemedDrawing.GetBrush(this, "SubtleTextBrush", 180, Color.FromRgb(174, 183, 194)),
             VisualTreeHelper.GetDpi(this).PixelsPerDip);
 
         drawingContext.DrawText(formatted, origin);
@@ -362,6 +350,7 @@ public sealed class SpectrumRollView : FrameworkElement
         _bitmapBucketCount = bucketCount;
         _filledColumns = 0;
         _pixels = new int[MaximumHistoryColumns * bucketCount];
+        _levels = new double[MaximumHistoryColumns * bucketCount];
         _bitmap = new WriteableBitmap(
             MaximumHistoryColumns,
             bucketCount,
@@ -369,6 +358,8 @@ public sealed class SpectrumRollView : FrameworkElement
             96,
             PixelFormats.Bgra32,
             null);
+        _bitmapAccent = CurrentAccent();
+        _bitmapWarm = CurrentWarm();
     }
 
     private void ShiftBitmapLeft()
@@ -382,6 +373,7 @@ public sealed class SpectrumRollView : FrameworkElement
         {
             var rowOffset = row * MaximumHistoryColumns;
             Array.Copy(_pixels, rowOffset + 1, _pixels, rowOffset, MaximumHistoryColumns - 1);
+            Array.Copy(_levels, rowOffset + 1, _levels, rowOffset, MaximumHistoryColumns - 1);
         }
     }
 
@@ -391,6 +383,7 @@ public sealed class SpectrumRollView : FrameworkElement
         for (var row = 0; row < _bitmapBucketCount; row++)
         {
             _pixels[(row * MaximumHistoryColumns) + x] = 0;
+            _levels[(row * MaximumHistoryColumns) + x] = 0;
         }
 
         for (var bucket = 0; bucket < buckets.Count; bucket++)
@@ -402,7 +395,9 @@ public sealed class SpectrumRollView : FrameworkElement
             }
 
             var row = _bitmapBucketCount - 1 - bucket;
-            _pixels[(row * MaximumHistoryColumns) + x] = LevelPixel(value);
+            var index = (row * MaximumHistoryColumns) + x;
+            _levels[index] = value;
+            _pixels[index] = LevelPixel(value);
         }
     }
 
@@ -411,6 +406,7 @@ public sealed class SpectrumRollView : FrameworkElement
         if (_pixels.Length > 0)
         {
             Array.Clear(_pixels);
+            Array.Clear(_levels);
             _bitmap?.WritePixels(
                 new Int32Rect(0, 0, MaximumHistoryColumns, _bitmapBucketCount),
                 _pixels,
@@ -420,5 +416,54 @@ public sealed class SpectrumRollView : FrameworkElement
 
         _filledColumns = 0;
         InvalidateVisual();
+    }
+
+    private Pen GridPen()
+    {
+        return ThemedDrawing.GetPen(this, "SubtleTextBrush", 42, 1, Color.FromRgb(174, 183, 194));
+    }
+
+    private Pen TickPen()
+    {
+        return ThemedDrawing.GetPen(this, "SubtleTextBrush", 95, 1, Color.FromRgb(174, 183, 194));
+    }
+
+    private Color CurrentAccent()
+    {
+        return ThemedDrawing.GetColor(this, "SignalBrush", Color.FromRgb(46, 196, 182));
+    }
+
+    private Color CurrentWarm()
+    {
+        return ThemedDrawing.GetColor(this, "SpectrumWarmBrush", Color.FromRgb(255, 176, 0));
+    }
+
+    private void RecolorBitmapIfNeeded()
+    {
+        if (_bitmap is null || _pixels.Length == 0 || _levels.Length == 0)
+        {
+            return;
+        }
+
+        var accent = CurrentAccent();
+        var warm = CurrentWarm();
+        if (accent == _bitmapAccent && warm == _bitmapWarm)
+        {
+            return;
+        }
+
+        _bitmapAccent = accent;
+        _bitmapWarm = warm;
+        for (var index = 0; index < _pixels.Length; index++)
+        {
+            var value = _levels[index];
+            _pixels[index] = value > 0 ? LevelPixel(value) : 0;
+        }
+
+        _bitmap.WritePixels(
+            new Int32Rect(0, 0, MaximumHistoryColumns, _bitmapBucketCount),
+            _pixels,
+            MaximumHistoryColumns * sizeof(int),
+            0);
     }
 }

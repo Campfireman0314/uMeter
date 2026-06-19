@@ -4,9 +4,9 @@ param(
 
     [string]$Runtime = "win-x64",
 
-    [string]$Version = "2.0.0",
+    [string]$Version = "2.0.1",
 
-    [string]$JuceDir = "C:\JUCE",
+    [string]$JuceDir = "E:\JUCE",
 
     [string]$Vst3BuildDir = (Join-Path $PSScriptRoot "build\juce-vst3-release"),
 
@@ -28,6 +28,28 @@ $pluginProjectDir = Join-Path $root "src\DesktopLoudnessMeter.JucePlugin"
 $pluginBundleName = "uMeter Sender.vst3"
 $pluginPayloadDir = Join-Path $publishDir "Plugins\VST3"
 $pluginPayloadBundle = Join-Path $pluginPayloadDir $pluginBundleName
+
+function Resolve-ToolPath {
+    param(
+        [Parameter(Mandatory = $true)]
+        [string]$CommandName,
+
+        [string[]]$FallbackPaths = @()
+    )
+
+    $command = Get-Command $CommandName -ErrorAction SilentlyContinue
+    if ($null -ne $command) {
+        return $command.Source
+    }
+
+    foreach ($path in $FallbackPaths) {
+        if (Test-Path -LiteralPath $path) {
+            return $path
+        }
+    }
+
+    return $CommandName
+}
 
 function Test-IsUnderRoot {
     param(
@@ -96,7 +118,13 @@ if (-not $SkipVst3Plugin) {
         throw "JUCE_DIR must point to a JUCE checkout containing CMakeLists.txt. Current value: $JuceDir"
     }
 
-    Invoke-Native "VST3 configure" "cmake" @(
+    $cmake = Resolve-ToolPath "cmake" @(
+        "C:\Program Files\CMake\bin\cmake.exe",
+        "C:\Program Files (x86)\CMake\bin\cmake.exe",
+        "D:\Program Files\Microsoft Visual Studio\2022\BuildTools\Common7\IDE\CommonExtensions\Microsoft\CMake\CMake\bin\cmake.exe"
+    )
+
+    Invoke-Native "VST3 configure" $cmake @(
         "-S", $pluginProjectDir,
         "-B", $Vst3BuildDir,
         "-DJUCE_DIR=$JuceDir",
@@ -105,7 +133,7 @@ if (-not $SkipVst3Plugin) {
         "-DDLM_COPY_EXTRA_VST3_AFTER_BUILD=OFF"
     )
 
-    Invoke-Native "VST3 build" "cmake" @(
+    Invoke-Native "VST3 build" $cmake @(
         "--build", $Vst3BuildDir,
         "--config", $Configuration,
         "--target", "DesktopLoudnessMeterSender_VST3"
