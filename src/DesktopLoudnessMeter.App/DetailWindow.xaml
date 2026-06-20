@@ -409,44 +409,65 @@
                                    PlacementTarget="{Binding ElementName=DetailRollSettingsButton}"
                                    PopupAnimation="Fade"
                                    StaysOpen="False">
-                                <Border MinWidth="166"
+                                <Border MinWidth="286"
                                         Padding="10"
                                         Background="{DynamicResource PanelBrush}"
                                         BorderBrush="{DynamicResource ControlBorderBrush}"
                                         BorderThickness="1"
                                         CornerRadius="6">
-                                    <Grid>
-                                        <Grid.ColumnDefinitions>
-                                            <ColumnDefinition Width="Auto" />
-                                            <ColumnDefinition Width="10" />
-                                            <ColumnDefinition Width="*" />
-                                        </Grid.ColumnDefinitions>
-                                        <Grid.RowDefinitions>
-                                            <RowDefinition Height="Auto" />
-                                            <RowDefinition Height="8" />
-                                            <RowDefinition Height="Auto" />
-                                        </Grid.RowDefinitions>
-                                        <TextBlock VerticalAlignment="Center"
-                                                   Foreground="{DynamicResource SubtleTextBrush}"
-                                                   FontSize="11"
-                                                   Text="Wave" />
-                                        <ComboBox Grid.Column="2"
-                                                  Width="96"
-                                                  Height="26"
-                                                  ItemsSource="{Binding WaveformDisplayModeOptions}"
-                                                  SelectedItem="{Binding Session.WaveformDisplayMode, Mode=TwoWay}" />
-                                        <TextBlock Grid.Row="2"
-                                                   VerticalAlignment="Center"
-                                                   Foreground="{DynamicResource SubtleTextBrush}"
-                                                   FontSize="11"
-                                                   Text="Spec" />
-                                        <ComboBox Grid.Row="2"
-                                                  Grid.Column="2"
-                                                  Width="96"
-                                                  Height="26"
-                                                  ItemsSource="{Binding SpectrumDisplayModeOptions}"
-                                                  SelectedItem="{Binding Session.SpectrumDisplayMode, Mode=TwoWay}" />
-                                    </Grid>
+                                    <StackPanel>
+                                        <Grid>
+                                            <Grid.ColumnDefinitions>
+                                                <ColumnDefinition Width="Auto" />
+                                                <ColumnDefinition Width="10" />
+                                                <ColumnDefinition Width="*" />
+                                            </Grid.ColumnDefinitions>
+                                            <Grid.RowDefinitions>
+                                                <RowDefinition Height="Auto" />
+                                                <RowDefinition Height="8" />
+                                                <RowDefinition Height="Auto" />
+                                            </Grid.RowDefinitions>
+                                            <TextBlock VerticalAlignment="Center"
+                                                       Foreground="{DynamicResource SubtleTextBrush}"
+                                                       FontSize="11"
+                                                       Text="Wave" />
+                                            <ComboBox Grid.Column="2"
+                                                      Width="112"
+                                                      Height="26"
+                                                      ItemsSource="{Binding WaveformDisplayModeOptions}"
+                                                      SelectedItem="{Binding Session.WaveformDisplayMode, Mode=TwoWay}" />
+                                            <TextBlock Grid.Row="2"
+                                                       VerticalAlignment="Center"
+                                                       Foreground="{DynamicResource SubtleTextBrush}"
+                                                       FontSize="11"
+                                                       Text="Spec" />
+                                            <ComboBox Grid.Row="2"
+                                                      Grid.Column="2"
+                                                      Width="112"
+                                                      Height="26"
+                                                      ItemsSource="{Binding SpectrumDisplayModeOptions}"
+                                                      SelectedItem="{Binding Session.SpectrumDisplayMode, Mode=TwoWay}" />
+                                        </Grid>
+                                        <Grid Margin="0,12,0,0">
+                                            <Grid.ColumnDefinitions>
+                                                <ColumnDefinition Width="*" />
+                                                <ColumnDefinition Width="Auto" />
+                                            </Grid.ColumnDefinitions>
+                                            <TextBlock Foreground="{DynamicResource SubtleTextBrush}"
+                                                       FontSize="11"
+                                                       Text="Spectrum range" />
+                                            <TextBlock Grid.Column="1"
+                                                       Foreground="{DynamicResource TextBrush}"
+                                                       FontSize="11"
+                                                       Text="{Binding SpectrumDisplayRangeText}" />
+                                        </Grid>
+                                        <controls:DbRangeSlider Margin="0,2,0,0"
+                                                                Minimum="-96"
+                                                                Maximum="0"
+                                                                Step="1"
+                                                                LowerValue="{Binding SpectrumDisplayFloorDb, Mode=TwoWay, UpdateSourceTrigger=PropertyChanged}"
+                                                                UpperValue="{Binding SpectrumDisplayCeilingDb, Mode=TwoWay, UpdateSourceTrigger=PropertyChanged}" />
+                                    </StackPanel>
                                 </Border>
                             </Popup>
                         </WrapPanel>
@@ -534,7 +555,9 @@
                                     CornerRadius="6">
                                 <Grid>
                                     <controls:SpectrumRollView SpectrumBuckets="{Binding Session.SpectrumBuckets, Mode=OneWay}"
-                                                               PlotTick="{Binding Session.SpectrumPlotTick, Mode=OneWay}">
+                                                               PlotTick="{Binding Session.SpectrumPlotTick, Mode=OneWay}"
+                                                               DisplayFloorDb="{Binding SpectrumDisplayFloorDb, Mode=OneWay}"
+                                                               DisplayCeilingDb="{Binding SpectrumDisplayCeilingDb, Mode=OneWay}">
                                         <controls:SpectrumRollView.Style>
                                             <Style TargetType="controls:SpectrumRollView">
                                                 <Setter Property="Visibility" Value="Collapsed" />
@@ -566,11 +589,15 @@
                                         <TextBlock Foreground="{DynamicResource SubtleTextBrush}" FontSize="10" Text="L" />
                                         <controls:SpectrumRollView Grid.Row="1"
                                                                    SpectrumBuckets="{Binding Session.LeftSpectrumBuckets, Mode=OneWay}"
-                                                                   PlotTick="{Binding Session.SpectrumPlotTick, Mode=OneWay}" />
+                                                                   PlotTick="{Binding Session.SpectrumPlotTick, Mode=OneWay}"
+                                                                   DisplayFloorDb="{Binding SpectrumDisplayFloorDb, Mode=OneWay}"
+                                                                   DisplayCeilingDb="{Binding SpectrumDisplayCeilingDb, Mode=OneWay}" />
                                         <TextBlock Grid.Row="2" Margin="0,5,0,0" Foreground="{DynamicResource SubtleTextBrush}" FontSize="10" Text="R" />
                                         <controls:SpectrumRollView Grid.Row="3"
                                                                    SpectrumBuckets="{Binding Session.RightSpectrumBuckets, Mode=OneWay}"
-                                                                   PlotTick="{Binding Session.SpectrumPlotTick, Mode=OneWay}" />
+                                                                   PlotTick="{Binding Session.SpectrumPlotTick, Mode=OneWay}"
+                                                                   DisplayFloorDb="{Binding SpectrumDisplayFloorDb, Mode=OneWay}"
+                                                                   DisplayCeilingDb="{Binding SpectrumDisplayCeilingDb, Mode=OneWay}" />
                                     </Grid>
                                 </Grid>
                             </Border>
@@ -653,7 +680,9 @@
                                     CornerRadius="6">
                                 <Grid>
                                     <controls:SpectrumRollView SpectrumBuckets="{Binding Session.SpectrumBuckets, Mode=OneWay}"
-                                                               PlotTick="{Binding Session.SpectrumPlotTick, Mode=OneWay}">
+                                                               PlotTick="{Binding Session.SpectrumPlotTick, Mode=OneWay}"
+                                                               DisplayFloorDb="{Binding SpectrumDisplayFloorDb, Mode=OneWay}"
+                                                               DisplayCeilingDb="{Binding SpectrumDisplayCeilingDb, Mode=OneWay}">
                                         <controls:SpectrumRollView.Style>
                                             <Style TargetType="controls:SpectrumRollView">
                                                 <Setter Property="Visibility" Value="Collapsed" />
@@ -685,11 +714,15 @@
                                         <TextBlock Foreground="{DynamicResource SubtleTextBrush}" FontSize="10" Text="L" />
                                         <controls:SpectrumRollView Grid.Row="1"
                                                                    SpectrumBuckets="{Binding Session.LeftSpectrumBuckets, Mode=OneWay}"
-                                                                   PlotTick="{Binding Session.SpectrumPlotTick, Mode=OneWay}" />
+                                                                   PlotTick="{Binding Session.SpectrumPlotTick, Mode=OneWay}"
+                                                                   DisplayFloorDb="{Binding SpectrumDisplayFloorDb, Mode=OneWay}"
+                                                                   DisplayCeilingDb="{Binding SpectrumDisplayCeilingDb, Mode=OneWay}" />
                                         <TextBlock Grid.Row="2" Margin="0,5,0,0" Foreground="{DynamicResource SubtleTextBrush}" FontSize="10" Text="R" />
                                         <controls:SpectrumRollView Grid.Row="3"
                                                                    SpectrumBuckets="{Binding Session.RightSpectrumBuckets, Mode=OneWay}"
-                                                                   PlotTick="{Binding Session.SpectrumPlotTick, Mode=OneWay}" />
+                                                                   PlotTick="{Binding Session.SpectrumPlotTick, Mode=OneWay}"
+                                                                   DisplayFloorDb="{Binding SpectrumDisplayFloorDb, Mode=OneWay}"
+                                                                   DisplayCeilingDb="{Binding SpectrumDisplayCeilingDb, Mode=OneWay}" />
                                     </Grid>
                                 </Grid>
                             </Border>

@@ -346,6 +346,29 @@ public sealed class MainViewModelAdvancedControlsTests
     }
 
     [Fact]
+    public void SpectrumDisplayRangeClampsToAnalyzerWindow()
+    {
+        var viewModel = CreateViewModel();
+
+        Assert.Equal(-96, viewModel.SpectrumDisplayFloorDb);
+        Assert.Equal(0, viewModel.SpectrumDisplayCeilingDb);
+        Assert.Equal("-96 to 0 dB", viewModel.SpectrumDisplayRangeText);
+
+        viewModel.SpectrumDisplayFloorDb = -54.2;
+        viewModel.SpectrumDisplayCeilingDb = -56;
+
+        Assert.Equal(-54, viewModel.SpectrumDisplayFloorDb);
+        Assert.Equal(-48, viewModel.SpectrumDisplayCeilingDb);
+        Assert.Equal("-54 to -48 dB", viewModel.SpectrumDisplayRangeText);
+
+        viewModel.SpectrumDisplayCeilingDb = 12;
+        viewModel.SpectrumDisplayFloorDb = -200;
+
+        Assert.Equal(-96, viewModel.SpectrumDisplayFloorDb);
+        Assert.Equal(0, viewModel.SpectrumDisplayCeilingDb);
+    }
+
+    [Fact]
     public void ThemeOptionsIncludeCustomPalettes()
     {
         var viewModel = CreateViewModel();
@@ -411,6 +434,29 @@ public sealed class MainViewModelAdvancedControlsTests
         Assert.True(viewModel.HasFrequencyCollisionSources);
         Assert.Equal("Global", viewModel.SelectedFrequencyCollisionSource.DisplayName);
         Assert.Contains(viewModel.FrequencyCollisionBands, band => band.StartRatio <= 0.25 && band.EndRatio >= 0.5);
+    }
+
+    [Fact]
+    public void FrequencyCollisionRefreshesWhenSelectedSpectrumTickAdvances()
+    {
+        var service = new StaticSignalSourceMeterService(
+            [
+                Source("plugin:lead", "Lead", SignalSourceKind.Plugin, spectrumBuckets: [0.0, 0.08], plotFrameVersion: 128),
+                Source("plugin:keys", "Keys", SignalSourceKind.Plugin, spectrumBuckets: [0.0, 0.42], plotFrameVersion: 128)
+            ]);
+        var viewModel = new MainViewModel(service, startTimer: false);
+
+        viewModel.RefreshNow();
+        var lead = viewModel.Sessions.Single(session => session.SourceKey == "plugin:lead");
+        lead.OpenDetailCommand.Execute(null);
+        viewModel.IsInlineCollisionVisible = true;
+        viewModel.SelectedFrequencyCollisionSourceKey = "plugin:keys";
+
+        Assert.Empty(viewModel.FrequencyCollisionBands);
+
+        lead.Update(Source("plugin:lead", "Lead", SignalSourceKind.Plugin, spectrumBuckets: [0.0, 0.40], plotFrameVersion: 256));
+
+        Assert.NotEmpty(viewModel.FrequencyCollisionBands);
     }
 
     [Fact]
@@ -554,7 +600,8 @@ public sealed class MainViewModelAdvancedControlsTests
         string key,
         string name,
         SignalSourceKind kind,
-        IReadOnlyList<double>? spectrumBuckets = null)
+        IReadOnlyList<double>? spectrumBuckets = null,
+        long plotFrameVersion = 0)
     {
         return new SignalSourceSnapshot(
             key,
@@ -565,7 +612,8 @@ public sealed class MainViewModelAdvancedControlsTests
             -6.0,
             "-6.0 dB",
             "Active",
-            SpectrumBuckets: spectrumBuckets);
+            SpectrumBuckets: spectrumBuckets,
+            PlotFrameVersion: plotFrameVersion);
     }
 
     private sealed class StaticAudioSessionMeterService :

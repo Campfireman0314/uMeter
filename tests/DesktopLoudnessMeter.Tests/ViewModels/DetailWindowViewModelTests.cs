@@ -105,6 +105,22 @@ public sealed class DetailWindowViewModelTests
     }
 
     [Fact]
+    public void DetailWindowSpectrumDisplayRangeClampsToAnalyzerWindow()
+    {
+        var session = new AudioSessionMeterViewModel(Snapshot());
+        var viewModel = new DetailWindowViewModel(session);
+
+        Assert.Equal("-96 to 0 dB", viewModel.SpectrumDisplayRangeText);
+
+        viewModel.SpectrumDisplayFloorDb = -37.6;
+        viewModel.SpectrumDisplayCeilingDb = -40;
+
+        Assert.Equal(-38, viewModel.SpectrumDisplayFloorDb);
+        Assert.Equal(-32, viewModel.SpectrumDisplayCeilingDb);
+        Assert.Equal("-38 to -32 dB", viewModel.SpectrumDisplayRangeText);
+    }
+
+    [Fact]
     public void FrequencyCollisionIsAvailableInPopupDetail()
     {
         var first = new AudioSessionMeterViewModel(Snapshot("plugin:first", "First", spectrumBuckets: [0.0, 0.40, 0.72]));
@@ -122,6 +138,25 @@ public sealed class DetailWindowViewModelTests
         viewModel.SelectedFrequencyCollisionSourceKey = "plugin:second";
 
         Assert.Equal("Second", viewModel.SelectedFrequencyCollisionSource.DisplayName);
+        Assert.NotEmpty(viewModel.FrequencyCollisionBands);
+    }
+
+    [Fact]
+    public void FrequencyCollisionRefreshesWhenComparisonSpectrumTickAdvances()
+    {
+        var first = new AudioSessionMeterViewModel(Snapshot("plugin:first", "First", spectrumBuckets: [0.0, 0.40], plotFrameVersion: 128));
+        var second = new AudioSessionMeterViewModel(Snapshot("plugin:second", "Second", spectrumBuckets: [0.0, 0.08], plotFrameVersion: 128));
+        var active = new List<AudioSessionMeterViewModel> { first, second };
+        using var viewModel = new DetailWindowViewModel(first, () => active)
+        {
+            IsCollisionVisible = true,
+            SelectedFrequencyCollisionSourceKey = "plugin:second"
+        };
+
+        Assert.Empty(viewModel.FrequencyCollisionBands);
+
+        second.Update(Snapshot("plugin:second", "Second", spectrumBuckets: [0.0, 0.42], plotFrameVersion: 256));
+
         Assert.NotEmpty(viewModel.FrequencyCollisionBands);
     }
 
@@ -196,7 +231,8 @@ public sealed class DetailWindowViewModelTests
         string key,
         string name,
         double? momentaryLufs = null,
-        IReadOnlyList<double>? spectrumBuckets = null)
+        IReadOnlyList<double>? spectrumBuckets = null,
+        long plotFrameVersion = 0)
     {
         return new AudioSessionSnapshot(
             key,
@@ -207,6 +243,7 @@ public sealed class DetailWindowViewModelTests
             "-6.0 dB",
             "Active",
             MomentaryLufs: momentaryLufs,
-            SpectrumBuckets: spectrumBuckets);
+            SpectrumBuckets: spectrumBuckets,
+            PlotFrameVersion: plotFrameVersion);
     }
 }

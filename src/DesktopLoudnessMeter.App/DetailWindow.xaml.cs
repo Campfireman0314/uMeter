@@ -10,6 +10,13 @@ public partial class DetailWindow : Window
     public DetailWindow()
     {
         InitializeComponent();
+        Closed += (_, _) =>
+        {
+            if (DataContext is IDisposable disposable)
+            {
+                disposable.Dispose();
+            }
+        };
     }
 
     private void Header_OnMouseLeftButtonDown(object sender, MouseButtonEventArgs e)

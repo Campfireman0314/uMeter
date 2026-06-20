@@ -19,6 +19,9 @@ public sealed class MainViewModel : ObservableObject, IDisposable
     private const double RollSplitterFlexAllowance = 128;
     private const double DefaultCollisionAbsoluteThresholdDb = 6;
     private const double DefaultCollisionRelativeThreshold = 0.18;
+    private const double SpectrumDisplayMinimumDb = -96;
+    private const double SpectrumDisplayMaximumDb = 0;
+    private const double SpectrumDisplayMinimumSpanDb = 6;
     private static readonly FrequencyCollisionSourceOption AllCollisionSourcesOption = new("__global__", "Global", isAllSources: true);
     private static readonly TimeSpan NormalRefreshInterval = TimeSpan.FromMilliseconds(33);
     private static readonly TimeSpan EcoRefreshInterval = TimeSpan.FromMilliseconds(100);
@@ -40,6 +43,8 @@ public sealed class MainViewModel : ObservableObject, IDisposable
     private string _selectedFrequencyCollisionSourceKey = AllCollisionSourcesOption.SourceKey;
     private double _collisionAbsoluteThresholdDb = DefaultCollisionAbsoluteThresholdDb;
     private double _collisionRelativeThreshold = DefaultCollisionRelativeThreshold;
+    private double _spectrumDisplayFloorDb = SpectrumDisplayMinimumDb;
+    private double _spectrumDisplayCeilingDb = SpectrumDisplayMaximumDb;
     private IReadOnlyList<FrequencyCollisionSourceOption> _frequencyCollisionSourceOptions = [AllCollisionSourcesOption];
     private IReadOnlyList<FrequencyCollisionBand> _frequencyCollisionBands = Array.Empty<FrequencyCollisionBand>();
     private bool _isAlwaysOnTop = true;
@@ -230,6 +235,40 @@ public sealed class MainViewModel : ObservableObject, IDisposable
     }
 
     public string CollisionRelativeThresholdText => $"{CollisionRelativeThreshold:P0}";
+
+    public double SpectrumDisplayFloorDb
+    {
+        get => _spectrumDisplayFloorDb;
+        set
+        {
+            var next = Math.Clamp(
+                RoundDisplayDb(value),
+                SpectrumDisplayMinimumDb,
+                SpectrumDisplayCeilingDb - SpectrumDisplayMinimumSpanDb);
+            if (SetProperty(ref _spectrumDisplayFloorDb, next))
+            {
+                OnPropertyChanged(nameof(SpectrumDisplayRangeText));
+            }
+        }
+    }
+
+    public double SpectrumDisplayCeilingDb
+    {
+        get => _spectrumDisplayCeilingDb;
+        set
+        {
+            var next = Math.Clamp(
+                RoundDisplayDb(value),
+                SpectrumDisplayFloorDb + SpectrumDisplayMinimumSpanDb,
+                SpectrumDisplayMaximumDb);
+            if (SetProperty(ref _spectrumDisplayCeilingDb, next))
+            {
+                OnPropertyChanged(nameof(SpectrumDisplayRangeText));
+            }
+        }
+    }
+
+    public string SpectrumDisplayRangeText => $"{SpectrumDisplayFloorDb:0} to {SpectrumDisplayCeilingDb:0} dB";
 
     public string SelectedFrequencyCollisionSourceDisplayName => SelectedFrequencyCollisionSource.DisplayName;
 
@@ -801,6 +840,11 @@ public sealed class MainViewModel : ObservableObject, IDisposable
         {
             NotifyInlineRollLayoutChanged();
         }
+
+        if (args.PropertyName is nameof(AudioSessionMeterViewModel.SpectrumPlotTick))
+        {
+            RefreshFrequencyCollisions();
+        }
     }
 
     private void NotifyInlineRollLayoutChanged()
@@ -821,6 +865,13 @@ public sealed class MainViewModel : ObservableObject, IDisposable
             + (channelsVisible
                 ? (RollTrackMinHeight * 2) + RollChannelLabelAllowance
                 : RollTrackMinHeight);
+    }
+
+    private static double RoundDisplayDb(double value)
+    {
+        return double.IsFinite(value)
+            ? Math.Round(value, 0, MidpointRounding.AwayFromZero)
+            : SpectrumDisplayMinimumDb;
     }
 
     private bool IsProcessStillAlive(int processId)

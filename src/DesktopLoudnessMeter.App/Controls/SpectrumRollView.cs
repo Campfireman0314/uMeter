@@ -12,6 +12,10 @@ public sealed class SpectrumRollView : FrameworkElement
 {
     private const int MaximumHistoryColumns = 240;
     private const double PreferredPlotHeight = 140;
+    private const double AnalyzerFloorDb = -96;
+    private const double AnalyzerCeilingDb = 0;
+    private const double AnalyzerRangeDb = AnalyzerCeilingDb - AnalyzerFloorDb;
+    private const double MinimumDisplayRangeDb = 1;
     private static readonly double MinimumMel = SpectrumScale.HertzToMel(SpectrumScale.MinimumFrequencyHz);
     private static readonly double MaximumMel = SpectrumScale.HertzToMel(SpectrumScale.MaximumFrequencyHz);
     private static readonly double[] MajorFrequencies = [20d, 100d, 1000d, 4000d, 12000d, 22000d];
@@ -37,6 +41,8 @@ public sealed class SpectrumRollView : FrameworkElement
     private Color _backgroundSubtleColor;
     private Color _bitmapAccent;
     private Color _bitmapWarm;
+    private double _bitmapDisplayFloorDb = AnalyzerFloorDb;
+    private double _bitmapDisplayCeilingDb = AnalyzerCeilingDb;
     private bool _isPanning;
     private Point _panStart;
     private double _panStartCenterMel;
@@ -80,6 +86,30 @@ public sealed class SpectrumRollView : FrameworkElement
     {
         get => (long)GetValue(PlotTickProperty);
         set => SetValue(PlotTickProperty, value);
+    }
+
+    public static readonly DependencyProperty DisplayFloorDbProperty = DependencyProperty.Register(
+        nameof(DisplayFloorDb),
+        typeof(double),
+        typeof(SpectrumRollView),
+        new FrameworkPropertyMetadata(AnalyzerFloorDb, DisplayRangeChanged));
+
+    public double DisplayFloorDb
+    {
+        get => (double)GetValue(DisplayFloorDbProperty);
+        set => SetValue(DisplayFloorDbProperty, value);
+    }
+
+    public static readonly DependencyProperty DisplayCeilingDbProperty = DependencyProperty.Register(
+        nameof(DisplayCeilingDb),
+        typeof(double),
+        typeof(SpectrumRollView),
+        new FrameworkPropertyMetadata(AnalyzerCeilingDb, DisplayRangeChanged));
+
+    public double DisplayCeilingDb
+    {
+        get => (double)GetValue(DisplayCeilingDbProperty);
+        set => SetValue(DisplayCeilingDbProperty, value);
     }
 
     protected override Size MeasureOverride(Size availableSize)
@@ -336,7 +366,36 @@ public sealed class SpectrumRollView : FrameworkElement
 
     private int LevelPixel(double value)
     {
-        return ColorToBgra(ThemedDrawing.SpectrumPixel(CurrentAccent(), CurrentWarm(), value));
+        var displayValue = DisplayValue(value);
+        return displayValue > 0
+            ? ColorToBgra(ThemedDrawing.SpectrumPixel(CurrentAccent(), CurrentWarm(), displayValue))
+            : 0;
+    }
+
+    private double DisplayValue(double normalizedLevel)
+    {
+        if (normalizedLevel <= 0)
+        {
+            return 0;
+        }
+
+        var (floorDb, ceilingDb) = DisplayRange();
+        var levelDb = AnalyzerFloorDb + (Math.Clamp(normalizedLevel, 0, 1) * AnalyzerRangeDb);
+        if (levelDb < floorDb)
+        {
+            return 0;
+        }
+
+        return Math.Clamp((levelDb - floorDb) / (ceilingDb - floorDb), 0, 1);
+    }
+
+    private (double FloorDb, double CeilingDb) DisplayRange()
+    {
+        var floorDb = double.IsFinite(DisplayFloorDb) ? DisplayFloorDb : AnalyzerFloorDb;
+        var ceilingDb = double.IsFinite(DisplayCeilingDb) ? DisplayCeilingDb : AnalyzerCeilingDb;
+        floorDb = Math.Clamp(floorDb, AnalyzerFloorDb, AnalyzerCeilingDb - MinimumDisplayRangeDb);
+        ceilingDb = Math.Clamp(ceilingDb, floorDb + MinimumDisplayRangeDb, AnalyzerCeilingDb);
+        return (floorDb, ceilingDb);
     }
 
     private static int ColorToBgra(Color color)
@@ -454,6 +513,17 @@ public sealed class SpectrumRollView : FrameworkElement
         }
     }
 
+    private static void DisplayRangeChanged(DependencyObject dependencyObject, DependencyPropertyChangedEventArgs args)
+    {
+        if (dependencyObject is not SpectrumRollView view)
+        {
+            return;
+        }
+
+        view.RecolorBitmapIfNeeded();
+        view.InvalidateVisual();
+    }
+
     private void ScheduleSpectrumUpdate(IReadOnlyList<double>? buckets)
     {
         _pendingSpectrumBuckets = buckets is { Count: > 0 } ? buckets : null;
@@ -541,6 +611,7 @@ public sealed class SpectrumRollView : FrameworkElement
             null);
         _bitmapAccent = CurrentAccent();
         _bitmapWarm = CurrentWarm();
+        (_bitmapDisplayFloorDb, _bitmapDisplayCeilingDb) = DisplayRange();
     }
 
     private void WriteColumn(int x, IReadOnlyList<double> buckets)
@@ -555,11 +626,6 @@ public sealed class SpectrumRollView : FrameworkElement
         for (var bucket = 0; bucket < buckets.Count; bucket++)
         {
             var value = Math.Clamp(buckets[bucket], 0, 1);
-            if (value <= 0)
-            {
-                continue;
-            }
-
             var row = _bitmapBucketCount - 1 - bucket;
             var index = (row * MaximumHistoryColumns) + x;
             var pixel = LevelPixel(value);
@@ -641,17 +707,23 @@ public sealed class SpectrumRollView : FrameworkElement
 
         var accent = CurrentAccent();
         var warm = CurrentWarm();
-        if (accent == _bitmapAccent && warm == _bitmapWarm)
+        var (floorDb, ceilingDb) = DisplayRange();
+        if (accent == _bitmapAccent
+            && warm == _bitmapWarm
+            && AreClose(floorDb, _bitmapDisplayFloorDb)
+            && AreClose(ceilingDb, _bitmapDisplayCeilingDb))
         {
             return;
         }
 
         _bitmapAccent = accent;
         _bitmapWarm = warm;
+        _bitmapDisplayFloorDb = floorDb;
+        _bitmapDisplayCeilingDb = ceilingDb;
         for (var index = 0; index < _pixels.Length; index++)
         {
             var value = _levels[index];
-            _pixels[index] = value > 0 ? LevelPixel(value) : 0;
+            _pixels[index] = LevelPixel(value);
         }
 
         _bitmap.WritePixels(

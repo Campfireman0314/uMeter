@@ -3,7 +3,7 @@ using System.Windows.Input;
 
 namespace DesktopLoudnessMeter.App.ViewModels;
 
-public sealed class DetailWindowViewModel : ObservableObject
+public sealed class DetailWindowViewModel : ObservableObject, IDisposable
 {
     private const double RollTrackMinHeight = 185;
     private const double RollGroupPadding = 20;
@@ -12,10 +12,14 @@ public sealed class DetailWindowViewModel : ObservableObject
     private const double RollSplitterFlexAllowance = 128;
     private const double DefaultCollisionAbsoluteThresholdDb = 6;
     private const double DefaultCollisionRelativeThreshold = 0.18;
+    private const double SpectrumDisplayMinimumDb = -96;
+    private const double SpectrumDisplayMaximumDb = 0;
+    private const double SpectrumDisplayMinimumSpanDb = 6;
     private static readonly FrequencyCollisionSourceOption AllCollisionSourcesOption = new("__global__", "Global", isAllSources: true);
     private readonly Func<IReadOnlyList<AudioSessionMeterViewModel>> _getActiveSessions;
     private readonly RelayCommand _switchSessionCommand;
     private readonly RelayCommand _selectFrequencyCollisionSourceCommand;
+    private readonly HashSet<AudioSessionMeterViewModel> _collisionSourceSubscriptions = [];
     private AudioSessionMeterViewModel _session;
     private IReadOnlyList<AudioSessionMeterViewModel> _switchTargets = Array.Empty<AudioSessionMeterViewModel>();
     private IReadOnlyList<FrequencyCollisionSourceOption> _frequencyCollisionSourceOptions = [AllCollisionSourcesOption];
@@ -23,10 +27,13 @@ public sealed class DetailWindowViewModel : ObservableObject
     private string _selectedFrequencyCollisionSourceKey = AllCollisionSourcesOption.SourceKey;
     private double _collisionAbsoluteThresholdDb = DefaultCollisionAbsoluteThresholdDb;
     private double _collisionRelativeThreshold = DefaultCollisionRelativeThreshold;
+    private double _spectrumDisplayFloorDb = SpectrumDisplayMinimumDb;
+    private double _spectrumDisplayCeilingDb = SpectrumDisplayMaximumDb;
     private bool _isAlwaysOnTop = true;
     private bool _isWaveformVisible;
     private bool _isSpectrumVisible;
     private bool _isCollisionVisible;
+    private bool _isDisposed;
 
     public DetailWindowViewModel(
         AudioSessionMeterViewModel session,
@@ -195,6 +202,40 @@ public sealed class DetailWindowViewModel : ObservableObject
 
     public string CollisionRelativeThresholdText => $"{CollisionRelativeThreshold:P0}";
 
+    public double SpectrumDisplayFloorDb
+    {
+        get => _spectrumDisplayFloorDb;
+        set
+        {
+            var next = Math.Clamp(
+                RoundDisplayDb(value),
+                SpectrumDisplayMinimumDb,
+                SpectrumDisplayCeilingDb - SpectrumDisplayMinimumSpanDb);
+            if (SetProperty(ref _spectrumDisplayFloorDb, next))
+            {
+                OnPropertyChanged(nameof(SpectrumDisplayRangeText));
+            }
+        }
+    }
+
+    public double SpectrumDisplayCeilingDb
+    {
+        get => _spectrumDisplayCeilingDb;
+        set
+        {
+            var next = Math.Clamp(
+                RoundDisplayDb(value),
+                SpectrumDisplayFloorDb + SpectrumDisplayMinimumSpanDb,
+                SpectrumDisplayMaximumDb);
+            if (SetProperty(ref _spectrumDisplayCeilingDb, next))
+            {
+                OnPropertyChanged(nameof(SpectrumDisplayRangeText));
+            }
+        }
+    }
+
+    public string SpectrumDisplayRangeText => $"{SpectrumDisplayFloorDb:0} to {SpectrumDisplayCeilingDb:0} dB";
+
     public string SelectedFrequencyCollisionSourceDisplayName => SelectedFrequencyCollisionSource.DisplayName;
 
     public IReadOnlyList<FrequencyCollisionBand> FrequencyCollisionBands
@@ -256,8 +297,21 @@ public sealed class DetailWindowViewModel : ObservableObject
             .ToArray();
         OnPropertyChanged(nameof(HasSwitchTargets));
         _switchSessionCommand.RaiseCanExecuteChanged();
+        RefreshCollisionSourceSubscriptions();
         RefreshFrequencyCollisionOptions();
         RefreshFrequencyCollisions();
+    }
+
+    public void Dispose()
+    {
+        if (_isDisposed)
+        {
+            return;
+        }
+
+        _isDisposed = true;
+        _session.PropertyChanged -= SessionOnPropertyChanged;
+        ClearCollisionSourceSubscriptions();
     }
 
     private void SessionOnPropertyChanged(object? sender, PropertyChangedEventArgs args)
@@ -268,12 +322,61 @@ public sealed class DetailWindowViewModel : ObservableObject
             NotifyRollLayoutChanged();
         }
 
+        if (args.PropertyName is nameof(AudioSessionMeterViewModel.SpectrumPlotTick))
+        {
+            RefreshFrequencyCollisions();
+        }
+
         if (args.PropertyName is nameof(AudioSessionMeterViewModel.SpectrumBuckets)
             or nameof(AudioSessionMeterViewModel.IsInstanceMissing))
         {
             RefreshFrequencyCollisionOptions();
             RefreshFrequencyCollisions();
         }
+    }
+
+    private void CollisionSourceOnPropertyChanged(object? sender, PropertyChangedEventArgs args)
+    {
+        if (args.PropertyName is nameof(AudioSessionMeterViewModel.SpectrumPlotTick))
+        {
+            RefreshFrequencyCollisions();
+        }
+
+        if (args.PropertyName is nameof(AudioSessionMeterViewModel.SpectrumBuckets)
+            or nameof(AudioSessionMeterViewModel.IsInstanceMissing))
+        {
+            RefreshFrequencyCollisionOptions();
+            RefreshFrequencyCollisions();
+        }
+    }
+
+    private void RefreshCollisionSourceSubscriptions()
+    {
+        var activeComparisons = _getActiveSessions()
+            .Where(session => !ReferenceEquals(session, Session) && !session.IsInstanceMissing)
+            .ToHashSet();
+
+        foreach (var session in _collisionSourceSubscriptions.Except(activeComparisons).ToArray())
+        {
+            session.PropertyChanged -= CollisionSourceOnPropertyChanged;
+            _collisionSourceSubscriptions.Remove(session);
+        }
+
+        foreach (var session in activeComparisons.Except(_collisionSourceSubscriptions))
+        {
+            session.PropertyChanged += CollisionSourceOnPropertyChanged;
+            _collisionSourceSubscriptions.Add(session);
+        }
+    }
+
+    private void ClearCollisionSourceSubscriptions()
+    {
+        foreach (var session in _collisionSourceSubscriptions)
+        {
+            session.PropertyChanged -= CollisionSourceOnPropertyChanged;
+        }
+
+        _collisionSourceSubscriptions.Clear();
     }
 
     private void SwitchSession(object? parameter)
@@ -413,5 +516,12 @@ public sealed class DetailWindowViewModel : ObservableObject
             + (channelsVisible
                 ? (RollTrackMinHeight * 2) + RollChannelLabelAllowance
                 : RollTrackMinHeight);
+    }
+
+    private static double RoundDisplayDb(double value)
+    {
+        return double.IsFinite(value)
+            ? Math.Round(value, 0, MidpointRounding.AwayFromZero)
+            : SpectrumDisplayMinimumDb;
     }
 }
