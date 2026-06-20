@@ -24,7 +24,8 @@ public sealed record AudioSessionSnapshot : SignalSourceSnapshot
         IReadOnlyList<double>? WaveformSamples = null,
         IReadOnlyList<IReadOnlyList<double>>? ChannelWaveformSamples = null,
         IReadOnlyList<double>? SpectrumBuckets = null,
-        IReadOnlyList<IReadOnlyList<double>>? ChannelSpectrumBuckets = null)
+        IReadOnlyList<IReadOnlyList<double>>? ChannelSpectrumBuckets = null,
+        long PlotFrameVersion = 0)
         : base(
             SessionKey,
             SignalSourceKind.WasapiSession,
@@ -46,7 +47,8 @@ public sealed record AudioSessionSnapshot : SignalSourceSnapshot
             WaveformSamples,
             ChannelWaveformSamples,
             SpectrumBuckets,
-            ChannelSpectrumBuckets)
+            ChannelSpectrumBuckets,
+            PlotFrameVersion)
     {
     }
 

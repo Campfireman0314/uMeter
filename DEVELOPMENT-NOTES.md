@@ -10,6 +10,16 @@ The desktop app, DAW sender plugins, diagnostic probes, and future mobile work s
 - Sender plugins should be pass-through effects. Monitoring must not alter host audio unless the user explicitly engages a diagnostic control such as temporary mute.
 - UI preferences such as theme and Eco mode are app concerns; sender plugins only expose routing and identity controls.
 
+## Desktop Rendering Performance Notes
+
+- Stereo image drawing stays relatively smooth on older CPUs because it renders a bounded point cloud and simple guide geometry.
+- Waveform, spectrum, and collision analyzer controls are more sensitive because their source data updates frequently and detail XAML contains multiple overall/channel graph instances. Hidden graph controls must avoid doing bitmap/geometry work from dependency-property callbacks.
+- `WaveformRollView` and `SpectrumRollView` now defer updates until loaded, visible, and measured. Their static scale/background drawing is cached; waveform geometry is cached between sample/viewport/layout changes.
+- Waveform drawing uses a capped smooth geometry so it remains continuous without rebuilding unbounded point paths.
+- Rolling graph controls use analyzer-frame plot ticks, separate from buffer identity, so cached FFT/waveform buffers can still advance the display when new audio frames were processed.
+- Spectrum drawing uses a circular bitmap history and writes only the newest column on update. Dropped visual frames should not change analyzer data, but too-small FFT windows can make leakage/smear look like false spectral content; Eco keeps slower refresh while using a mid-sized FFT window.
+- Future profiling should still examine analyzer snapshot cost: spectrum buckets are currently produced by the analyzer even when no spectrum panel is visible, because snapshots expose buckets as part of the shared detail metric contract.
+
 ## Shareable Surfaces
 
 - `docs/local-loopback-protocol.md` defines the transport contract.

@@ -210,7 +210,8 @@ public sealed class WasapiSessionMeterService :
                 WaveformSamples = metrics.WaveformSamples,
                 ChannelWaveformSamples = metrics.ChannelWaveformSamples,
                 SpectrumBuckets = metrics.SpectrumBuckets,
-                ChannelSpectrumBuckets = metrics.ChannelSpectrumBuckets
+                ChannelSpectrumBuckets = metrics.ChannelSpectrumBuckets,
+                PlotFrameVersion = metrics.PlotFrameVersion
             };
     }
 

@@ -336,6 +336,29 @@ public sealed class AudioSessionMeterViewModelTests
         Assert.DoesNotContain(nameof(AudioSessionMeterViewModel.SpectrumBuckets), changedProperties);
     }
 
+    [Fact]
+    public void UpdateRaisesPlotTicksForAdvancedAnalyzerFrames()
+    {
+        double[] waveform = [0.1, -0.2];
+        double[] spectrum = [0.25, 0.75];
+        var row = new AudioSessionMeterViewModel(Snapshot(
+            waveformSamples: waveform,
+            spectrumBuckets: spectrum,
+            plotFrameVersion: 256));
+        var changedProperties = new List<string?>();
+        row.PropertyChanged += (_, args) => changedProperties.Add(args.PropertyName);
+
+        row.Update(Snapshot(
+            waveformSamples: waveform,
+            spectrumBuckets: spectrum,
+            plotFrameVersion: 512));
+
+        Assert.Contains(nameof(AudioSessionMeterViewModel.WaveformPlotTick), changedProperties);
+        Assert.Contains(nameof(AudioSessionMeterViewModel.SpectrumPlotTick), changedProperties);
+        Assert.DoesNotContain(nameof(AudioSessionMeterViewModel.WaveformSamples), changedProperties);
+        Assert.DoesNotContain(nameof(AudioSessionMeterViewModel.SpectrumBuckets), changedProperties);
+    }
+
     private static AudioSessionSnapshot Snapshot(
         string peakDbText = "-12.0 dB",
         float peak = 0.25f,
@@ -352,7 +375,8 @@ public sealed class AudioSessionMeterViewModelTests
         IReadOnlyList<IReadOnlyList<double>>? channelWaveformSamples = null,
         IReadOnlyList<double>? spectrumBuckets = null,
         IReadOnlyList<IReadOnlyList<double>>? channelSpectrumBuckets = null,
-        double peakDb = -12)
+        double peakDb = -12,
+        long plotFrameVersion = 0)
     {
         return new AudioSessionSnapshot(
             "session-1",
@@ -374,6 +398,7 @@ public sealed class AudioSessionMeterViewModelTests
             WaveformSamples: waveformSamples,
             ChannelWaveformSamples: channelWaveformSamples,
             SpectrumBuckets: spectrumBuckets,
-            ChannelSpectrumBuckets: channelSpectrumBuckets);
+            ChannelSpectrumBuckets: channelSpectrumBuckets,
+            PlotFrameVersion: plotFrameVersion);
     }
 }

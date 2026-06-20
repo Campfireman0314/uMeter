@@ -470,7 +470,8 @@
                                     Background="{DynamicResource PanelBrush}"
                                     CornerRadius="6">
                                 <Grid>
-                                    <controls:WaveformRollView WaveformSamples="{Binding Session.WaveformSamples, Mode=OneWay}">
+                                    <controls:WaveformRollView WaveformSamples="{Binding Session.WaveformSamples, Mode=OneWay}"
+                                                               PlotTick="{Binding Session.WaveformPlotTick, Mode=OneWay}">
                                         <controls:WaveformRollView.Style>
                                             <Style TargetType="controls:WaveformRollView">
                                                 <Setter Property="Visibility" Value="Collapsed" />
@@ -500,9 +501,13 @@
                                             <RowDefinition Height="*" MinHeight="185" />
                                         </Grid.RowDefinitions>
                                         <TextBlock Foreground="{DynamicResource SubtleTextBrush}" FontSize="10" Text="L" />
-                                        <controls:WaveformRollView Grid.Row="1" WaveformSamples="{Binding Session.LeftWaveformSamples, Mode=OneWay}" />
+                                        <controls:WaveformRollView Grid.Row="1"
+                                                                   WaveformSamples="{Binding Session.LeftWaveformSamples, Mode=OneWay}"
+                                                                   PlotTick="{Binding Session.WaveformPlotTick, Mode=OneWay}" />
                                         <TextBlock Grid.Row="2" Margin="0,5,0,0" Foreground="{DynamicResource SubtleTextBrush}" FontSize="10" Text="R" />
-                                        <controls:WaveformRollView Grid.Row="3" WaveformSamples="{Binding Session.RightWaveformSamples, Mode=OneWay}" />
+                                        <controls:WaveformRollView Grid.Row="3"
+                                                                   WaveformSamples="{Binding Session.RightWaveformSamples, Mode=OneWay}"
+                                                                   PlotTick="{Binding Session.WaveformPlotTick, Mode=OneWay}" />
                                     </Grid>
                                 </Grid>
                             </Border>
@@ -528,7 +533,8 @@
                                     Background="{DynamicResource PanelBrush}"
                                     CornerRadius="6">
                                 <Grid>
-                                    <controls:SpectrumRollView SpectrumBuckets="{Binding Session.SpectrumBuckets, Mode=OneWay}">
+                                    <controls:SpectrumRollView SpectrumBuckets="{Binding Session.SpectrumBuckets, Mode=OneWay}"
+                                                               PlotTick="{Binding Session.SpectrumPlotTick, Mode=OneWay}">
                                         <controls:SpectrumRollView.Style>
                                             <Style TargetType="controls:SpectrumRollView">
                                                 <Setter Property="Visibility" Value="Collapsed" />
@@ -558,9 +564,13 @@
                                             <RowDefinition Height="*" MinHeight="185" />
                                         </Grid.RowDefinitions>
                                         <TextBlock Foreground="{DynamicResource SubtleTextBrush}" FontSize="10" Text="L" />
-                                        <controls:SpectrumRollView Grid.Row="1" SpectrumBuckets="{Binding Session.LeftSpectrumBuckets, Mode=OneWay}" />
+                                        <controls:SpectrumRollView Grid.Row="1"
+                                                                   SpectrumBuckets="{Binding Session.LeftSpectrumBuckets, Mode=OneWay}"
+                                                                   PlotTick="{Binding Session.SpectrumPlotTick, Mode=OneWay}" />
                                         <TextBlock Grid.Row="2" Margin="0,5,0,0" Foreground="{DynamicResource SubtleTextBrush}" FontSize="10" Text="R" />
-                                        <controls:SpectrumRollView Grid.Row="3" SpectrumBuckets="{Binding Session.RightSpectrumBuckets, Mode=OneWay}" />
+                                        <controls:SpectrumRollView Grid.Row="3"
+                                                                   SpectrumBuckets="{Binding Session.RightSpectrumBuckets, Mode=OneWay}"
+                                                                   PlotTick="{Binding Session.SpectrumPlotTick, Mode=OneWay}" />
                                     </Grid>
                                 </Grid>
                             </Border>
@@ -593,7 +603,8 @@
                                     Background="{DynamicResource PanelBrush}"
                                     CornerRadius="6">
                                 <Grid>
-                                    <controls:WaveformRollView WaveformSamples="{Binding Session.WaveformSamples, Mode=OneWay}">
+                                    <controls:WaveformRollView WaveformSamples="{Binding Session.WaveformSamples, Mode=OneWay}"
+                                                               PlotTick="{Binding Session.WaveformPlotTick, Mode=OneWay}">
                                         <controls:WaveformRollView.Style>
                                             <Style TargetType="controls:WaveformRollView">
                                                 <Setter Property="Visibility" Value="Collapsed" />
@@ -623,9 +634,13 @@
                                             <RowDefinition Height="*" MinHeight="185" />
                                         </Grid.RowDefinitions>
                                         <TextBlock Foreground="{DynamicResource SubtleTextBrush}" FontSize="10" Text="L" />
-                                        <controls:WaveformRollView Grid.Row="1" WaveformSamples="{Binding Session.LeftWaveformSamples, Mode=OneWay}" />
+                                        <controls:WaveformRollView Grid.Row="1"
+                                                                   WaveformSamples="{Binding Session.LeftWaveformSamples, Mode=OneWay}"
+                                                                   PlotTick="{Binding Session.WaveformPlotTick, Mode=OneWay}" />
                                         <TextBlock Grid.Row="2" Margin="0,5,0,0" Foreground="{DynamicResource SubtleTextBrush}" FontSize="10" Text="R" />
-                                        <controls:WaveformRollView Grid.Row="3" WaveformSamples="{Binding Session.RightWaveformSamples, Mode=OneWay}" />
+                                        <controls:WaveformRollView Grid.Row="3"
+                                                                   WaveformSamples="{Binding Session.RightWaveformSamples, Mode=OneWay}"
+                                                                   PlotTick="{Binding Session.WaveformPlotTick, Mode=OneWay}" />
                                     </Grid>
                                 </Grid>
                             </Border>
@@ -637,7 +652,8 @@
                                     Background="{DynamicResource PanelBrush}"
                                     CornerRadius="6">
                                 <Grid>
-                                    <controls:SpectrumRollView SpectrumBuckets="{Binding Session.SpectrumBuckets, Mode=OneWay}">
+                                    <controls:SpectrumRollView SpectrumBuckets="{Binding Session.SpectrumBuckets, Mode=OneWay}"
+                                                               PlotTick="{Binding Session.SpectrumPlotTick, Mode=OneWay}">
                                         <controls:SpectrumRollView.Style>
                                             <Style TargetType="controls:SpectrumRollView">
                                                 <Setter Property="Visibility" Value="Collapsed" />
@@ -667,9 +683,13 @@
                                             <RowDefinition Height="*" MinHeight="185" />
                                         </Grid.RowDefinitions>
                                         <TextBlock Foreground="{DynamicResource SubtleTextBrush}" FontSize="10" Text="L" />
-                                        <controls:SpectrumRollView Grid.Row="1" SpectrumBuckets="{Binding Session.LeftSpectrumBuckets, Mode=OneWay}" />
+                                        <controls:SpectrumRollView Grid.Row="1"
+                                                                   SpectrumBuckets="{Binding Session.LeftSpectrumBuckets, Mode=OneWay}"
+                                                                   PlotTick="{Binding Session.SpectrumPlotTick, Mode=OneWay}" />
                                         <TextBlock Grid.Row="2" Margin="0,5,0,0" Foreground="{DynamicResource SubtleTextBrush}" FontSize="10" Text="R" />
-                                        <controls:SpectrumRollView Grid.Row="3" SpectrumBuckets="{Binding Session.RightSpectrumBuckets, Mode=OneWay}" />
+                                        <controls:SpectrumRollView Grid.Row="3"
+                                                                   SpectrumBuckets="{Binding Session.RightSpectrumBuckets, Mode=OneWay}"
+                                                                   PlotTick="{Binding Session.SpectrumPlotTick, Mode=OneWay}" />
                                     </Grid>
                                 </Grid>
                             </Border>

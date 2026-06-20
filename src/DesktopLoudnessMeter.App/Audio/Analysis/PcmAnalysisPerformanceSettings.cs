@@ -13,5 +13,5 @@ public sealed record PcmAnalysisPerformanceSettings(
     public static PcmAnalysisPerformanceSettings Eco { get; } = new(
         PcmAnalysisPerformanceMode.Eco,
         SpectrumRefreshIntervalFrames: 4096,
-        SpectrumAnalysisSamples: 4096);
+        SpectrumAnalysisSamples: 8192);
 }

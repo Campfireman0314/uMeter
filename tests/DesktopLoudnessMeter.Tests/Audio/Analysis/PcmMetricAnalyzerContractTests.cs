@@ -79,7 +79,7 @@ public sealed class PcmMetricAnalyzerContractTests
     }
 
     [Fact]
-    public void EcoModeUsesSmallerSpectrumFftWindow()
+    public void EcoModeKeepsSpectrumResolutionBelowNormal()
     {
         var fft = new CountingSpectrumFft();
         var window = new RecentSampleWindow(2, 48000, 4, 4800, fft);
@@ -87,7 +87,7 @@ public sealed class PcmMetricAnalyzerContractTests
 
         ProcessFramesWithSpectrumReads(window, 4800);
 
-        Assert.Equal(4096, fft.LastFftSize);
+        Assert.Equal(8192, fft.LastFftSize);
     }
 
     private static float[] Sine(double seconds, double amplitude, double frequency = 1000)

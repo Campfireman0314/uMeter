@@ -143,7 +143,8 @@ public sealed class PcmMetricAnalyzer
             WaveformSamples: _recentSamples.WaveformSamples,
             ChannelWaveformSamples: _channelWaveformEnabled ? _recentSamples.ChannelWaveformSamples : null,
             SpectrumBuckets: _recentSamples.SpectrumBuckets,
-            ChannelSpectrumBuckets: _channelSpectrumEnabled ? _recentSamples.ChannelSpectrumBuckets : null);
+            ChannelSpectrumBuckets: _channelSpectrumEnabled ? _recentSamples.ChannelSpectrumBuckets : null,
+            PlotFrameVersion: _processedFrames);
     }
 
     private int MillisecondsToFrames(int milliseconds)

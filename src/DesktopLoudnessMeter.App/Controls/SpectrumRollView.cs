@@ -3,6 +3,7 @@ using System.Windows;
 using System.Windows.Input;
 using System.Windows.Media;
 using System.Windows.Media.Imaging;
+using System.Windows.Threading;
 using DesktopLoudnessMeter.App.Audio.Analysis;
 
 namespace DesktopLoudnessMeter.App.Controls;
@@ -17,9 +18,23 @@ public sealed class SpectrumRollView : FrameworkElement
     private static readonly double[] MinorFrequencies = [31.5d, 50d, 63d, 250d, 500d, 2000d, 8000d, 16000d];
     private WriteableBitmap? _bitmap;
     private int[] _pixels = [];
+    private int[] _columnPixels = [];
     private double[] _levels = [];
     private int _bitmapBucketCount;
     private int _filledColumns;
+    private int _nextColumnIndex;
+    private IReadOnlyList<double>? _pendingSpectrumBuckets;
+    private bool _hasPendingSpectrumUpdate;
+    private bool _isSpectrumUpdateQueued;
+    private DrawingGroup? _backgroundDrawing;
+    private double _backgroundWidth;
+    private double _backgroundHeight;
+    private double _backgroundPixelsPerDip;
+    private double _backgroundViewportMinimum;
+    private double _backgroundViewportSpan;
+    private Color _backgroundTrackColor;
+    private Color _backgroundOutlineColor;
+    private Color _backgroundSubtleColor;
     private Color _bitmapAccent;
     private Color _bitmapWarm;
     private bool _isPanning;
@@ -34,7 +49,13 @@ public sealed class SpectrumRollView : FrameworkElement
         Cursor = Cursors.SizeNS;
         RenderOptions.SetBitmapScalingMode(this, BitmapScalingMode.Linear);
         SnapsToDevicePixels = true;
-        Loaded += (_, _) => RecolorBitmapIfNeeded();
+        Loaded += (_, _) =>
+        {
+            RecolorBitmapIfNeeded();
+            ApplyPendingSpectrumUpdateIfReady();
+        };
+        IsVisibleChanged += (_, _) => ApplyPendingSpectrumUpdateIfReady();
+        SizeChanged += (_, _) => ApplyPendingSpectrumUpdateIfReady();
     }
 
     public static readonly DependencyProperty SpectrumBucketsProperty = DependencyProperty.Register(
@@ -47,6 +68,18 @@ public sealed class SpectrumRollView : FrameworkElement
     {
         get => (IReadOnlyList<double>?)GetValue(SpectrumBucketsProperty);
         set => SetValue(SpectrumBucketsProperty, value);
+    }
+
+    public static readonly DependencyProperty PlotTickProperty = DependencyProperty.Register(
+        nameof(PlotTick),
+        typeof(long),
+        typeof(SpectrumRollView),
+        new FrameworkPropertyMetadata(0L, PlotTickChanged));
+
+    public long PlotTick
+    {
+        get => (long)GetValue(PlotTickProperty);
+        set => SetValue(PlotTickProperty, value);
     }
 
     protected override Size MeasureOverride(Size availableSize)
@@ -67,14 +100,9 @@ public sealed class SpectrumRollView : FrameworkElement
 
         RecolorBitmapIfNeeded();
 
-        var surfaceBrush = ThemedDrawing.GetBrush(this, "MeterTrackBrush", Color.FromRgb(17, 20, 25));
-        var outlinePen = ThemedDrawing.GetPen(this, "ChromeBorderBrush", 1, Color.FromRgb(58, 66, 77));
-        drawingContext.DrawRoundedRectangle(surfaceBrush, outlinePen, new Rect(0, 0, width, height), 6, 6);
-
         var plot = GetPlotRect(width, height);
         NormalizeViewport(plot);
-        DrawFrequencyScale(drawingContext, plot);
-        DrawTimeScale(drawingContext, plot);
+        DrawBackground(drawingContext, width, height, plot);
         DrawSpectrumRoll(drawingContext, plot);
     }
 
@@ -110,6 +138,7 @@ public sealed class SpectrumRollView : FrameworkElement
         var plot = GetPlotRect();
         var melDelta = deltaY * _panStartMelSpan / plot.Height;
         SetViewport(_panStartCenterMel + melDelta, _viewportMelSpan, plot);
+        InvalidateBackground();
         InvalidateVisual();
         e.Handled = true;
     }
@@ -140,6 +169,7 @@ public sealed class SpectrumRollView : FrameworkElement
         var effectiveNewSpan = Math.Min(newSpan, GetLayoutLimitedSpan(plot));
         var newCenter = anchorMel + (effectiveNewSpan * (0.5 - anchorRatio));
         SetViewport(newCenter, newSpan, plot);
+        InvalidateBackground();
         InvalidateVisual();
         e.Handled = true;
     }
@@ -188,6 +218,61 @@ public sealed class SpectrumRollView : FrameworkElement
         }
     }
 
+    private void DrawBackground(DrawingContext drawingContext, double width, double height, Rect plot)
+    {
+        var viewport = GetEffectiveViewport(plot);
+        var pixelsPerDip = VisualTreeHelper.GetDpi(this).PixelsPerDip;
+        var trackColor = CurrentTrack();
+        var outlineColor = CurrentOutline();
+        var subtleColor = CurrentSubtle();
+
+        if (_backgroundDrawing is null
+            || !AreClose(_backgroundWidth, width)
+            || !AreClose(_backgroundHeight, height)
+            || !AreClose(_backgroundPixelsPerDip, pixelsPerDip)
+            || !AreClose(_backgroundViewportMinimum, viewport.Minimum)
+            || !AreClose(_backgroundViewportSpan, viewport.Span)
+            || _backgroundTrackColor != trackColor
+            || _backgroundOutlineColor != outlineColor
+            || _backgroundSubtleColor != subtleColor)
+        {
+            _backgroundDrawing = CreateBackgroundDrawing(width, height, plot);
+            _backgroundWidth = width;
+            _backgroundHeight = height;
+            _backgroundPixelsPerDip = pixelsPerDip;
+            _backgroundViewportMinimum = viewport.Minimum;
+            _backgroundViewportSpan = viewport.Span;
+            _backgroundTrackColor = trackColor;
+            _backgroundOutlineColor = outlineColor;
+            _backgroundSubtleColor = subtleColor;
+        }
+
+        drawingContext.DrawDrawing(_backgroundDrawing);
+    }
+
+    private DrawingGroup CreateBackgroundDrawing(double width, double height, Rect plot)
+    {
+        var group = new DrawingGroup();
+        using (var drawingContext = group.Open())
+        {
+            drawingContext.DrawRoundedRectangle(
+                ThemedDrawing.GetBrush(this, "MeterTrackBrush", Color.FromRgb(17, 20, 25)),
+                ThemedDrawing.GetPen(this, "ChromeBorderBrush", 1, Color.FromRgb(58, 66, 77)),
+                new Rect(0, 0, width, height),
+                6,
+                6);
+            DrawFrequencyScale(drawingContext, plot);
+            DrawTimeScale(drawingContext, plot);
+        }
+
+        if (group.CanFreeze)
+        {
+            group.Freeze();
+        }
+
+        return group;
+    }
+
     private void DrawSpectrumRoll(DrawingContext drawingContext, Rect plot)
     {
         if (_bitmap is null || _filledColumns == 0)
@@ -204,8 +289,49 @@ public sealed class SpectrumRollView : FrameworkElement
         var top = MelToY(plot, MaximumMel);
         var bottom = MelToY(plot, MinimumMel);
         drawingContext.PushClip(new RectangleGeometry(plot));
-        drawingContext.DrawImage(_bitmap, new Rect(plot.Left, top, plot.Width, bottom - top));
+        var destination = new Rect(plot.Left, top, plot.Width, bottom - top);
+        if (_filledColumns < MaximumHistoryColumns)
+        {
+            var width = destination.Width * _filledColumns / MaximumHistoryColumns;
+            DrawBitmapSegment(
+                drawingContext,
+                0,
+                _filledColumns,
+                new Rect(destination.Right - width, destination.Top, width, destination.Height));
+        }
+        else if (_nextColumnIndex == 0)
+        {
+            drawingContext.DrawImage(_bitmap, destination);
+        }
+        else
+        {
+            var firstWidth = MaximumHistoryColumns - _nextColumnIndex;
+            var firstDestinationWidth = destination.Width * firstWidth / MaximumHistoryColumns;
+            DrawBitmapSegment(
+                drawingContext,
+                _nextColumnIndex,
+                firstWidth,
+                new Rect(destination.Left, destination.Top, firstDestinationWidth, destination.Height));
+            DrawBitmapSegment(
+                drawingContext,
+                0,
+                _nextColumnIndex,
+                new Rect(destination.Left + firstDestinationWidth, destination.Top, destination.Width - firstDestinationWidth, destination.Height));
+        }
+
         drawingContext.Pop();
+    }
+
+    private void DrawBitmapSegment(DrawingContext drawingContext, int sourceX, int sourceWidth, Rect destination)
+    {
+        if (_bitmap is null || sourceWidth <= 0 || destination.Width <= 0 || destination.Height <= 0)
+        {
+            return;
+        }
+
+        drawingContext.DrawImage(
+            new CroppedBitmap(_bitmap, new Int32Rect(sourceX, 0, sourceWidth, _bitmapBucketCount)),
+            destination);
     }
 
     private int LevelPixel(double value)
@@ -317,26 +443,79 @@ public sealed class SpectrumRollView : FrameworkElement
             return;
         }
 
-        if (args.NewValue is not IReadOnlyList<double> buckets || buckets.Count == 0)
+        view.ScheduleSpectrumUpdate(args.NewValue as IReadOnlyList<double>);
+    }
+
+    private static void PlotTickChanged(DependencyObject dependencyObject, DependencyPropertyChangedEventArgs args)
+    {
+        if (dependencyObject is SpectrumRollView view)
         {
-            view.ClearSpectrum();
+            view.ScheduleSpectrumUpdate(view.SpectrumBuckets);
+        }
+    }
+
+    private void ScheduleSpectrumUpdate(IReadOnlyList<double>? buckets)
+    {
+        _pendingSpectrumBuckets = buckets is { Count: > 0 } ? buckets : null;
+        _hasPendingSpectrumUpdate = true;
+        QueuePendingSpectrumUpdate();
+    }
+
+    private void QueuePendingSpectrumUpdate()
+    {
+        if (_isSpectrumUpdateQueued)
+        {
             return;
         }
 
-        view.AppendSpectrumColumn(buckets);
+        _isSpectrumUpdateQueued = true;
+        Dispatcher.BeginInvoke(
+            (Action)(() =>
+            {
+                _isSpectrumUpdateQueued = false;
+                ApplyPendingSpectrumUpdateIfReady();
+            }),
+            DispatcherPriority.Render);
+    }
+
+    private void ApplyPendingSpectrumUpdateIfReady()
+    {
+        if (!_hasPendingSpectrumUpdate || !CanApplySpectrumUpdate())
+        {
+            return;
+        }
+
+        _hasPendingSpectrumUpdate = false;
+        if (_pendingSpectrumBuckets is not { Count: > 0 } buckets)
+        {
+            ClearSpectrum();
+            return;
+        }
+
+        AppendSpectrumColumn(buckets);
+    }
+
+    private bool CanApplySpectrumUpdate()
+    {
+        return IsLoaded
+            && IsVisible
+            && Visibility == Visibility.Visible
+            && ActualWidth > 0
+            && ActualHeight > 0;
     }
 
     private void AppendSpectrumColumn(IReadOnlyList<double> buckets)
     {
         EnsureBitmap(buckets.Count);
-        ShiftBitmapLeft();
-        WriteRightmostColumn(buckets);
-        _filledColumns = Math.Min(MaximumHistoryColumns, _filledColumns + 1);
+        var column = _nextColumnIndex;
+        WriteColumn(column, buckets);
         _bitmap?.WritePixels(
-            new Int32Rect(0, 0, MaximumHistoryColumns, _bitmapBucketCount),
-            _pixels,
-            MaximumHistoryColumns * sizeof(int),
+            new Int32Rect(column, 0, 1, _bitmapBucketCount),
+            _columnPixels,
+            sizeof(int),
             0);
+        _filledColumns = Math.Min(MaximumHistoryColumns, _filledColumns + 1);
+        _nextColumnIndex = (_nextColumnIndex + 1) % MaximumHistoryColumns;
         InvalidateVisual();
     }
 
@@ -349,7 +528,9 @@ public sealed class SpectrumRollView : FrameworkElement
 
         _bitmapBucketCount = bucketCount;
         _filledColumns = 0;
+        _nextColumnIndex = 0;
         _pixels = new int[MaximumHistoryColumns * bucketCount];
+        _columnPixels = new int[bucketCount];
         _levels = new double[MaximumHistoryColumns * bucketCount];
         _bitmap = new WriteableBitmap(
             MaximumHistoryColumns,
@@ -362,28 +543,13 @@ public sealed class SpectrumRollView : FrameworkElement
         _bitmapWarm = CurrentWarm();
     }
 
-    private void ShiftBitmapLeft()
+    private void WriteColumn(int x, IReadOnlyList<double> buckets)
     {
-        if (_bitmapBucketCount == 0 || _filledColumns == 0)
-        {
-            return;
-        }
-
-        for (var row = 0; row < _bitmapBucketCount; row++)
-        {
-            var rowOffset = row * MaximumHistoryColumns;
-            Array.Copy(_pixels, rowOffset + 1, _pixels, rowOffset, MaximumHistoryColumns - 1);
-            Array.Copy(_levels, rowOffset + 1, _levels, rowOffset, MaximumHistoryColumns - 1);
-        }
-    }
-
-    private void WriteRightmostColumn(IReadOnlyList<double> buckets)
-    {
-        var x = MaximumHistoryColumns - 1;
         for (var row = 0; row < _bitmapBucketCount; row++)
         {
             _pixels[(row * MaximumHistoryColumns) + x] = 0;
             _levels[(row * MaximumHistoryColumns) + x] = 0;
+            _columnPixels[row] = 0;
         }
 
         for (var bucket = 0; bucket < buckets.Count; bucket++)
@@ -396,8 +562,10 @@ public sealed class SpectrumRollView : FrameworkElement
 
             var row = _bitmapBucketCount - 1 - bucket;
             var index = (row * MaximumHistoryColumns) + x;
+            var pixel = LevelPixel(value);
             _levels[index] = value;
-            _pixels[index] = LevelPixel(value);
+            _pixels[index] = pixel;
+            _columnPixels[row] = pixel;
         }
     }
 
@@ -415,6 +583,7 @@ public sealed class SpectrumRollView : FrameworkElement
         }
 
         _filledColumns = 0;
+        _nextColumnIndex = 0;
         InvalidateVisual();
     }
 
@@ -436,6 +605,31 @@ public sealed class SpectrumRollView : FrameworkElement
     private Color CurrentWarm()
     {
         return ThemedDrawing.GetColor(this, "SpectrumWarmBrush", Color.FromRgb(255, 176, 0));
+    }
+
+    private Color CurrentTrack()
+    {
+        return ThemedDrawing.GetColor(this, "MeterTrackBrush", Color.FromRgb(17, 20, 25));
+    }
+
+    private Color CurrentOutline()
+    {
+        return ThemedDrawing.GetColor(this, "ChromeBorderBrush", Color.FromRgb(58, 66, 77));
+    }
+
+    private Color CurrentSubtle()
+    {
+        return ThemedDrawing.GetColor(this, "SubtleTextBrush", Color.FromRgb(174, 183, 194));
+    }
+
+    private void InvalidateBackground()
+    {
+        _backgroundDrawing = null;
+    }
+
+    private static bool AreClose(double first, double second)
+    {
+        return Math.Abs(first - second) < 0.5;
     }
 
     private void RecolorBitmapIfNeeded()

@@ -2,6 +2,7 @@ using System.Globalization;
 using System.Windows;
 using System.Windows.Input;
 using System.Windows.Media;
+using System.Windows.Threading;
 
 namespace DesktopLoudnessMeter.App.Controls;
 
@@ -11,6 +12,7 @@ public sealed class WaveformRollView : FrameworkElement
     private const double MaximumValue = 1;
     private const double MinimumViewportSpan = 0.08;
     private const double PreferredPlotHeight = 122;
+    private const int MaximumRenderedWaveformPoints = 720;
     private static readonly double[] DecibelMarks = [0, -6, -12, -18];
     private bool _isPanning;
     private Point _panStart;
@@ -18,23 +20,55 @@ public sealed class WaveformRollView : FrameworkElement
     private double _panStartSpan;
     private double _viewportCenter;
     private double _viewportSpan = DomainSpan;
+    private IReadOnlyList<double>? _pendingWaveformSamples;
+    private bool _hasPendingWaveformUpdate;
+    private bool _isWaveformUpdateQueued;
+    private IReadOnlyList<double>? _renderedWaveformSamples;
+    private StreamGeometry? _waveformGeometry;
+    private Rect _waveformGeometryPlot;
+    private double _waveformGeometryViewportMinimum;
+    private double _waveformGeometryViewportSpan;
+    private DrawingGroup? _backgroundDrawing;
+    private double _backgroundWidth;
+    private double _backgroundHeight;
+    private double _backgroundPixelsPerDip;
+    private double _backgroundViewportMinimum;
+    private double _backgroundViewportSpan;
+    private Color _backgroundTrackColor;
+    private Color _backgroundOutlineColor;
+    private Color _backgroundSubtleColor;
 
     public WaveformRollView()
     {
         Cursor = Cursors.SizeNS;
         SnapsToDevicePixels = true;
+        Loaded += (_, _) => ApplyPendingWaveformUpdateIfReady();
+        IsVisibleChanged += (_, _) => ApplyPendingWaveformUpdateIfReady();
+        SizeChanged += (_, _) => ApplyPendingWaveformUpdateIfReady();
     }
 
     public static readonly DependencyProperty WaveformSamplesProperty = DependencyProperty.Register(
         nameof(WaveformSamples),
         typeof(IReadOnlyList<double>),
         typeof(WaveformRollView),
-        new FrameworkPropertyMetadata(null, FrameworkPropertyMetadataOptions.AffectsRender));
+        new FrameworkPropertyMetadata(null, WaveformSamplesChanged));
 
     public IReadOnlyList<double>? WaveformSamples
     {
         get => (IReadOnlyList<double>?)GetValue(WaveformSamplesProperty);
         set => SetValue(WaveformSamplesProperty, value);
+    }
+
+    public static readonly DependencyProperty PlotTickProperty = DependencyProperty.Register(
+        nameof(PlotTick),
+        typeof(long),
+        typeof(WaveformRollView),
+        new FrameworkPropertyMetadata(0L, PlotTickChanged));
+
+    public long PlotTick
+    {
+        get => (long)GetValue(PlotTickProperty);
+        set => SetValue(PlotTickProperty, value);
     }
 
     protected override Size MeasureOverride(Size availableSize)
@@ -53,13 +87,9 @@ public sealed class WaveformRollView : FrameworkElement
             return;
         }
 
-        var surfaceBrush = ThemedDrawing.GetBrush(this, "MeterTrackBrush", Color.FromRgb(17, 20, 25));
-        var outlinePen = ThemedDrawing.GetPen(this, "ChromeBorderBrush", 1, Color.FromRgb(58, 66, 77));
-        drawingContext.DrawRoundedRectangle(surfaceBrush, outlinePen, new Rect(0, 0, width, height), 6, 6);
-
         var plot = GetPlotRect(width, height);
         NormalizeViewport(plot);
-        DrawScale(drawingContext, plot);
+        DrawBackground(drawingContext, width, height, plot);
         drawingContext.PushClip(new RectangleGeometry(plot));
         DrawWaveform(drawingContext, plot);
         drawingContext.Pop();
@@ -97,6 +127,8 @@ public sealed class WaveformRollView : FrameworkElement
         var plot = GetPlotRect();
         var valueDelta = deltaY * _panStartSpan / plot.Height;
         SetViewport(_panStartCenter + valueDelta, _viewportSpan, plot);
+        InvalidateBackground();
+        InvalidateWaveformGeometry();
         InvalidateVisual();
         e.Handled = true;
     }
@@ -127,6 +159,8 @@ public sealed class WaveformRollView : FrameworkElement
         var effectiveNewSpan = Math.Min(newSpan, GetLayoutLimitedSpan(plot));
         var newCenter = anchorValue + (effectiveNewSpan * (0.5 - anchorRatio));
         SetViewport(newCenter, newSpan, plot);
+        InvalidateBackground();
+        InvalidateWaveformGeometry();
         InvalidateVisual();
         e.Handled = true;
     }
@@ -157,6 +191,60 @@ public sealed class WaveformRollView : FrameworkElement
         }
     }
 
+    private void DrawBackground(DrawingContext drawingContext, double width, double height, Rect plot)
+    {
+        var viewport = GetEffectiveViewport(plot);
+        var pixelsPerDip = VisualTreeHelper.GetDpi(this).PixelsPerDip;
+        var trackColor = CurrentTrack();
+        var outlineColor = CurrentOutline();
+        var subtleColor = CurrentSubtle();
+
+        if (_backgroundDrawing is null
+            || !AreClose(_backgroundWidth, width)
+            || !AreClose(_backgroundHeight, height)
+            || !AreClose(_backgroundPixelsPerDip, pixelsPerDip)
+            || !AreClose(_backgroundViewportMinimum, viewport.Minimum)
+            || !AreClose(_backgroundViewportSpan, viewport.Span)
+            || _backgroundTrackColor != trackColor
+            || _backgroundOutlineColor != outlineColor
+            || _backgroundSubtleColor != subtleColor)
+        {
+            _backgroundDrawing = CreateBackgroundDrawing(width, height, plot);
+            _backgroundWidth = width;
+            _backgroundHeight = height;
+            _backgroundPixelsPerDip = pixelsPerDip;
+            _backgroundViewportMinimum = viewport.Minimum;
+            _backgroundViewportSpan = viewport.Span;
+            _backgroundTrackColor = trackColor;
+            _backgroundOutlineColor = outlineColor;
+            _backgroundSubtleColor = subtleColor;
+        }
+
+        drawingContext.DrawDrawing(_backgroundDrawing);
+    }
+
+    private DrawingGroup CreateBackgroundDrawing(double width, double height, Rect plot)
+    {
+        var group = new DrawingGroup();
+        using (var drawingContext = group.Open())
+        {
+            drawingContext.DrawRoundedRectangle(
+                ThemedDrawing.GetBrush(this, "MeterTrackBrush", Color.FromRgb(17, 20, 25)),
+                ThemedDrawing.GetPen(this, "ChromeBorderBrush", 1, Color.FromRgb(58, 66, 77)),
+                new Rect(0, 0, width, height),
+                6,
+                6);
+            DrawScale(drawingContext, plot);
+        }
+
+        if (group.CanFreeze)
+        {
+            group.Freeze();
+        }
+
+        return group;
+    }
+
     private void DrawScaleTick(DrawingContext drawingContext, Rect plot, double amplitude, string label)
     {
         var y = ValueToY(plot, amplitude);
@@ -176,7 +264,7 @@ public sealed class WaveformRollView : FrameworkElement
 
     private void DrawWaveform(DrawingContext drawingContext, Rect plot)
     {
-        if (WaveformSamples is not { Count: > 1 } samples)
+        if (_renderedWaveformSamples is not { Count: > 1 } samples)
         {
             drawingContext.DrawRoundedRectangle(
                 ThemedDrawing.GetBrush(this, "SubtleTextBrush", 28, Color.FromRgb(174, 183, 194)),
@@ -187,23 +275,35 @@ public sealed class WaveformRollView : FrameworkElement
             return;
         }
 
-        var points = new Point[samples.Count];
-        for (var index = 0; index < samples.Count; index++)
-        {
-            var x = plot.Left + (plot.Width * index / (samples.Count - 1));
-            var y = ValueToY(plot, Math.Clamp(samples[index], -1, 1));
-            points[index] = new Point(x, y);
-        }
-
-        var geometry = CreateSmoothGeometry(points, plot);
+        var geometry = GetWaveformGeometry(samples, plot);
         drawingContext.DrawGeometry(
             null,
             ThemedDrawing.GetPen(this, "SignalBrush", 1.45, Color.FromRgb(46, 196, 182)),
             geometry);
     }
 
-    private static StreamGeometry CreateSmoothGeometry(IReadOnlyList<Point> points, Rect plot)
+    private StreamGeometry GetWaveformGeometry(IReadOnlyList<double> samples, Rect plot)
     {
+        var viewport = GetEffectiveViewport(plot);
+        if (_waveformGeometry is not null
+            && ReferenceEquals(_renderedWaveformSamples, samples)
+            && RectsClose(_waveformGeometryPlot, plot)
+            && AreClose(_waveformGeometryViewportMinimum, viewport.Minimum)
+            && AreClose(_waveformGeometryViewportSpan, viewport.Span))
+        {
+            return _waveformGeometry;
+        }
+
+        _waveformGeometry = CreateSmoothGeometry(samples, plot);
+        _waveformGeometryPlot = plot;
+        _waveformGeometryViewportMinimum = viewport.Minimum;
+        _waveformGeometryViewportSpan = viewport.Span;
+        return _waveformGeometry;
+    }
+
+    private StreamGeometry CreateSmoothGeometry(IReadOnlyList<double> samples, Rect plot)
+    {
+        var points = CreateDisplayPoints(samples, plot);
         var geometry = new StreamGeometry();
         using (var context = geometry.Open())
         {
@@ -215,6 +315,7 @@ public sealed class WaveformRollView : FrameworkElement
                     context.LineTo(points[index], true, false);
                 }
 
+                geometry.Freeze();
                 return geometry;
             }
 
@@ -236,6 +337,36 @@ public sealed class WaveformRollView : FrameworkElement
 
         geometry.Freeze();
         return geometry;
+    }
+
+    private IReadOnlyList<Point> CreateDisplayPoints(IReadOnlyList<double> samples, Rect plot)
+    {
+        if (samples.Count <= MaximumRenderedWaveformPoints)
+        {
+            var points = new Point[samples.Count];
+            for (var index = 0; index < samples.Count; index++)
+            {
+                points[index] = SampleToPoint(samples, index, samples.Count, plot);
+            }
+
+            return points;
+        }
+
+        var stride = (double)(samples.Count - 1) / (MaximumRenderedWaveformPoints - 1);
+        var decimated = new Point[MaximumRenderedWaveformPoints];
+        for (var index = 0; index < decimated.Length; index++)
+        {
+            decimated[index] = SampleToPoint(samples, (int)Math.Round(index * stride), samples.Count, plot);
+        }
+
+        return decimated;
+    }
+
+    private Point SampleToPoint(IReadOnlyList<double> samples, int index, int sampleCount, Rect plot)
+    {
+        var x = plot.Left + (plot.Width * index / (sampleCount - 1));
+        var y = ValueToY(plot, Math.Clamp(samples[index], -1, 1));
+        return new Point(x, y);
     }
 
     private double ValueToY(Rect plot, double value)
@@ -316,5 +447,105 @@ public sealed class WaveformRollView : FrameworkElement
             VisualTreeHelper.GetDpi(this).PixelsPerDip);
 
         drawingContext.DrawText(formatted, origin);
+    }
+
+    private static void WaveformSamplesChanged(DependencyObject dependencyObject, DependencyPropertyChangedEventArgs args)
+    {
+        if (dependencyObject is WaveformRollView view)
+        {
+            view.ScheduleWaveformUpdate(args.NewValue as IReadOnlyList<double>);
+        }
+    }
+
+    private static void PlotTickChanged(DependencyObject dependencyObject, DependencyPropertyChangedEventArgs args)
+    {
+        if (dependencyObject is WaveformRollView view)
+        {
+            view.ScheduleWaveformUpdate(view.WaveformSamples);
+        }
+    }
+
+    private void ScheduleWaveformUpdate(IReadOnlyList<double>? samples)
+    {
+        _pendingWaveformSamples = samples is { Count: > 0 } ? samples : null;
+        _hasPendingWaveformUpdate = true;
+        QueuePendingWaveformUpdate();
+    }
+
+    private void QueuePendingWaveformUpdate()
+    {
+        if (_isWaveformUpdateQueued)
+        {
+            return;
+        }
+
+        _isWaveformUpdateQueued = true;
+        Dispatcher.BeginInvoke(
+            (Action)(() =>
+            {
+                _isWaveformUpdateQueued = false;
+                ApplyPendingWaveformUpdateIfReady();
+            }),
+            DispatcherPriority.Render);
+    }
+
+    private void ApplyPendingWaveformUpdateIfReady()
+    {
+        if (!_hasPendingWaveformUpdate || !CanApplyWaveformUpdate())
+        {
+            return;
+        }
+
+        _hasPendingWaveformUpdate = false;
+        _renderedWaveformSamples = _pendingWaveformSamples;
+        InvalidateWaveformGeometry();
+        InvalidateVisual();
+    }
+
+    private bool CanApplyWaveformUpdate()
+    {
+        return IsLoaded
+            && IsVisible
+            && Visibility == Visibility.Visible
+            && ActualWidth > 0
+            && ActualHeight > 0;
+    }
+
+    private Color CurrentTrack()
+    {
+        return ThemedDrawing.GetColor(this, "MeterTrackBrush", Color.FromRgb(17, 20, 25));
+    }
+
+    private Color CurrentOutline()
+    {
+        return ThemedDrawing.GetColor(this, "ChromeBorderBrush", Color.FromRgb(58, 66, 77));
+    }
+
+    private Color CurrentSubtle()
+    {
+        return ThemedDrawing.GetColor(this, "SubtleTextBrush", Color.FromRgb(174, 183, 194));
+    }
+
+    private void InvalidateBackground()
+    {
+        _backgroundDrawing = null;
+    }
+
+    private void InvalidateWaveformGeometry()
+    {
+        _waveformGeometry = null;
+    }
+
+    private static bool AreClose(double first, double second)
+    {
+        return Math.Abs(first - second) < 0.5;
+    }
+
+    private static bool RectsClose(Rect first, Rect second)
+    {
+        return AreClose(first.Left, second.Left)
+            && AreClose(first.Top, second.Top)
+            && AreClose(first.Width, second.Width)
+            && AreClose(first.Height, second.Height);
     }
 }

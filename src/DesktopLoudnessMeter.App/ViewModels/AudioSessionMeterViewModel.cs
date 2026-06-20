@@ -37,6 +37,10 @@ public sealed class AudioSessionMeterViewModel : ObservableObject
     private IReadOnlyList<double> _spectrumBuckets = EmptyDoubleSamples;
     private IReadOnlyList<double> _leftSpectrumBuckets = EmptyDoubleSamples;
     private IReadOnlyList<double> _rightSpectrumBuckets = EmptyDoubleSamples;
+    private long _waveformPlotTick;
+    private long _spectrumPlotTick;
+    private long _lastWaveformPlotFrameVersion;
+    private long _lastSpectrumPlotFrameVersion;
     private int _resetCount;
     private TruePeakOversampling _truePeakOversampling = TruePeakOversampling.FourX;
     private WaveformDisplayMode _waveformDisplayMode = WaveformDisplayMode.Overall;
@@ -292,11 +296,15 @@ public sealed class AudioSessionMeterViewModel : ObservableObject
 
     public IReadOnlyList<double> WaveformSamples => _waveformSamples;
 
+    public long WaveformPlotTick => _waveformPlotTick;
+
     public IReadOnlyList<double> LeftWaveformSamples => _leftWaveformSamples;
 
     public IReadOnlyList<double> RightWaveformSamples => _rightWaveformSamples;
 
     public IReadOnlyList<double> SpectrumBuckets => _spectrumBuckets;
+
+    public long SpectrumPlotTick => _spectrumPlotTick;
 
     public IReadOnlyList<double> LeftSpectrumBuckets => _leftSpectrumBuckets;
 
@@ -477,6 +485,13 @@ public sealed class AudioSessionMeterViewModel : ObservableObject
             OnPropertyChanged(nameof(CorrelationValue));
         }
 
+        if (_waveformSamples.Count > 0 && snapshot.PlotFrameVersion > _lastWaveformPlotFrameVersion)
+        {
+            _lastWaveformPlotFrameVersion = snapshot.PlotFrameVersion;
+            _waveformPlotTick++;
+            OnPropertyChanged(nameof(WaveformPlotTick));
+        }
+
         if (waveformChanged)
         {
             OnPropertyChanged(nameof(WaveformSamples));
@@ -490,6 +505,13 @@ public sealed class AudioSessionMeterViewModel : ObservableObject
         if (rightWaveformChanged)
         {
             OnPropertyChanged(nameof(RightWaveformSamples));
+        }
+
+        if (_spectrumBuckets.Count > 0 && snapshot.PlotFrameVersion > _lastSpectrumPlotFrameVersion)
+        {
+            _lastSpectrumPlotFrameVersion = snapshot.PlotFrameVersion;
+            _spectrumPlotTick++;
+            OnPropertyChanged(nameof(SpectrumPlotTick));
         }
 
         if (spectrumChanged)
