@@ -52,6 +52,21 @@ public partial class MainWindow : Window
         InlineRollSettingsPopup.IsOpen = !InlineRollSettingsPopup.IsOpen;
     }
 
+    private void CollisionSettingsButton_OnClick(object sender, RoutedEventArgs e)
+    {
+        CollisionSettingsPopup.IsOpen = !CollisionSettingsPopup.IsOpen;
+    }
+
+    private void CollisionSourceButton_OnClick(object sender, RoutedEventArgs e)
+    {
+        if (DataContext is MainViewModel viewModel)
+        {
+            viewModel.RefreshNow();
+        }
+
+        OpenButtonContextMenu(sender);
+    }
+
     private void SwitchDetailButton_OnClick(object sender, RoutedEventArgs e)
     {
         if (DataContext is MainViewModel viewModel)

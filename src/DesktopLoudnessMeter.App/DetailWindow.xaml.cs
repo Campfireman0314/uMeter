@@ -42,6 +42,21 @@ public partial class DetailWindow : Window
         DetailRollSettingsPopup.IsOpen = !DetailRollSettingsPopup.IsOpen;
     }
 
+    private void DetailCollisionSettingsButton_OnClick(object sender, RoutedEventArgs e)
+    {
+        DetailCollisionSettingsPopup.IsOpen = !DetailCollisionSettingsPopup.IsOpen;
+    }
+
+    private void DetailCollisionSourceButton_OnClick(object sender, RoutedEventArgs e)
+    {
+        if (DataContext is DetailWindowViewModel viewModel)
+        {
+            viewModel.RefreshSwitchTargets();
+        }
+
+        OpenButtonContextMenu(sender);
+    }
+
     private void SwitchSessionButton_OnClick(object sender, RoutedEventArgs e)
     {
         if (DataContext is DetailWindowViewModel viewModel)

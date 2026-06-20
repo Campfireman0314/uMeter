@@ -241,6 +241,152 @@
                             </Grid>
                         </Border>
 
+                        <Border Margin="0,10,0,0"
+                                Padding="12"
+                                Background="{DynamicResource PanelBrush}"
+                                CornerRadius="6">
+                            <Grid>
+                                <Grid.RowDefinitions>
+                                    <RowDefinition Height="Auto" />
+                                    <RowDefinition Height="8" />
+                                    <RowDefinition Height="Auto" />
+                                </Grid.RowDefinitions>
+
+                                <Grid>
+                                    <Grid.ColumnDefinitions>
+                                        <ColumnDefinition Width="Auto" />
+                                        <ColumnDefinition Width="12" />
+                                        <ColumnDefinition Width="*" />
+                                        <ColumnDefinition Width="8" />
+                                        <ColumnDefinition Width="Auto" />
+                                        <ColumnDefinition Width="8" />
+                                        <ColumnDefinition Width="Auto" />
+                                    </Grid.ColumnDefinitions>
+
+                                    <CheckBox Content="Frequency collision"
+                                              IsChecked="{Binding IsCollisionVisible, Mode=TwoWay}" />
+                                    <Button Grid.Column="2"
+                                            Height="26"
+                                            HorizontalContentAlignment="Stretch"
+                                            IsEnabled="{Binding HasFrequencyCollisionSources}"
+                                            Click="DetailCollisionSourceButton_OnClick">
+                                        <Grid>
+                                            <Grid.ColumnDefinitions>
+                                                <ColumnDefinition Width="*" />
+                                                <ColumnDefinition Width="Auto" />
+                                            </Grid.ColumnDefinitions>
+                                            <TextBlock VerticalAlignment="Center"
+                                                       Text="{Binding SelectedFrequencyCollisionSourceDisplayName}"
+                                                       TextTrimming="CharacterEllipsis" />
+                                            <TextBlock Grid.Column="1"
+                                                       Margin="8,0,0,0"
+                                                       VerticalAlignment="Center"
+                                                       FontSize="10"
+                                                       Text="v" />
+                                        </Grid>
+                                        <Button.ContextMenu>
+                                            <ContextMenu ItemsSource="{Binding PlacementTarget.DataContext.FrequencyCollisionSourceOptions, RelativeSource={RelativeSource Self}}">
+                                                <ContextMenu.ItemContainerStyle>
+                                                    <Style TargetType="{x:Type MenuItem}"
+                                                           BasedOn="{StaticResource {x:Type MenuItem}}">
+                                                        <Setter Property="Header" Value="{Binding DisplayName}" />
+                                                        <Setter Property="MinWidth" Value="172" />
+                                                        <Setter Property="Command"
+                                                                Value="{Binding PlacementTarget.DataContext.SelectFrequencyCollisionSourceCommand, RelativeSource={RelativeSource AncestorType={x:Type ContextMenu}}}" />
+                                                        <Setter Property="CommandParameter" Value="{Binding}" />
+                                                    </Style>
+                                                </ContextMenu.ItemContainerStyle>
+                                            </ContextMenu>
+                                        </Button.ContextMenu>
+                                    </Button>
+                                    <TextBlock Grid.Column="4"
+                                               VerticalAlignment="Center"
+                                               Foreground="{DynamicResource SubtleTextBrush}"
+                                               FontSize="10"
+                                               Text="20 Hz - 22 kHz" />
+                                    <Button x:Name="DetailCollisionSettingsButton"
+                                            Grid.Column="6"
+                                            Style="{StaticResource ChromeIconButton}"
+                                            FontFamily="Segoe MDL2 Assets"
+                                            FontSize="14"
+                                            Content="&#xE713;"
+                                            ToolTip="Collision settings"
+                                            Click="DetailCollisionSettingsButton_OnClick" />
+                                </Grid>
+
+                                <controls:FrequencyCollisionBar Grid.Row="2"
+                                                                CollisionBands="{Binding FrequencyCollisionBands, Mode=OneWay}">
+                                    <controls:FrequencyCollisionBar.Style>
+                                        <Style TargetType="controls:FrequencyCollisionBar">
+                                            <Setter Property="Visibility" Value="Collapsed" />
+                                            <Style.Triggers>
+                                                <DataTrigger Binding="{Binding IsCollisionVisible}" Value="True">
+                                                    <Setter Property="Visibility" Value="Visible" />
+                                                </DataTrigger>
+                                            </Style.Triggers>
+                                        </Style>
+                                    </controls:FrequencyCollisionBar.Style>
+                                </controls:FrequencyCollisionBar>
+
+                                <Popup x:Name="DetailCollisionSettingsPopup"
+                                       AllowsTransparency="True"
+                                       DataContext="{Binding PlacementTarget.DataContext, RelativeSource={RelativeSource Self}}"
+                                       Placement="Bottom"
+                                       PlacementTarget="{Binding ElementName=DetailCollisionSettingsButton}"
+                                       PopupAnimation="Fade"
+                                       StaysOpen="False">
+                                    <Border MinWidth="230"
+                                            Padding="10"
+                                            Background="{DynamicResource PanelBrush}"
+                                            BorderBrush="{DynamicResource ControlBorderBrush}"
+                                            BorderThickness="1"
+                                            CornerRadius="6">
+                                        <StackPanel>
+                                            <Grid>
+                                                <Grid.ColumnDefinitions>
+                                                    <ColumnDefinition Width="*" />
+                                                    <ColumnDefinition Width="Auto" />
+                                                </Grid.ColumnDefinitions>
+                                                <TextBlock Foreground="{DynamicResource SubtleTextBrush}"
+                                                           FontSize="11"
+                                                           Text="Absolute" />
+                                                <TextBlock Grid.Column="1"
+                                                           Foreground="{DynamicResource TextBrush}"
+                                                           FontSize="11"
+                                                           Text="{Binding CollisionAbsoluteThresholdText}" />
+                                            </Grid>
+                                            <Slider Minimum="0.5"
+                                                    Maximum="36"
+                                                    TickFrequency="0.5"
+                                                    ToolTipService.InitialShowDelay="1000"
+                                                    ToolTip="Maximum dB distance between the focused source and comparison source for a frequency to be treated as a collision."
+                                                    Value="{Binding CollisionAbsoluteThresholdDb, Mode=TwoWay, UpdateSourceTrigger=PropertyChanged}" />
+
+                                            <Grid Margin="0,10,0,0">
+                                                <Grid.ColumnDefinitions>
+                                                    <ColumnDefinition Width="*" />
+                                                    <ColumnDefinition Width="Auto" />
+                                                </Grid.ColumnDefinitions>
+                                                <TextBlock Foreground="{DynamicResource SubtleTextBrush}"
+                                                           FontSize="11"
+                                                           Text="Relative" />
+                                                <TextBlock Grid.Column="1"
+                                                           Foreground="{DynamicResource TextBrush}"
+                                                           FontSize="11"
+                                                           Text="{Binding CollisionRelativeThresholdText}" />
+                                            </Grid>
+                                            <Slider Minimum="0.02"
+                                                    Maximum="0.8"
+                                                    TickFrequency="0.02"
+                                                    ToolTipService.InitialShowDelay="1000"
+                                                    ToolTip="Maximum normalized display-level difference as a percentage of the stronger source in each frequency bin."
+                                                    Value="{Binding CollisionRelativeThreshold, Mode=TwoWay, UpdateSourceTrigger=PropertyChanged}" />
+                                        </StackPanel>
+                                    </Border>
+                                </Popup>
+                            </Grid>
+                        </Border>
+
                         <WrapPanel Margin="0,10,0,6"
                                    VerticalAlignment="Center">
                             <CheckBox Content="Waveform"

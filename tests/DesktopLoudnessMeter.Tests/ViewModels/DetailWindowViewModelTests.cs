@@ -20,6 +20,7 @@ public sealed class DetailWindowViewModelTests
         Assert.True(second.IsAlwaysOnTop);
         Assert.False(first.IsWaveformVisible);
         Assert.False(first.IsSpectrumVisible);
+        Assert.False(first.IsCollisionVisible);
         Assert.False(first.StereoSettings.IsAutoScale);
         Assert.True(second.StereoSettings.IsAutoScale);
         Assert.Equal(24, first.StereoSettings.ScaleRangeDb);
@@ -104,6 +105,27 @@ public sealed class DetailWindowViewModelTests
     }
 
     [Fact]
+    public void FrequencyCollisionIsAvailableInPopupDetail()
+    {
+        var first = new AudioSessionMeterViewModel(Snapshot("plugin:first", "First", spectrumBuckets: [0.0, 0.40, 0.72]));
+        var second = new AudioSessionMeterViewModel(Snapshot("plugin:second", "Second", spectrumBuckets: [0.0, 0.43, 0.18]));
+        var active = new List<AudioSessionMeterViewModel> { first, second };
+        var viewModel = new DetailWindowViewModel(first, () => active);
+
+        viewModel.IsCollisionVisible = true;
+
+        Assert.True(viewModel.HasFrequencyCollisionSources);
+        Assert.Equal("Global", viewModel.SelectedFrequencyCollisionSource.DisplayName);
+        Assert.Contains(viewModel.FrequencyCollisionSourceOptions, option => option.SourceKey == "plugin:second");
+        Assert.Contains(viewModel.FrequencyCollisionBands, band => band.StartRatio < band.EndRatio && band.Intensity > 0);
+
+        viewModel.SelectedFrequencyCollisionSourceKey = "plugin:second";
+
+        Assert.Equal("Second", viewModel.SelectedFrequencyCollisionSource.DisplayName);
+        Assert.NotEmpty(viewModel.FrequencyCollisionBands);
+    }
+
+    [Fact]
     public void RollPanelMinimumsReserveOneHundredEightyFivePixelsPerTrack()
     {
         var session = new AudioSessionMeterViewModel(Snapshot());
@@ -170,7 +192,11 @@ public sealed class DetailWindowViewModelTests
         return Snapshot("pid:42", "Test App", momentaryLufs);
     }
 
-    private static AudioSessionSnapshot Snapshot(string key, string name, double? momentaryLufs = null)
+    private static AudioSessionSnapshot Snapshot(
+        string key,
+        string name,
+        double? momentaryLufs = null,
+        IReadOnlyList<double>? spectrumBuckets = null)
     {
         return new AudioSessionSnapshot(
             key,
@@ -180,6 +206,7 @@ public sealed class DetailWindowViewModelTests
             -6,
             "-6.0 dB",
             "Active",
-            MomentaryLufs: momentaryLufs);
+            MomentaryLufs: momentaryLufs,
+            SpectrumBuckets: spectrumBuckets);
     }
 }

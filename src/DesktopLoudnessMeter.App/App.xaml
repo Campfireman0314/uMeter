@@ -367,6 +367,94 @@
             </Setter>
         </Style>
 
+        <Style TargetType="{x:Type Slider}">
+            <Setter Property="Height" Value="24" />
+            <Setter Property="Foreground" Value="{DynamicResource AccentBrush}" />
+            <Setter Property="Background" Value="{DynamicResource MeterTrackBrush}" />
+            <Setter Property="BorderBrush" Value="{DynamicResource ControlBorderBrush}" />
+            <Setter Property="Cursor" Value="Hand" />
+            <Setter Property="IsSnapToTickEnabled" Value="False" />
+            <Setter Property="Template">
+                <Setter.Value>
+                    <ControlTemplate TargetType="{x:Type Slider}">
+                        <Grid SnapsToDevicePixels="True">
+                            <Grid x:Name="HorizontalTemplate"
+                                  Height="{TemplateBinding Height}"
+                                  VerticalAlignment="Center">
+                                <Track x:Name="PART_Track">
+                                    <Track.DecreaseRepeatButton>
+                                        <RepeatButton Command="{x:Static Slider.DecreaseLarge}"
+                                                      Style="{StaticResource InvisibleRepeatButtonStyle}">
+                                            <RepeatButton.Template>
+                                                <ControlTemplate TargetType="{x:Type RepeatButton}">
+                                                    <Border Height="6"
+                                                            VerticalAlignment="Center"
+                                                            Background="{DynamicResource AccentBrush}"
+                                                            CornerRadius="3" />
+                                                </ControlTemplate>
+                                            </RepeatButton.Template>
+                                        </RepeatButton>
+                                    </Track.DecreaseRepeatButton>
+                                    <Track.Thumb>
+                                        <Thumb Width="14"
+                                               Height="14">
+                                            <Thumb.Template>
+                                                <ControlTemplate TargetType="{x:Type Thumb}">
+                                                    <Grid>
+                                                        <Ellipse x:Name="ThumbHalo"
+                                                                 Width="22"
+                                                                 Height="22"
+                                                                 Fill="{DynamicResource AccentBrush}"
+                                                                 Opacity="0.14" />
+                                                        <Ellipse x:Name="ThumbChrome"
+                                                                 Width="{TemplateBinding Width}"
+                                                                 Height="{TemplateBinding Height}"
+                                                                 Fill="{DynamicResource TextBrush}"
+                                                                 Stroke="{DynamicResource AccentBrush}"
+                                                                 StrokeThickness="2" />
+                                                    </Grid>
+                                                    <ControlTemplate.Triggers>
+                                                        <Trigger Property="IsMouseOver" Value="True">
+                                                            <Setter TargetName="ThumbHalo" Property="Opacity" Value="0.24" />
+                                                            <Setter TargetName="ThumbChrome" Property="Fill" Value="{DynamicResource AccentBrush}" />
+                                                        </Trigger>
+                                                        <Trigger Property="IsDragging" Value="True">
+                                                            <Setter TargetName="ThumbHalo" Property="Opacity" Value="0.34" />
+                                                            <Setter TargetName="ThumbChrome" Property="Fill" Value="{DynamicResource AccentBrush}" />
+                                                        </Trigger>
+                                                    </ControlTemplate.Triggers>
+                                                </ControlTemplate>
+                                            </Thumb.Template>
+                                        </Thumb>
+                                    </Track.Thumb>
+                                    <Track.IncreaseRepeatButton>
+                                        <RepeatButton Command="{x:Static Slider.IncreaseLarge}"
+                                                      Style="{StaticResource InvisibleRepeatButtonStyle}">
+                                            <RepeatButton.Template>
+                                                <ControlTemplate TargetType="{x:Type RepeatButton}">
+                                                    <Border Height="6"
+                                                            VerticalAlignment="Center"
+                                                            Background="{DynamicResource MeterTrackBrush}"
+                                                            BorderBrush="{DynamicResource ControlBorderBrush}"
+                                                            BorderThickness="1"
+                                                            CornerRadius="3" />
+                                                </ControlTemplate>
+                                            </RepeatButton.Template>
+                                        </RepeatButton>
+                                    </Track.IncreaseRepeatButton>
+                                </Track>
+                            </Grid>
+                        </Grid>
+                        <ControlTemplate.Triggers>
+                            <Trigger Property="IsEnabled" Value="False">
+                                <Setter TargetName="HorizontalTemplate" Property="Opacity" Value="0.5" />
+                            </Trigger>
+                        </ControlTemplate.Triggers>
+                    </ControlTemplate>
+                </Setter.Value>
+            </Setter>
+        </Style>
+
         <Style TargetType="{x:Type controls:VerticalResizeThumb}">
             <Setter Property="Height" Value="10" />
             <Setter Property="Margin" Value="0,2,0,4" />

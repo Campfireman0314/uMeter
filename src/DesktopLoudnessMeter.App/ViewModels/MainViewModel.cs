@@ -17,6 +17,9 @@ public sealed class MainViewModel : ObservableObject, IDisposable
     private const double RollChannelLabelAllowance = 40;
     private const double RollSplitterHeight = 8;
     private const double RollSplitterFlexAllowance = 128;
+    private const double DefaultCollisionAbsoluteThresholdDb = 6;
+    private const double DefaultCollisionRelativeThreshold = 0.18;
+    private static readonly FrequencyCollisionSourceOption AllCollisionSourcesOption = new("__global__", "Global", isAllSources: true);
     private static readonly TimeSpan NormalRefreshInterval = TimeSpan.FromMilliseconds(33);
     private static readonly TimeSpan EcoRefreshInterval = TimeSpan.FromMilliseconds(100);
     private readonly ISignalSourceMeterService _sourceMeterService;
@@ -27,15 +30,22 @@ public sealed class MainViewModel : ObservableObject, IDisposable
     private readonly Func<int, bool> _isProcessAlive;
     private readonly Action<AppTheme>? _themeSelected;
     private readonly string? _sourceWarningText;
+    private readonly RelayCommand _selectFrequencyCollisionSourceCommand;
     private string _statusText = "Waiting for audio sources";
     private MeterDisplayMode _selectedDisplayMode = MeterDisplayMode.Peak;
     private bool _truePeakEnabled;
     private bool _isEcoModeEnabled;
     private AppTheme _selectedTheme = AppThemes.Default;
     private TruePeakOversampling _selectedTruePeakOversampling = TruePeakOversampling.FourX;
+    private string _selectedFrequencyCollisionSourceKey = AllCollisionSourcesOption.SourceKey;
+    private double _collisionAbsoluteThresholdDb = DefaultCollisionAbsoluteThresholdDb;
+    private double _collisionRelativeThreshold = DefaultCollisionRelativeThreshold;
+    private IReadOnlyList<FrequencyCollisionSourceOption> _frequencyCollisionSourceOptions = [AllCollisionSourcesOption];
+    private IReadOnlyList<FrequencyCollisionBand> _frequencyCollisionBands = Array.Empty<FrequencyCollisionBand>();
     private bool _isAlwaysOnTop = true;
     private bool _isInlineWaveformVisible;
     private bool _isInlineSpectrumVisible;
+    private bool _isInlineCollisionVisible;
     private AudioSessionMeterViewModel? _selectedDetailSession;
     private readonly RelayCommand _switchDetailSessionCommand;
 
@@ -72,6 +82,7 @@ public sealed class MainViewModel : ObservableObject, IDisposable
         ToggleAlwaysOnTopCommand = new RelayCommand(_ => IsAlwaysOnTop = !IsAlwaysOnTop);
         BackToGlobalCommand = new RelayCommand(_ => SelectedDetailSession = null);
         SelectThemeCommand = new RelayCommand(SelectTheme);
+        _selectFrequencyCollisionSourceCommand = new RelayCommand(SelectFrequencyCollisionSource);
         _switchDetailSessionCommand = new RelayCommand(SwitchDetailSession, CanSwitchDetailSession);
     }
 
@@ -103,6 +114,12 @@ public sealed class MainViewModel : ObservableObject, IDisposable
     ];
 
     public IReadOnlyList<AppTheme> ThemeOptions => AppThemes.All;
+
+    public IReadOnlyList<FrequencyCollisionSourceOption> FrequencyCollisionSourceOptions
+    {
+        get => _frequencyCollisionSourceOptions;
+        private set => SetProperty(ref _frequencyCollisionSourceOptions, value);
+    }
 
     public TimeSpan RefreshInterval { get; }
 
@@ -155,6 +172,81 @@ public sealed class MainViewModel : ObservableObject, IDisposable
 
     public string SelectedThemeName => SelectedTheme.DisplayName;
 
+    public string SelectedFrequencyCollisionSourceKey
+    {
+        get => _selectedFrequencyCollisionSourceKey;
+        set
+        {
+            var next = string.IsNullOrWhiteSpace(value) ? AllCollisionSourcesOption.SourceKey : value;
+            if (SetProperty(ref _selectedFrequencyCollisionSourceKey, next))
+            {
+                OnPropertyChanged(nameof(SelectedFrequencyCollisionSource));
+                OnPropertyChanged(nameof(SelectedFrequencyCollisionSourceDisplayName));
+                RefreshFrequencyCollisions();
+            }
+        }
+    }
+
+    public FrequencyCollisionSourceOption SelectedFrequencyCollisionSource
+    {
+        get => FindFrequencyCollisionSourceOption(SelectedFrequencyCollisionSourceKey);
+        set
+        {
+            if (value is not null)
+            {
+                SelectedFrequencyCollisionSourceKey = value.SourceKey;
+            }
+        }
+    }
+
+    public double CollisionAbsoluteThresholdDb
+    {
+        get => _collisionAbsoluteThresholdDb;
+        set
+        {
+            var next = Math.Clamp(value, 0.5, 36);
+            if (SetProperty(ref _collisionAbsoluteThresholdDb, next))
+            {
+                OnPropertyChanged(nameof(CollisionAbsoluteThresholdText));
+                RefreshFrequencyCollisions();
+            }
+        }
+    }
+
+    public string CollisionAbsoluteThresholdText => $"{CollisionAbsoluteThresholdDb:0.#} dB";
+
+    public double CollisionRelativeThreshold
+    {
+        get => _collisionRelativeThreshold;
+        set
+        {
+            var next = Math.Clamp(value, 0.02, 0.8);
+            if (SetProperty(ref _collisionRelativeThreshold, next))
+            {
+                OnPropertyChanged(nameof(CollisionRelativeThresholdText));
+                RefreshFrequencyCollisions();
+            }
+        }
+    }
+
+    public string CollisionRelativeThresholdText => $"{CollisionRelativeThreshold:P0}";
+
+    public string SelectedFrequencyCollisionSourceDisplayName => SelectedFrequencyCollisionSource.DisplayName;
+
+    public IReadOnlyList<FrequencyCollisionBand> FrequencyCollisionBands
+    {
+        get => _frequencyCollisionBands;
+        private set => SetProperty(ref _frequencyCollisionBands, value);
+    }
+
+    public bool HasFrequencyCollisionSources =>
+        SelectedDetailSession is { IsInstanceMissing: false } selected
+        && selected.SpectrumBuckets.Count > 0
+        && Sessions.Any(session =>
+            !ReferenceEquals(session, selected)
+            && !session.IsInstanceMissing
+            && session.SpectrumBuckets.Count > 0);
+
     public TruePeakOversampling SelectedTruePeakOversampling
     {
         get => _selectedTruePeakOversampling;
@@ -200,6 +292,19 @@ public sealed class MainViewModel : ObservableObject, IDisposable
         }
     }
 
+    public bool IsInlineCollisionVisible
+    {
+        get => _isInlineCollisionVisible;
+        set
+        {
+            if (SetProperty(ref _isInlineCollisionVisible, value))
+            {
+                RefreshFrequencyCollisionOptions();
+                RefreshFrequencyCollisions();
+            }
+        }
+    }
+
     public bool IsInlineWaveformOnlyVisible => IsInlineWaveformVisible && !IsInlineSpectrumVisible;
 
     public bool IsInlineSpectrumOnlyVisible => IsInlineSpectrumVisible && !IsInlineWaveformVisible;
@@ -229,6 +334,8 @@ public sealed class MainViewModel : ObservableObject, IDisposable
     public ICommand BackToGlobalCommand { get; }
 
     public ICommand SelectThemeCommand { get; }
+
+    public ICommand SelectFrequencyCollisionSourceCommand => _selectFrequencyCollisionSourceCommand;
 
     public ICommand SwitchDetailSessionCommand => _switchDetailSessionCommand;
 
@@ -264,6 +371,8 @@ public sealed class MainViewModel : ObservableObject, IDisposable
             OnPropertyChanged(nameof(IsDetailViewVisible));
             NotifyInlineRollLayoutChanged();
             NotifyDetailSwitchTargetsChanged();
+            RefreshFrequencyCollisionOptions();
+            RefreshFrequencyCollisions();
         }
     }
 
@@ -283,6 +392,8 @@ public sealed class MainViewModel : ObservableObject, IDisposable
         {
             var snapshots = _sourceMeterService.GetCurrentSources();
             Reconcile(snapshots);
+            RefreshFrequencyCollisionOptions();
+            RefreshFrequencyCollisions();
             StatusText = _sourceWarningText ?? (Sessions.Count switch
             {
                 0 => "No active audio sources",
@@ -398,6 +509,95 @@ public sealed class MainViewModel : ObservableObject, IDisposable
         {
             NotifyDetailSwitchTargetsChanged();
         }
+    }
+
+    private void RefreshFrequencyCollisionOptions()
+    {
+        var options = new List<FrequencyCollisionSourceOption> { AllCollisionSourcesOption };
+        if (SelectedDetailSession is { IsInstanceMissing: false } selected && selected.SpectrumBuckets.Count > 0)
+        {
+            options.AddRange(
+                Sessions
+                    .Where(session =>
+                        !ReferenceEquals(session, selected)
+                        && !session.IsInstanceMissing
+                        && session.SpectrumBuckets.Count > 0)
+                    .Select(session => new FrequencyCollisionSourceOption(session.SourceKey, session.DisplayTitle)));
+        }
+
+        var optionsChanged = SetFrequencyCollisionOptions(options);
+
+        if (!options.Any(option => string.Equals(option.SourceKey, SelectedFrequencyCollisionSourceKey, StringComparison.Ordinal)))
+        {
+            SelectedFrequencyCollisionSourceKey = AllCollisionSourcesOption.SourceKey;
+        }
+        else if (optionsChanged)
+        {
+            OnPropertyChanged(nameof(SelectedFrequencyCollisionSource));
+            OnPropertyChanged(nameof(SelectedFrequencyCollisionSourceDisplayName));
+        }
+
+        if (optionsChanged)
+        {
+            OnPropertyChanged(nameof(HasFrequencyCollisionSources));
+            _selectFrequencyCollisionSourceCommand.RaiseCanExecuteChanged();
+        }
+    }
+
+    private void RefreshFrequencyCollisions()
+    {
+        if (!IsInlineCollisionVisible
+            || SelectedDetailSession is not { IsInstanceMissing: false } selected
+            || selected.SpectrumBuckets.Count == 0)
+        {
+            SetFrequencyCollisionBands(Array.Empty<FrequencyCollisionBand>());
+            return;
+        }
+
+        var selectedComparison = SelectedFrequencyCollisionSource;
+        SetFrequencyCollisionBands(FrequencyCollisionAnalyzer.Analyze(
+            Sessions,
+            selected.SourceKey,
+            selectedComparison.SourceKey,
+            selectedComparison.IsAllSources,
+            CollisionAbsoluteThresholdDb,
+            CollisionRelativeThreshold));
+    }
+
+    private FrequencyCollisionSourceOption FindFrequencyCollisionSourceOption(string sourceKey)
+    {
+        return FrequencyCollisionSourceOptions.FirstOrDefault(option =>
+            string.Equals(option.SourceKey, sourceKey, StringComparison.Ordinal))
+            ?? AllCollisionSourcesOption;
+    }
+
+    private void SelectFrequencyCollisionSource(object? parameter)
+    {
+        if (parameter is FrequencyCollisionSourceOption option)
+        {
+            SelectedFrequencyCollisionSource = option;
+        }
+    }
+
+    private bool SetFrequencyCollisionOptions(IReadOnlyList<FrequencyCollisionSourceOption> options)
+    {
+        if (FrequencyCollisionSourceOptions.SequenceEqual(options))
+        {
+            return false;
+        }
+
+        FrequencyCollisionSourceOptions = options;
+        return true;
+    }
+
+    private void SetFrequencyCollisionBands(IReadOnlyList<FrequencyCollisionBand> bands)
+    {
+        if (FrequencyCollisionBands.SequenceEqual(bands))
+        {
+            return;
+        }
+
+        FrequencyCollisionBands = bands;
     }
 
     private bool ShouldRetainMissingRow(AudioSessionMeterViewModel session, int missingTicks)

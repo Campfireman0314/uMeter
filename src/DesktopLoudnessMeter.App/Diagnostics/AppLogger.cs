@@ -1,3 +1,4 @@
+using System.Diagnostics;
 using System.IO;
 
 namespace DesktopLoudnessMeter.App.Diagnostics;
@@ -24,13 +25,20 @@ public static class AppLogger
 
     private static void Write(string level, string message)
     {
-        lock (Sync)
+        try
         {
-            Directory.CreateDirectory(LogDirectory);
-            File.AppendAllText(
-                LogPath,
-                $"{DateTimeOffset.Now:O} [{level}] {message}{Environment.NewLine}",
-                System.Text.Encoding.UTF8);
+            lock (Sync)
+            {
+                Directory.CreateDirectory(LogDirectory);
+                File.AppendAllText(
+                    LogPath,
+                    $"{DateTimeOffset.Now:O} [{level}] {message}{Environment.NewLine}",
+                    System.Text.Encoding.UTF8);
+            }
+        }
+        catch (Exception ex) when (ex is IOException or UnauthorizedAccessException or NotSupportedException or System.Security.SecurityException)
+        {
+            Debug.WriteLine($"uMeter log write failed: {ex.Message}");
         }
     }
 }

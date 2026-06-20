@@ -29,8 +29,9 @@ internal static class Program
         {
             if (Installer.RequiresElevation(options))
             {
-                Installer.RestartElevated(options);
-                return 0;
+                using var elevatedProcess = Installer.RestartElevated(options);
+                elevatedProcess.WaitForExit();
+                return elevatedProcess.ExitCode;
             }
 
             Installer.Install(options);
@@ -326,7 +327,7 @@ internal sealed class InstallerForm : Form
         }
     }
 
-    private void InstallButton_Click(object? sender, EventArgs args)
+    private async void InstallButton_Click(object? sender, EventArgs args)
     {
         var options = Options;
 
@@ -346,11 +347,35 @@ internal sealed class InstallerForm : Form
                     return;
                 }
 
+                SetInstalling(true);
                 _statusLabel.Text = "Requesting administrator permission...";
                 Refresh();
-                Installer.RestartElevated(options);
-                DialogResult = DialogResult.OK;
-                Close();
+
+                using var elevatedProcess = Installer.RestartElevated(options);
+                _statusLabel.Text = "Installing with administrator permission...";
+                Refresh();
+
+                await System.Threading.Tasks.Task.Run(() => elevatedProcess.WaitForExit());
+
+                if (elevatedProcess.ExitCode == 0)
+                {
+                    _statusLabel.Text = "Installed.";
+                    MessageBox.Show(this, "uMeter has been installed.", Text, MessageBoxButtons.OK, MessageBoxIcon.Information);
+                    DialogResult = DialogResult.OK;
+                    Close();
+                }
+                else
+                {
+                    _statusLabel.Text = "Install failed.";
+                    MessageBox.Show(
+                        this,
+                        $"The elevated installer did not finish successfully.\n\nLog: {Installer.FailureLogPath}",
+                        Text,
+                        MessageBoxButtons.OK,
+                        MessageBoxIcon.Error);
+                    SetInstalling(false);
+                }
+
                 return;
             }
 
@@ -403,7 +428,7 @@ internal static class Installer
     private const string AppProcessName = "uMeter";
     private const string PayloadResourceName = "uMeter.Payload.zip";
     private const string Publisher = "Campfireman Studio";
-    private const string Version = "2.0.0";
+    private const string Version = "2.0.1";
     private const string InstallMarkerName = ".umeter-install";
     private const string LegacyInstallMarkerName = ".desktop-loudness-meter-install";
     private const string UninstallKeyPath = @"Software\Microsoft\Windows\CurrentVersion\Uninstall\uMeter";
@@ -415,6 +440,8 @@ internal static class Installer
     private const string Vst3DirectoryName = "VST3";
     private const string VstBundleName = "uMeter Sender.vst3";
     private const string LegacyVstBundleName = "Desktop Loudness Meter Sender.vst3";
+
+    public static string FailureLogPath => Path.Combine(Path.GetTempPath(), "uMeter.Setup.log");
 
     public static bool RequiresElevation(InstallerOptions options)
     {
@@ -440,7 +467,7 @@ internal static class Installer
                 .Any(root => IsProtectedPath(root) && Directory.Exists(Path.Combine(root, LegacyVstBundleName)));
     }
 
-    public static void RestartElevated(InstallerOptions options)
+    public static Process RestartElevated(InstallerOptions options)
     {
         var startInfo = new ProcessStartInfo
         {
@@ -450,10 +477,13 @@ internal static class Installer
             Verb = "runas"
         };
 
-        if (Process.Start(startInfo) is null)
+        var process = Process.Start(startInfo);
+        if (process is null)
         {
             throw new InvalidOperationException("Could not start the elevated installer.");
         }
+
+        return process;
     }
 
     public static void Install(InstallerOptions options)
@@ -495,8 +525,7 @@ internal static class Installer
     {
         try
         {
-            var logPath = Path.Combine(Path.GetTempPath(), "uMeter.Setup.log");
-            File.WriteAllText(logPath, exception.ToString());
+            File.WriteAllText(FailureLogPath, exception.ToString());
         }
         catch (Exception ex) when (ex is IOException or UnauthorizedAccessException)
         {
