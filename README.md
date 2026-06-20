@@ -111,6 +111,7 @@ For mixed-source behavior, duplicate names, and reconnect preference memory, see
 - `src/DesktopLoudnessMeter.Native` - optional RfRapid-backed native FFT wrapper.
 - `tests/DesktopLoudnessMeter.Tests` - unit tests for math and view-model reconciliation.
 - `docs/current-status.md` - current release status and remaining known limits.
+- `docs/product-roadmap/` - post-v2.2.2 product roadmap and planning notes.
 - `docs/v2.2.2-release.md` - v2.2.2 release notes.
 - `docs/v2.2.1-release.md` - v2.2.1 release notes.
 - `docs/v2.2.0-release.md` - v2.2.0 release notes.
