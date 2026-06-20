@@ -1,4 +1,5 @@
 using System.Globalization;
+using System.Runtime.InteropServices;
 using System.Windows;
 using System.Windows.Input;
 using System.Windows.Media;
@@ -16,6 +17,7 @@ public sealed class SpectrumRollView : FrameworkElement
     private const double AnalyzerCeilingDb = 0;
     private const double AnalyzerRangeDb = AnalyzerCeilingDb - AnalyzerFloorDb;
     private const double MinimumDisplayRangeDb = 1;
+    private const int PendingBitmapLockHResult = unchecked((int)0x88982F0D);
     private static readonly double MinimumMel = SpectrumScale.HertzToMel(SpectrumScale.MinimumFrequencyHz);
     private static readonly double MaximumMel = SpectrumScale.HertzToMel(SpectrumScale.MaximumFrequencyHz);
     private static readonly double[] MajorFrequencies = [20d, 100d, 1000d, 4000d, 12000d, 22000d];
@@ -30,6 +32,8 @@ public sealed class SpectrumRollView : FrameworkElement
     private IReadOnlyList<double>? _pendingSpectrumBuckets;
     private bool _hasPendingSpectrumUpdate;
     private bool _isSpectrumUpdateQueued;
+    private bool _bitmapNeedsFullWrite;
+    private bool _isBitmapWriteRetryQueued;
     private DrawingGroup? _backgroundDrawing;
     private double _backgroundWidth;
     private double _backgroundHeight;
@@ -58,10 +62,19 @@ public sealed class SpectrumRollView : FrameworkElement
         Loaded += (_, _) =>
         {
             RecolorBitmapIfNeeded();
+            FlushPendingBitmapWriteIfReady();
             ApplyPendingSpectrumUpdateIfReady();
         };
-        IsVisibleChanged += (_, _) => ApplyPendingSpectrumUpdateIfReady();
-        SizeChanged += (_, _) => ApplyPendingSpectrumUpdateIfReady();
+        IsVisibleChanged += (_, _) =>
+        {
+            FlushPendingBitmapWriteIfReady();
+            ApplyPendingSpectrumUpdateIfReady();
+        };
+        SizeChanged += (_, _) =>
+        {
+            FlushPendingBitmapWriteIfReady();
+            ApplyPendingSpectrumUpdateIfReady();
+        };
     }
 
     public static readonly DependencyProperty SpectrumBucketsProperty = DependencyProperty.Register(
@@ -579,13 +592,22 @@ public sealed class SpectrumRollView : FrameworkElement
         EnsureBitmap(buckets.Count);
         var column = _nextColumnIndex;
         WriteColumn(column, buckets);
-        _bitmap?.WritePixels(
+        _filledColumns = Math.Min(MaximumHistoryColumns, _filledColumns + 1);
+        _nextColumnIndex = (_nextColumnIndex + 1) % MaximumHistoryColumns;
+
+        if (_bitmapNeedsFullWrite)
+        {
+            FlushPendingBitmapWriteIfReady();
+        }
+        else if (!TryWriteBitmap(
             new Int32Rect(column, 0, 1, _bitmapBucketCount),
             _columnPixels,
             sizeof(int),
-            0);
-        _filledColumns = Math.Min(MaximumHistoryColumns, _filledColumns + 1);
-        _nextColumnIndex = (_nextColumnIndex + 1) % MaximumHistoryColumns;
+            0))
+        {
+            MarkBitmapWritePending();
+        }
+
         InvalidateVisual();
     }
 
@@ -612,6 +634,7 @@ public sealed class SpectrumRollView : FrameworkElement
         _bitmapAccent = CurrentAccent();
         _bitmapWarm = CurrentWarm();
         (_bitmapDisplayFloorDb, _bitmapDisplayCeilingDb) = DisplayRange();
+        _bitmapNeedsFullWrite = false;
     }
 
     private void WriteColumn(int x, IReadOnlyList<double> buckets)
@@ -641,11 +664,10 @@ public sealed class SpectrumRollView : FrameworkElement
         {
             Array.Clear(_pixels);
             Array.Clear(_levels);
-            _bitmap?.WritePixels(
-                new Int32Rect(0, 0, MaximumHistoryColumns, _bitmapBucketCount),
-                _pixels,
-                MaximumHistoryColumns * sizeof(int),
-                0);
+            if (!TryWriteFullBitmap())
+            {
+                MarkBitmapWritePending();
+            }
         }
 
         _filledColumns = 0;
@@ -726,10 +748,87 @@ public sealed class SpectrumRollView : FrameworkElement
             _pixels[index] = LevelPixel(value);
         }
 
-        _bitmap.WritePixels(
+        if (!TryWriteFullBitmap())
+        {
+            MarkBitmapWritePending();
+        }
+    }
+
+    private bool TryWriteFullBitmap()
+    {
+        if (_bitmap is null || _pixels.Length == 0 || _bitmapBucketCount <= 0)
+        {
+            _bitmapNeedsFullWrite = false;
+            return true;
+        }
+
+        if (!TryWriteBitmap(
             new Int32Rect(0, 0, MaximumHistoryColumns, _bitmapBucketCount),
             _pixels,
             MaximumHistoryColumns * sizeof(int),
-            0);
+            0))
+        {
+            return false;
+        }
+
+        _bitmapNeedsFullWrite = false;
+        return true;
+    }
+
+    private bool TryWriteBitmap(Int32Rect rect, Array pixels, int stride, int offset)
+    {
+        if (_bitmap is null)
+        {
+            return true;
+        }
+
+        try
+        {
+            _bitmap.WritePixels(rect, pixels, stride, offset);
+            return true;
+        }
+        catch (COMException ex) when (ex.HResult == PendingBitmapLockHResult)
+        {
+            return false;
+        }
+    }
+
+    private void MarkBitmapWritePending()
+    {
+        _bitmapNeedsFullWrite = true;
+        QueueBitmapWriteRetry();
+    }
+
+    private void FlushPendingBitmapWriteIfReady()
+    {
+        if (!_bitmapNeedsFullWrite || !CanApplySpectrumUpdate())
+        {
+            return;
+        }
+
+        if (!TryWriteFullBitmap())
+        {
+            QueueBitmapWriteRetry();
+            return;
+        }
+
+        InvalidateVisual();
+    }
+
+    private void QueueBitmapWriteRetry()
+    {
+        if (_isBitmapWriteRetryQueued || !CanApplySpectrumUpdate())
+        {
+            return;
+        }
+
+        _isBitmapWriteRetryQueued = true;
+        Dispatcher.BeginInvoke(
+            (Action)(() =>
+            {
+                _isBitmapWriteRetryQueued = false;
+                FlushPendingBitmapWriteIfReady();
+            }),
+            DispatcherPriority.ContextIdle);
     }
 }
