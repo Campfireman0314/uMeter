@@ -4,6 +4,46 @@
 
 - Nothing yet.
 
+## v2.2.2 - 2026-06-20
+
+Spectrograph visual polish patch release.
+
+### Changed
+
+- App, setup, protocol, sender kit, sender probe, VST3 sender project, and AAX sender project metadata now report version `2.2.2`.
+- Default versioned installer artifact is now `uMeter-Setup-2.2.2.exe`.
+- Spectrograph rendering now uses a soft visual floor and light neighboring-bin smoothing so low-energy history looks continuous without mutating stored spectrum levels.
+
+### Fixed
+
+- Spectrograph rendering avoids thin full-width rollover gaps after the history wraps.
+- Spectrograph color mapping avoids harsh black holes inside low-energy spectrum regions.
+- Display dB range slider supports double-click numeric entry for direct min/max edits.
+
+### Verified
+
+- `dotnet build src\DesktopLoudnessMeter.App\DesktopLoudnessMeter.App.csproj --no-restore -p:OutDir=E:\GitHub\uMeter\.tmp\app-build\`.
+- `dotnet test tests\DesktopLoudnessMeter.Tests\DesktopLoudnessMeter.Tests.csproj --no-restore -p:OutDir=E:\GitHub\uMeter\.tmp\test-build\` with 182 passing tests.
+
+## v2.2.1 - 2026-06-20
+
+Spectrum crash-fix patch release.
+
+### Changed
+
+- App, setup, protocol, sender kit, sender probe, VST3 sender project, and AAX sender project metadata now report version `2.2.1`.
+- Default versioned installer artifact is now `uMeter-Setup-2.2.1.exe`.
+- Spectrograph display range now covers `-200 to 0 dB` and defaults to `-120 to 0 dB`.
+
+### Fixed
+
+- Spectrum roll rendering now tolerates transient WPF `WriteableBitmap` read/write lock conflicts by deferring and retrying bitmap writes instead of terminating the app.
+
+### Verified
+
+- `dotnet build src\DesktopLoudnessMeter.App\DesktopLoudnessMeter.App.csproj`.
+- `dotnet test tests\DesktopLoudnessMeter.Tests\DesktopLoudnessMeter.Tests.csproj --no-restore` with 182 passing tests.
+
 ## v2.2.0 - 2026-06-20
 
 Frequency-collision, rendering responsiveness, and release-structure polish.

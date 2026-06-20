@@ -2,9 +2,11 @@ namespace DesktopLoudnessMeter.App.ViewModels;
 
 internal static class FrequencyCollisionAnalyzer
 {
-    private const double DisplayFloorDb = -96;
-    private const double DisplayRangeDb = 96;
-    private const double MinimumAudibleDisplayLevel = 0.04;
+    private const double DisplayFloorDb = -200;
+    private const double DisplayRangeDb = 200;
+    private const double MinimumAudibleDb = -120;
+    private const double MinimumAudibleDisplayLevel = (MinimumAudibleDb - DisplayFloorDb) / DisplayRangeDb;
+    private const double ComparisonTolerance = 1e-9;
 
     public static IReadOnlyList<FrequencyCollisionBand> Analyze(
         IReadOnlyList<AudioSessionMeterViewModel> sessions,
@@ -89,7 +91,8 @@ internal static class FrequencyCollisionAnalyzer
             var displayGap = Math.Abs(firstLevel - secondLevel);
             var absoluteGapDb = Math.Abs(DisplayLevelToDb(firstLevel) - DisplayLevelToDb(secondLevel));
             var relativeGap = displayGap / Math.Max(stronger, MinimumAudibleDisplayLevel);
-            if (absoluteGapDb > absoluteThresholdDb || relativeGap > relativeThreshold)
+            if (absoluteGapDb > safeAbsoluteThresholdDb + ComparisonTolerance
+                || relativeGap > safeRelativeThreshold + ComparisonTolerance)
             {
                 continue;
             }

@@ -110,7 +110,7 @@ public sealed class DetailWindowViewModelTests
         var session = new AudioSessionMeterViewModel(Snapshot());
         var viewModel = new DetailWindowViewModel(session);
 
-        Assert.Equal("-96 to 0 dB", viewModel.SpectrumDisplayRangeText);
+        Assert.Equal("-120 to 0 dB", viewModel.SpectrumDisplayRangeText);
 
         viewModel.SpectrumDisplayFloorDb = -37.6;
         viewModel.SpectrumDisplayCeilingDb = -40;
@@ -123,7 +123,7 @@ public sealed class DetailWindowViewModelTests
     [Fact]
     public void FrequencyCollisionIsAvailableInPopupDetail()
     {
-        var first = new AudioSessionMeterViewModel(Snapshot("plugin:first", "First", spectrumBuckets: [0.0, 0.40, 0.72]));
+        var first = new AudioSessionMeterViewModel(Snapshot("plugin:first", "First", spectrumBuckets: [0.0, 0.42, 0.72]));
         var second = new AudioSessionMeterViewModel(Snapshot("plugin:second", "Second", spectrumBuckets: [0.0, 0.43, 0.18]));
         var active = new List<AudioSessionMeterViewModel> { first, second };
         var viewModel = new DetailWindowViewModel(first, () => active);

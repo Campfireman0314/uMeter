@@ -13,10 +13,10 @@
     <Company>Campfireman Studio</Company>
     <Authors>Campfireman Studio</Authors>
     <Description>Per-source desktop loudness meter with WASAPI and VST3 sender support.</Description>
-    <Version>2.2.0</Version>
-    <AssemblyVersion>2.2.0.0</AssemblyVersion>
-    <FileVersion>2.2.0.0</FileVersion>
-    <InformationalVersion>2.2.0</InformationalVersion>
+    <Version>2.2.2</Version>
+    <AssemblyVersion>2.2.2.0</AssemblyVersion>
+    <FileVersion>2.2.2.0</FileVersion>
+    <InformationalVersion>2.2.2</InformationalVersion>
     <IncludeSourceRevisionInInformationalVersion>false</IncludeSourceRevisionInInformationalVersion>
   </PropertyGroup>
 

@@ -6,6 +6,8 @@ internal sealed class RecentSampleWindow
 {
     private const int MaximumStereoImagePoints = 160;
     private const int MaximumWaveformPoints = 960;
+    private const double SpectrumDisplayFloorDb = -200;
+    private const double SpectrumDisplayRangeDb = 200;
     private static readonly double RootTwo = Math.Sqrt(2);
     private readonly int _channels;
     private readonly int _displaySampleRate;
@@ -645,8 +647,8 @@ internal sealed class RecentSampleWindow
 
     private static double MagnitudeToDisplayLevel(double magnitude)
     {
-        var decibels = magnitude <= 1e-12 ? -120 : 20 * Math.Log10(magnitude);
-        return Math.Clamp((decibels + 96) / 96, 0, 1);
+        var decibels = magnitude <= 1e-12 ? SpectrumDisplayFloorDb : 20 * Math.Log10(magnitude);
+        return Math.Clamp((decibels - SpectrumDisplayFloorDb) / SpectrumDisplayRangeDb, 0, 1);
     }
 
     private static double SanitizeSample(double sample)

@@ -2,9 +2,9 @@
 
 ## Checkpoint
 
-`v2.2.0` - Frequency-collision, graph responsiveness, and release-structure polish, pinned on 2026-06-20.
+`v2.2.2` - Spectrograph visual-polish patch, pinned on 2026-06-20.
 
-This checkpoint builds on the v2.0.1 appearance/performance release with frequency collision analysis, smoother waveform/spectrum/collision plotting, a spectrograph display dB range slider, AAX sender groundwork, and installer success-message polish. The installer still ships the desktop app plus the `uMeter Sender.vst3` bundle and exposes both the app install folder and VST3 install folder.
+This checkpoint builds on the v2.2.0 frequency-collision and graph-polish release plus the v2.2.1 spectrum bitmap-lock crash fix. The spectrograph now keeps its `-200 to 0 dB` inspection range, defaults to `-120 to 0 dB`, supports direct numeric range edits, and renders low-energy history with a soft visual floor so rollover gaps and black-hole artifacts are less distracting. The installer still ships the desktop app plus the `uMeter Sender.vst3` bundle and exposes both the app install folder and VST3 install folder.
 
 ## What Works
 
@@ -53,7 +53,9 @@ This checkpoint builds on the v2.0.1 appearance/performance release with frequen
 - Waveform display uses dBFS scale markings and a smoother curve without averaging away plotted extrema.
 - Spectrum display uses a horizontally rolling, Mel-scaled, 320-bin FFT-derived display from 20 Hz to 22 kHz.
 - Frequency collision analyzer compares spectrum bins between sources and highlights similar frequency ranges.
-- Spectrograph display range can be adjusted with a themed two-thumb dB slider.
+- Spectrograph display range can be adjusted from `-200 to 0 dB` with a themed two-thumb dB slider, defaulting to `-120 to 0 dB`.
+- Spectrum bitmap rendering tolerates transient WPF read/write lock conflicts without terminating the app.
+- Spectrograph rendering uses a soft visual floor and light neighboring-bin smoothing so low-energy history stays readable without mutating stored spectrum levels.
 - Spectrum FFT can use the optional `DesktopLoudnessMeter.Native.dll` RfRapid C++ accelerator, with automatic managed fallback.
 - Crash/startup logging under `%LOCALAPPDATA%\uMeter`.
 - Installer with visible app install path, shortcut options, VST3 install path, uninstall registration, and quiet mode.
@@ -102,7 +104,7 @@ Latest verified status:
 - JUCE VST3 native CTest: 1 passing.
 - JUCE VST3 Release build: succeeded; local JUCE/HarfBuzz source emitted non-fatal C4819 code-page warnings.
 - Format: clean.
-- Installer build: `artifacts\uMeter-Setup-2.2.0.exe` generated.
+- Installer build: `artifacts\uMeter-Setup-2.2.2.exe` generated.
 - Installer payload: confirmed to contain `uMeter.exe` and `Plugins\VST3\uMeter Sender.vst3`.
 
 ## Installer Notes
@@ -110,7 +112,7 @@ Latest verified status:
 - Default app install folder: `%LOCALAPPDATA%\Programs\uMeter`.
 - Default VST3 install folder: `C:\Program Files\VSTPlugins`.
 - Standard VST3 mirror folder: `C:\Program Files\Common Files\VST3`.
-- Default artifacts: `artifacts\uMeter.Setup.exe` and `artifacts\uMeter-Setup-2.2.0.exe`.
+- Default artifacts: `artifacts\uMeter.Setup.exe` and `artifacts\uMeter-Setup-2.2.2.exe`.
 - Quiet install supports `--install-dir`, `--vst-dir`, `--no-vst`, `--no-desktop-shortcut`, `--no-start-menu-shortcut`, and `--no-shortcuts`.
 - Installing the VST3 sender into Program Files may trigger UAC elevation.
 - Uninstall cleanup relaunches elevated when protected app or VST3 locations need administrator permission.
@@ -125,7 +127,7 @@ Suggested release commit:
 cd D:\GitRepo\desktop-loudness-meter
 git status --short
 git add .
-git commit -m "Release uMeter v2.2.0"
+git commit -m "Release uMeter v2.2.2"
 git push
 ```
 
@@ -135,6 +137,8 @@ Before committing, review generated folders and build outputs are still ignored 
 
 - `README.md` - project overview, run commands, roadmap.
 - `CHANGELOG.md` - version history.
+- docs/v2.2.2-release.md - v2.2.2 release notes.
+- docs/v2.2.1-release.md - v2.2.1 release notes.
 - docs/v2.2.0-release.md - v2.2.0 release notes.
 - docs/v2.0.1-release.md - v2.0.1 release notes.
 - docs/v2.0.0-release.md - v2.0.0 release notes.

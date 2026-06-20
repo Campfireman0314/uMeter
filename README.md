@@ -4,7 +4,7 @@ Fast floating Windows desktop meter for seeing which app, DAW, or plugin sender 
 
 ## Current Version
 
-`v2.2.0` is the current public release. This release adds frequency collision analysis, smoother rolling graph updates, a spectrograph display dB range control, AAX sender groundwork, and installer polish while retaining the packaged VST3 sender support.
+`v2.2.2` is the current public release. This patch keeps the v2.2.0 frequency collision and graph-polish feature set, widens spectrograph inspection to `-200 to 0 dB`, fixes the long-run spectrum bitmap-lock crash from v2.2.1, and polishes spectrograph continuity/color rendering.
 
 ## Usable Baseline
 
@@ -21,7 +21,7 @@ Fast floating Windows desktop meter for seeing which app, DAW, or plugin sender 
 - Oversampled waveform display with dBFS scale markings.
 - Horizontally rolling Mel-scaled FFT spectrum display from 20 Hz to 22 kHz.
 - Frequency collision analyzer for comparing spectrum similarity between sources.
-- Display dB range control for the spectrograph, defaulting to `-96 to 0 dB`.
+- Display dB range control for the spectrograph, adjustable from `-200 to 0 dB` and defaulting to `-120 to 0 dB`.
 - Stereo image dot history/intensity control through trace persistence.
 - Optional native RfRapid C++ FFT accelerator for the spectrum path, with managed fallback.
 - Packaged installer with app install path, shortcut options, and configurable VST3 install path.
@@ -69,7 +69,7 @@ The generated installers are written to:
 
 ```text
 artifacts\uMeter.Setup.exe
-artifacts\uMeter-Setup-2.2.0.exe
+artifacts\uMeter-Setup-2.2.2.exe
 ```
 
 The installer contains the desktop app and `uMeter Sender.vst3`. The VST3 install path defaults to:
@@ -111,6 +111,8 @@ For mixed-source behavior, duplicate names, and reconnect preference memory, see
 - `src/DesktopLoudnessMeter.Native` - optional RfRapid-backed native FFT wrapper.
 - `tests/DesktopLoudnessMeter.Tests` - unit tests for math and view-model reconciliation.
 - `docs/current-status.md` - current release status and remaining known limits.
+- `docs/v2.2.2-release.md` - v2.2.2 release notes.
+- `docs/v2.2.1-release.md` - v2.2.1 release notes.
 - `docs/v2.2.0-release.md` - v2.2.0 release notes.
 - `docs/v2.0.1-release.md` - v2.0.1 release notes.
 - `docs/juce-vst3-sender.md` - JUCE VST3 sender build, install, and smoke-test notes.
@@ -125,3 +127,5 @@ For mixed-source behavior, duplicate names, and reconnect preference memory, see
 5. Done: v2.0.0 installer packaging with app rename and configurable VST3 install path.
 6. Done: v2.0.1 appearance themes, Eco mode, and Windows compatibility polish.
 7. Done: v2.2.0 frequency collision analysis, graph responsiveness, spectrograph range control, and AAX sender groundwork.
+8. Done: v2.2.1 spectrum bitmap lock crash fix.
+9. Done: v2.2.2 spectrograph continuity, color-floor, and numeric range-entry polish.

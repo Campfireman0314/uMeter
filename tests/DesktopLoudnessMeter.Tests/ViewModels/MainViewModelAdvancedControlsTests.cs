@@ -350,9 +350,9 @@ public sealed class MainViewModelAdvancedControlsTests
     {
         var viewModel = CreateViewModel();
 
-        Assert.Equal(-96, viewModel.SpectrumDisplayFloorDb);
+        Assert.Equal(-120, viewModel.SpectrumDisplayFloorDb);
         Assert.Equal(0, viewModel.SpectrumDisplayCeilingDb);
-        Assert.Equal("-96 to 0 dB", viewModel.SpectrumDisplayRangeText);
+        Assert.Equal("-120 to 0 dB", viewModel.SpectrumDisplayRangeText);
 
         viewModel.SpectrumDisplayFloorDb = -54.2;
         viewModel.SpectrumDisplayCeilingDb = -56;
@@ -364,8 +364,9 @@ public sealed class MainViewModelAdvancedControlsTests
         viewModel.SpectrumDisplayCeilingDb = 12;
         viewModel.SpectrumDisplayFloorDb = -200;
 
-        Assert.Equal(-96, viewModel.SpectrumDisplayFloorDb);
+        Assert.Equal(-200, viewModel.SpectrumDisplayFloorDb);
         Assert.Equal(0, viewModel.SpectrumDisplayCeilingDb);
+        Assert.Equal("-200 to 0 dB", viewModel.SpectrumDisplayRangeText);
     }
 
     [Fact]
@@ -422,7 +423,7 @@ public sealed class MainViewModelAdvancedControlsTests
     {
         var service = new StaticSignalSourceMeterService(
             [
-                Source("plugin:lead", "Lead", SignalSourceKind.Plugin, spectrumBuckets: [0.0, 0.40, 0.72, 0.08]),
+                Source("plugin:lead", "Lead", SignalSourceKind.Plugin, spectrumBuckets: [0.0, 0.42, 0.72, 0.08]),
                 Source("plugin:keys", "Keys", SignalSourceKind.Plugin, spectrumBuckets: [0.0, 0.43, 0.18, 0.09])
             ]);
         var viewModel = new MainViewModel(service, startTimer: false);

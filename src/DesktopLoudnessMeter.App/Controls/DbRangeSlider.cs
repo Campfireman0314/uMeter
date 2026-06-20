@@ -1,5 +1,6 @@
 using System.Globalization;
 using System.Windows;
+using System.Windows.Controls;
 using System.Windows.Input;
 using System.Windows.Media;
 
@@ -7,7 +8,7 @@ namespace DesktopLoudnessMeter.App.Controls;
 
 public sealed class DbRangeSlider : FrameworkElement
 {
-    private const double DefaultMinimum = -96;
+    private const double DefaultMinimum = -200;
     private const double DefaultMaximum = 0;
     private const double DefaultStep = 1;
     private const double ThumbRadius = 7;
@@ -19,12 +20,17 @@ public sealed class DbRangeSlider : FrameworkElement
     private const double PreferredHeight = 54;
     private DragThumb? _dragThumb;
     private DragThumb? _hotThumb;
+    private TextBox? _editor;
+    private DragThumb? _editingThumb;
+    private bool _isCommittingEditor;
 
     public DbRangeSlider()
     {
         Cursor = Cursors.SizeWE;
         Focusable = true;
         SnapsToDevicePixels = true;
+        AddVisualChild(_editor = CreateEditor());
+        AddLogicalChild(_editor);
     }
 
     public static readonly DependencyProperty MinimumProperty = DependencyProperty.Register(
@@ -98,7 +104,23 @@ public sealed class DbRangeSlider : FrameworkElement
     protected override Size MeasureOverride(Size availableSize)
     {
         var width = double.IsInfinity(availableSize.Width) ? PreferredWidth : availableSize.Width;
+        _editor?.Measure(new Size(72, 26));
         return new Size(Math.Max(180, width), PreferredHeight);
+    }
+
+    protected override Size ArrangeOverride(Size finalSize)
+    {
+        ArrangeEditor();
+        return finalSize;
+    }
+
+    protected override int VisualChildrenCount => _editor is null ? 0 : 1;
+
+    protected override Visual GetVisualChild(int index)
+    {
+        return index == 0 && _editor is not null
+            ? _editor
+            : throw new ArgumentOutOfRangeException(nameof(index));
     }
 
     protected override void OnRender(DrawingContext drawingContext)
@@ -133,12 +155,31 @@ public sealed class DbRangeSlider : FrameworkElement
     {
         base.OnMouseLeftButtonDown(e);
         Focus();
+        if (e.ClickCount >= 2)
+        {
+            BeginEdit(ChooseThumb(e.GetPosition(this)));
+            e.Handled = true;
+            return;
+        }
+
+        EndEdit(commit: true);
         _dragThumb = ChooseThumb(e.GetPosition(this));
         _hotThumb = _dragThumb;
         CaptureMouse();
         UpdateDrag(e.GetPosition(this));
         InvalidateVisual();
         e.Handled = true;
+    }
+
+    protected override void OnLostKeyboardFocus(KeyboardFocusChangedEventArgs e)
+    {
+        base.OnLostKeyboardFocus(e);
+        if (_editor is not null && e.NewFocus == _editor)
+        {
+            return;
+        }
+
+        EndEdit(commit: true);
     }
 
     protected override void OnMouseMove(MouseEventArgs e)
@@ -322,6 +363,134 @@ public sealed class DbRangeSlider : FrameworkElement
         }
     }
 
+    private TextBox CreateEditor()
+    {
+        var editor = new TextBox
+        {
+            Visibility = Visibility.Collapsed,
+            Width = 72,
+            Height = 26,
+            Padding = new Thickness(6, 2, 6, 2),
+            TextAlignment = TextAlignment.Center,
+            VerticalContentAlignment = VerticalAlignment.Center,
+            BorderThickness = new Thickness(1),
+            FontSize = 11
+        };
+        editor.KeyDown += EditorOnKeyDown;
+        editor.LostKeyboardFocus += (_, _) =>
+        {
+            if (!_isCommittingEditor)
+            {
+                EndEdit(commit: true);
+            }
+        };
+        return editor;
+    }
+
+    private void BeginEdit(DragThumb thumb)
+    {
+        if (_editor is null)
+        {
+            return;
+        }
+
+        if (IsMouseCaptured)
+        {
+            ReleaseMouseCapture();
+        }
+
+        _dragThumb = null;
+        _hotThumb = thumb;
+        _editingThumb = thumb;
+        _editor.Text = $"{(thumb == DragThumb.Lower ? LowerValue : UpperValue):0}";
+        ApplyEditorTheme(_editor);
+        _editor.Visibility = Visibility.Visible;
+        ArrangeEditor();
+        _editor.Focus();
+        _editor.SelectAll();
+        InvalidateVisual();
+    }
+
+    private void EndEdit(bool commit)
+    {
+        if (_editor is null || _editingThumb is null)
+        {
+            return;
+        }
+
+        _isCommittingEditor = true;
+        try
+        {
+            if (commit && double.TryParse(_editor.Text, NumberStyles.Float, CultureInfo.InvariantCulture, out var value))
+            {
+                SetEditedValue(_editingThumb.Value, value);
+            }
+        }
+        finally
+        {
+            _isCommittingEditor = false;
+            _editor.Visibility = Visibility.Collapsed;
+            _editingThumb = null;
+            InvalidateVisual();
+        }
+    }
+
+    private void SetEditedValue(DragThumb thumb, double value)
+    {
+        var separation = EffectiveStep();
+        var snapped = Snap(value, separation);
+        if (thumb == DragThumb.Lower)
+        {
+            SetCurrentValue(LowerValueProperty, Math.Clamp(snapped, Minimum, UpperValue - separation));
+        }
+        else
+        {
+            SetCurrentValue(UpperValueProperty, Math.Clamp(snapped, LowerValue + separation, Maximum));
+        }
+    }
+
+    private void ArrangeEditor()
+    {
+        if (_editor is null || _editor.Visibility != Visibility.Visible || _editingThumb is null)
+        {
+            return;
+        }
+
+        var track = TrackRect();
+        var value = _editingThumb == DragThumb.Lower ? LowerValue : UpperValue;
+        var desired = _editor.DesiredSize;
+        var width = desired.Width > 0 ? desired.Width : _editor.Width;
+        var height = desired.Height > 0 ? desired.Height : _editor.Height;
+        var x = Math.Clamp(ValueToX(value) - (width / 2), 0, Math.Max(0, ActualWidth - width));
+        var y = Math.Max(0, track.Top - height - 6);
+        _editor.Arrange(new Rect(x, y, width, height));
+    }
+
+    private void ApplyEditorTheme(TextBox editor)
+    {
+        editor.Background = ThemedDrawing.GetBrush(this, "ControlPressedBrush", Color.FromRgb(53, 65, 77));
+        editor.Foreground = ThemedDrawing.GetBrush(this, "TextBrush", Color.FromRgb(238, 241, 245));
+        editor.BorderBrush = ThemedDrawing.GetBrush(this, "AccentBrush", Color.FromRgb(46, 196, 182));
+    }
+
+    private void EditorOnKeyDown(object sender, KeyEventArgs e)
+    {
+        if (e.Key == Key.Enter)
+        {
+            EndEdit(commit: true);
+            Focus();
+            e.Handled = true;
+            return;
+        }
+
+        if (e.Key == Key.Escape)
+        {
+            EndEdit(commit: false);
+            Focus();
+            e.Handled = true;
+        }
+    }
+
     private double EffectiveStep()
     {
         return double.IsFinite(Step) && Step > 0 ? Step : DefaultStep;
@@ -343,6 +512,7 @@ public sealed class DbRangeSlider : FrameworkElement
 
         slider.CoerceValue(LowerValueProperty);
         slider.CoerceValue(UpperValueProperty);
+        slider.ArrangeEditor();
         slider.InvalidateVisual();
     }
 
@@ -350,6 +520,7 @@ public sealed class DbRangeSlider : FrameworkElement
     {
         if (dependencyObject is DbRangeSlider slider)
         {
+            slider.ArrangeEditor();
             slider.InvalidateVisual();
         }
     }

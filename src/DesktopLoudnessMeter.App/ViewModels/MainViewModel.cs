@@ -19,8 +19,9 @@ public sealed class MainViewModel : ObservableObject, IDisposable
     private const double RollSplitterFlexAllowance = 128;
     private const double DefaultCollisionAbsoluteThresholdDb = 6;
     private const double DefaultCollisionRelativeThreshold = 0.18;
-    private const double SpectrumDisplayMinimumDb = -96;
+    private const double SpectrumDisplayMinimumDb = -200;
     private const double SpectrumDisplayMaximumDb = 0;
+    private const double SpectrumDisplayDefaultFloorDb = -120;
     private const double SpectrumDisplayMinimumSpanDb = 6;
     private static readonly FrequencyCollisionSourceOption AllCollisionSourcesOption = new("__global__", "Global", isAllSources: true);
     private static readonly TimeSpan NormalRefreshInterval = TimeSpan.FromMilliseconds(33);
@@ -43,7 +44,7 @@ public sealed class MainViewModel : ObservableObject, IDisposable
     private string _selectedFrequencyCollisionSourceKey = AllCollisionSourcesOption.SourceKey;
     private double _collisionAbsoluteThresholdDb = DefaultCollisionAbsoluteThresholdDb;
     private double _collisionRelativeThreshold = DefaultCollisionRelativeThreshold;
-    private double _spectrumDisplayFloorDb = SpectrumDisplayMinimumDb;
+    private double _spectrumDisplayFloorDb = SpectrumDisplayDefaultFloorDb;
     private double _spectrumDisplayCeilingDb = SpectrumDisplayMaximumDb;
     private IReadOnlyList<FrequencyCollisionSourceOption> _frequencyCollisionSourceOptions = [AllCollisionSourcesOption];
     private IReadOnlyList<FrequencyCollisionBand> _frequencyCollisionBands = Array.Empty<FrequencyCollisionBand>();
@@ -631,7 +632,7 @@ public sealed class MainViewModel : ObservableObject, IDisposable
 
     private void SetFrequencyCollisionBands(IReadOnlyList<FrequencyCollisionBand> bands)
     {
-        if (FrequencyCollisionBands.SequenceEqual(bands))
+        if (FrequencyCollisionBandsEqual(FrequencyCollisionBands, bands))
         {
             return;
         }
@@ -871,7 +872,31 @@ public sealed class MainViewModel : ObservableObject, IDisposable
     {
         return double.IsFinite(value)
             ? Math.Round(value, 0, MidpointRounding.AwayFromZero)
-            : SpectrumDisplayMinimumDb;
+            : SpectrumDisplayDefaultFloorDb;
+    }
+
+    private static bool FrequencyCollisionBandsEqual(
+        IReadOnlyList<FrequencyCollisionBand> current,
+        IReadOnlyList<FrequencyCollisionBand> next)
+    {
+        if (current.Count != next.Count)
+        {
+            return false;
+        }
+
+        for (var index = 0; index < current.Count; index++)
+        {
+            var first = current[index];
+            var second = next[index];
+            if (Math.Abs(first.StartRatio - second.StartRatio) >= 0.002
+                || Math.Abs(first.EndRatio - second.EndRatio) >= 0.002
+                || Math.Abs(first.Intensity - second.Intensity) >= 0.02)
+            {
+                return false;
+            }
+        }
+
+        return true;
     }
 
     private bool IsProcessStillAlive(int processId)

@@ -462,7 +462,7 @@
                                                        Text="{Binding SpectrumDisplayRangeText}" />
                                         </Grid>
                                         <controls:DbRangeSlider Margin="0,2,0,0"
-                                                                Minimum="-96"
+                                                                Minimum="-200"
                                                                 Maximum="0"
                                                                 Step="1"
                                                                 LowerValue="{Binding SpectrumDisplayFloorDb, Mode=TwoWay, UpdateSourceTrigger=PropertyChanged}"
