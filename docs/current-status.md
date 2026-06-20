@@ -2,9 +2,9 @@
 
 ## Checkpoint
 
-`v2.0.1` - Appearance, compatibility, and performance polish release, pinned on 2026-06-19.
+`v2.2.0` - Frequency-collision, graph responsiveness, and release-structure polish, pinned on 2026-06-20.
 
-This checkpoint builds on the v2.0.0 `uMeter`/VST3 release with persisted appearance themes, themed custom plots, Eco mode performance controls, and clearer Windows process-loopback compatibility warnings. The installer still ships the desktop app plus the `uMeter Sender.vst3` bundle and exposes both the app install folder and VST3 install folder.
+This checkpoint builds on the v2.0.1 appearance/performance release with frequency collision analysis, smoother waveform/spectrum/collision plotting, a spectrograph display dB range slider, AAX sender groundwork, and installer success-message polish. The installer still ships the desktop app plus the `uMeter Sender.vst3` bundle and exposes both the app install folder and VST3 install folder.
 
 ## What Works
 
@@ -52,6 +52,8 @@ This checkpoint builds on the v2.0.0 `uMeter`/VST3 release with persisted appear
 - Waveform display uses the selected true-peak oversampling ratio for its display buffer.
 - Waveform display uses dBFS scale markings and a smoother curve without averaging away plotted extrema.
 - Spectrum display uses a horizontally rolling, Mel-scaled, 320-bin FFT-derived display from 20 Hz to 22 kHz.
+- Frequency collision analyzer compares spectrum bins between sources and highlights similar frequency ranges.
+- Spectrograph display range can be adjusted with a themed two-thumb dB slider.
 - Spectrum FFT can use the optional `DesktopLoudnessMeter.Native.dll` RfRapid C++ accelerator, with automatic managed fallback.
 - Crash/startup logging under `%LOCALAPPDATA%\uMeter`.
 - Installer with visible app install path, shortcut options, VST3 install path, uninstall registration, and quiet mode.
@@ -96,11 +98,11 @@ Latest verified status:
 
 - Build: clean.
 - Native build: clean.
-- Tests: 170 passing.
+- Tests: 182 passing.
 - JUCE VST3 native CTest: 1 passing.
 - JUCE VST3 Release build: succeeded; local JUCE/HarfBuzz source emitted non-fatal C4819 code-page warnings.
 - Format: clean.
-- Installer build: `artifacts\uMeter-Setup-2.0.1.exe` generated.
+- Installer build: `artifacts\uMeter-Setup-2.2.0.exe` generated.
 - Installer payload: confirmed to contain `uMeter.exe` and `Plugins\VST3\uMeter Sender.vst3`.
 
 ## Installer Notes
@@ -108,7 +110,7 @@ Latest verified status:
 - Default app install folder: `%LOCALAPPDATA%\Programs\uMeter`.
 - Default VST3 install folder: `C:\Program Files\VSTPlugins`.
 - Standard VST3 mirror folder: `C:\Program Files\Common Files\VST3`.
-- Default artifacts: `artifacts\uMeter.Setup.exe` and `artifacts\uMeter-Setup-2.0.1.exe`.
+- Default artifacts: `artifacts\uMeter.Setup.exe` and `artifacts\uMeter-Setup-2.2.0.exe`.
 - Quiet install supports `--install-dir`, `--vst-dir`, `--no-vst`, `--no-desktop-shortcut`, `--no-start-menu-shortcut`, and `--no-shortcuts`.
 - Installing the VST3 sender into Program Files may trigger UAC elevation.
 - Uninstall cleanup relaunches elevated when protected app or VST3 locations need administrator permission.
@@ -123,7 +125,7 @@ Suggested release commit:
 cd D:\GitRepo\desktop-loudness-meter
 git status --short
 git add .
-git commit -m "Release uMeter v2.0.1"
+git commit -m "Release uMeter v2.2.0"
 git push
 ```
 
@@ -133,6 +135,7 @@ Before committing, review generated folders and build outputs are still ignored 
 
 - `README.md` - project overview, run commands, roadmap.
 - `CHANGELOG.md` - version history.
+- docs/v2.2.0-release.md - v2.2.0 release notes.
 - docs/v2.0.1-release.md - v2.0.1 release notes.
 - docs/v2.0.0-release.md - v2.0.0 release notes.
 - `docs/v1.1.0-release.md` - v1.1.0 polish release notes.
@@ -153,14 +156,13 @@ Before committing, review generated folders and build outputs are still ignored 
 - Per-source analysis preferences are remembered only while the app is running.
 - Multiple detail windows watching the same process share one analyzer stream, so the latest true-peak oversampling choice for that process wins.
 - Process-loopback depends on Windows support and target-session behavior.
-- AAX is not implemented yet.
+- AAX sender groundwork exists, but distributable AAX builds still require Avid/PACE signing, validation, and Pro Tools smoke testing.
 - The VST3 sender still uses the inspectable JSON/base64 UDP loopback protocol and fixed receiver port `38173`.
 - DSP behavior has synthetic coverage but is not certified against official loudness reference vectors yet.
 - The installer is unsigned, so Windows SmartScreen may warn during first launch on other machines.
 
 ## Sensible Next Slice
 
-- Persist user settings across app restarts.
 - Add connection/status feedback to the VST3 sender editor.
 - Consider a binary loopback protocol path after the UI direction settles.
 - Add signed installer or release signing workflow.

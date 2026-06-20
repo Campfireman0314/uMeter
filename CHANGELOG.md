@@ -4,6 +4,39 @@
 
 - Nothing yet.
 
+## v2.2.0 - 2026-06-20
+
+Frequency-collision, rendering responsiveness, and release-structure polish.
+
+### Added
+
+- Frequency collision analyzer for detail views, with source selection, absolute dB threshold, relative threshold, themed collision bands, cursor frequency marker, and inline plus pop-up detail support.
+- Spectrograph display level range control with a themed two-thumb dB slider, defaulting to `-96 to 0 dB`.
+- First AAX sender project scaffold that reuses the JUCE sender processor and loopback implementation from the VST3 sender.
+- Shared development notes for desktop, sender-plugin, and future iOS planning surfaces.
+
+### Changed
+
+- Waveform, spectrum, and collision analyzer updates now use analyzer-frame plot ticks so cached buffers can advance visibly even when collection identities are reused.
+- Spectrum roll rendering uses circular bitmap history and recolors existing history when theme or display dB range changes.
+- Collision analyzer refresh now follows selected and comparison spectrum ticks, including pop-up detail windows.
+- Collision analyzer is independent from waveform/spectrum visibility and remains disabled by default.
+- App, setup, protocol, sender kit, sender probe, VST3 sender project, and AAX sender project metadata now report version `2.2.0`.
+- Default versioned installer artifact is now `uMeter-Setup-2.2.0.exe`.
+
+### Fixed
+
+- Frequency collision source selector now preserves the `Global` label and stable source names across refreshes.
+- Collision bars no longer flash themed background color when there is no valid comparison data.
+- Installer UI reports success after an elevated install completes successfully.
+- Waveform and spectrum rolls avoid sparse or paused-looking updates on slower machines by decoupling plotting cadence from buffer reference changes.
+
+### Verified
+
+- `dotnet test tests\DesktopLoudnessMeter.Tests\DesktopLoudnessMeter.Tests.csproj` with 182 passing tests.
+- `dotnet build src\DesktopLoudnessMeter.App\DesktopLoudnessMeter.App.csproj`.
+- `.\build-installer.ps1 -Version 2.2.0 -JuceDir E:\JUCE` generated `uMeter-Setup-2.2.0.exe`.
+
 ## v2.0.1 - 2026-06-19
 
 Appearance polish and Windows compatibility release.

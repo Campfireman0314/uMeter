@@ -1,6 +1,6 @@
 cmake_minimum_required(VERSION 3.22)
 
-project(DESKTOP_LOUDNESS_METER_JUCE_AAX_PLUGIN VERSION 2.0.1 LANGUAGES CXX)
+project(DESKTOP_LOUDNESS_METER_JUCE_AAX_PLUGIN VERSION 2.2.0 LANGUAGES CXX)
 
 set(JUCE_DIR "C:/JUCE" CACHE PATH "Path to a JUCE checkout or install tree")
 set(DLM_AAX_SDK_DIR "" CACHE PATH "Optional path to an AAX SDK checkout. Leave empty to use JUCE's bundled AAX SDK path when available.")

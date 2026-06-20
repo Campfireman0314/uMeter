@@ -1,6 +1,6 @@
 cmake_minimum_required(VERSION 3.22)
 
-project(DESKTOP_LOUDNESS_METER_JUCE_PLUGIN VERSION 2.0.1 LANGUAGES CXX)
+project(DESKTOP_LOUDNESS_METER_JUCE_PLUGIN VERSION 2.2.0 LANGUAGES CXX)
 
 set(JUCE_DIR "C:/JUCE" CACHE PATH "Path to a JUCE checkout or install tree")
 set(DLM_VST3_COPY_DIR "C:/Program Files/Common Files/VST3" CACHE PATH "Standard VST3 folder that receives the built plugin for DAW smoke tests")
