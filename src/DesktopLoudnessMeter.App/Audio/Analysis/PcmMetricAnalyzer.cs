@@ -1,6 +1,6 @@
 namespace DesktopLoudnessMeter.App.Audio.Analysis;
 
-public sealed class PcmMetricAnalyzer
+public sealed class PcmMetricAnalyzer : IDisposable
 {
     private readonly PcmMetricAnalyzerOptions _options;
     private readonly KWeightingFilter[] _kWeightingFilters;
@@ -10,10 +10,18 @@ public sealed class PcmMetricAnalyzer
     private readonly RecentSampleWindow _recentSamples;
     private readonly TruePeakEstimator _truePeakEstimator;
     private readonly double[] _frameBuffer = new double[2];
-    private readonly double[] _oversampledDisplayBuffer;
-    private readonly double[] _oversampledChannelDisplayBuffer;
+    private readonly int _truePeakWindowFrames;
+    private NativeRfRapidTruePeakEstimator? _nativeTruePeakEstimator;
+    private double[] _nativeInputBuffer = [];
+    private double[] _nativeOversampledDisplayBuffer = [];
+    private double[] _nativeOversampledChannelDisplayBuffer = [];
+    private double[] _nativeFramePeaks = [];
+    private int[] _nativeFrameOutputCounts = [];
+    private readonly double[] _managedOversampledDisplayBuffer;
+    private readonly double[] _managedOversampledChannelDisplayBuffer;
     private bool _channelWaveformEnabled;
     private bool _channelSpectrumEnabled;
+    private bool _nativeTruePeakDisabled;
     private long _processedFrames;
     private PcmMetricsSnapshot _snapshot = new();
 
@@ -31,12 +39,13 @@ public sealed class PcmMetricAnalyzer
             options.SampleRate,
             options.TruePeakOversampling,
             MillisecondsToFrames(100));
+        _truePeakWindowFrames = MillisecondsToFrames(100);
         _truePeakEstimator = new TruePeakEstimator(
             options.Channels,
             options.TruePeakOversampling,
-            MillisecondsToFrames(100));
-        _oversampledDisplayBuffer = new double[options.TruePeakOversampling];
-        _oversampledChannelDisplayBuffer = new double[options.TruePeakOversampling * options.Channels];
+            _truePeakWindowFrames);
+        _managedOversampledDisplayBuffer = new double[options.TruePeakOversampling];
+        _managedOversampledChannelDisplayBuffer = new double[options.TruePeakOversampling * options.Channels];
     }
 
     public PcmMetricsSnapshot Snapshot => _snapshot;
@@ -68,6 +77,14 @@ public sealed class PcmMetricAnalyzer
             return;
         }
 
+        var frameCount = interleavedSamples.Length / _options.Channels;
+        if (TryProcessWithNativeTruePeak(interleavedSamples, frameCount))
+        {
+            _processedFrames += frameCount;
+            RefreshSnapshot();
+            return;
+        }
+
         for (var index = 0; index < interleavedSamples.Length; index += _options.Channels)
         {
             var weightedPower = 0d;
@@ -83,12 +100,12 @@ public sealed class PcmMetricAnalyzer
             var activeFrame = _frameBuffer.AsSpan(0, _options.Channels);
             var oversampledCount = _truePeakEstimator.Add(
                 activeFrame,
-                _oversampledDisplayBuffer,
-                _oversampledChannelDisplayBuffer);
+                _managedOversampledDisplayBuffer,
+                _managedOversampledChannelDisplayBuffer);
             _recentSamples.Add(
                 activeFrame,
-                _oversampledDisplayBuffer.AsSpan(0, oversampledCount),
-                _oversampledChannelDisplayBuffer.AsSpan(0, oversampledCount * _options.Channels));
+                _managedOversampledDisplayBuffer.AsSpan(0, oversampledCount),
+                _managedOversampledChannelDisplayBuffer.AsSpan(0, oversampledCount * _options.Channels));
             _momentaryWindow.Add(weightedPower);
             _shortTermWindow.Add(weightedPower);
             _integratedGate.Add(weightedPower);
@@ -111,7 +128,14 @@ public sealed class PcmMetricAnalyzer
         _integratedGate.Reset();
         _recentSamples.Reset();
         _truePeakEstimator.Reset();
+        _nativeTruePeakEstimator?.Reset();
         _snapshot = new PcmMetricsSnapshot();
+    }
+
+    public void Dispose()
+    {
+        _nativeTruePeakEstimator?.Dispose();
+        _nativeTruePeakEstimator = null;
     }
 
     internal static double MeanSquareToLufs(double meanSquare)
@@ -134,7 +158,7 @@ public sealed class PcmMetricAnalyzer
             MomentaryLufs: momentary,
             ShortTermLufs: shortTerm,
             IntegratedLufs: _integratedGate.CalculateLufs(),
-            TruePeakDb: _truePeakEstimator.HasSamples ? ToDb(_truePeakEstimator.TruePeak) : null,
+            TruePeakDb: HasTruePeakSamples ? ToDb(CurrentTruePeak) : null,
             Rms100MsDb: seconds >= 0.1 ? ToDb(_recentSamples.Rms) : null,
             StereoImageX: _recentSamples.StereoImageX,
             StereoImageY: _recentSamples.StereoImageY,
@@ -145,6 +169,114 @@ public sealed class PcmMetricAnalyzer
             SpectrumBuckets: _recentSamples.SpectrumBuckets,
             ChannelSpectrumBuckets: _channelSpectrumEnabled ? _recentSamples.ChannelSpectrumBuckets : null,
             PlotFrameVersion: _processedFrames);
+    }
+
+    private bool HasTruePeakSamples => _nativeTruePeakEstimator is not null
+        ? _processedFrames > 0
+        : _truePeakEstimator.HasSamples;
+
+    private double CurrentTruePeak => _nativeTruePeakEstimator?.TruePeak ?? _truePeakEstimator.TruePeak;
+
+    private bool TryProcessWithNativeTruePeak(ReadOnlySpan<float> interleavedSamples, int frameCount)
+    {
+        if (_nativeTruePeakDisabled)
+        {
+            return false;
+        }
+
+        try
+        {
+            _nativeTruePeakEstimator ??= new NativeRfRapidTruePeakEstimator(
+                _options.Channels,
+                _options.TruePeakOversampling,
+                _truePeakWindowFrames);
+            EnsureNativeWorkspace(frameCount);
+
+            for (var index = 0; index < interleavedSamples.Length; index++)
+            {
+                _nativeInputBuffer[index] = NormalizeSample(interleavedSamples[index]);
+            }
+
+            _nativeTruePeakEstimator.Process(
+                _nativeInputBuffer,
+                frameCount,
+                _nativeOversampledDisplayBuffer,
+                _nativeOversampledChannelDisplayBuffer,
+                _nativeFramePeaks,
+                _nativeFrameOutputCounts);
+
+            for (var frame = 0; frame < frameCount; frame++)
+            {
+                var weightedPower = 0d;
+                var sampleOffset = frame * _options.Channels;
+                for (var channel = 0; channel < _options.Channels; channel++)
+                {
+                    var sample = _nativeInputBuffer[sampleOffset + channel];
+                    _frameBuffer[channel] = sample;
+
+                    var weighted = _kWeightingFilters[channel].Process(sample);
+                    weightedPower += weighted * weighted;
+                }
+
+                var activeFrame = _frameBuffer.AsSpan(0, _options.Channels);
+                var oversampledOffset = frame * _options.TruePeakOversampling;
+                var oversampledCount = _nativeFrameOutputCounts[frame];
+                _recentSamples.Add(
+                    activeFrame,
+                    _nativeOversampledDisplayBuffer.AsSpan(oversampledOffset, oversampledCount),
+                    _nativeOversampledChannelDisplayBuffer.AsSpan(
+                        oversampledOffset * _options.Channels,
+                        oversampledCount * _options.Channels));
+                _momentaryWindow.Add(weightedPower);
+                _shortTermWindow.Add(weightedPower);
+                _integratedGate.Add(weightedPower);
+            }
+
+            return true;
+        }
+        catch (Exception ex) when (ex is DllNotFoundException
+            or EntryPointNotFoundException
+            or BadImageFormatException
+            or InvalidOperationException
+            or System.Runtime.InteropServices.SEHException)
+        {
+            _nativeTruePeakEstimator?.Dispose();
+            _nativeTruePeakEstimator = null;
+            _nativeTruePeakDisabled = true;
+            return false;
+        }
+    }
+
+    private void EnsureNativeWorkspace(int frameCount)
+    {
+        var sampleCount = frameCount * _options.Channels;
+        var oversampledFrameCount = frameCount * _options.TruePeakOversampling;
+        var oversampledSampleCount = oversampledFrameCount * _options.Channels;
+
+        if (_nativeInputBuffer.Length < sampleCount)
+        {
+            _nativeInputBuffer = new double[sampleCount];
+        }
+
+        if (_nativeOversampledDisplayBuffer.Length < oversampledFrameCount)
+        {
+            _nativeOversampledDisplayBuffer = new double[oversampledFrameCount];
+        }
+
+        if (_nativeOversampledChannelDisplayBuffer.Length < oversampledSampleCount)
+        {
+            _nativeOversampledChannelDisplayBuffer = new double[oversampledSampleCount];
+        }
+
+        if (_nativeFramePeaks.Length < frameCount)
+        {
+            _nativeFramePeaks = new double[frameCount];
+        }
+
+        if (_nativeFrameOutputCounts.Length < frameCount)
+        {
+            _nativeFrameOutputCounts = new int[frameCount];
+        }
     }
 
     private int MillisecondsToFrames(int milliseconds)

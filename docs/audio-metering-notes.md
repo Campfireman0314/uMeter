@@ -32,6 +32,8 @@ Windows Core Audio exposes render sessions and session peak meters through WASAP
 
 The analyzer is standards-inspired and ready for synthetic-signal testing, but it is not yet certified against official reference vectors. The current K-weighting coefficients are the common 48 kHz coefficient set; non-48 kHz capture paths should be treated as approximate until a sample-rate-specific filter design or resampling step is added.
 
+True-peak reconstruction uses the same Hann-windowed sinc kernel shape in both managed and native paths. When `DesktopLoudnessMeter.Native.dll` is available, the analyzer batches each incoming audio block through the RfRapid C++ backend and receives per-frame oversampled display samples plus rolling true-peak state. If the native DLL or exports are unavailable, it falls back to the managed estimator. A local 30 s stereo 48 kHz benchmark measured the 8x estimator at about `5.00 Mframes/s` native versus about `1.97 Mframes/s` managed with matching peak output.
+
 ## Process Loopback Status
 
 `2026-06-16-advanced-metering/03-process-loopback-integration` wires process-backed WASAPI sessions to a Windows process-loopback capture worker. The worker requests 48 kHz stereo IEEE-float PCM, feeds `PcmMetricAnalyzer`, and merges the latest analyzer snapshot back into each row by process ID.
@@ -70,7 +72,7 @@ This path requires Windows 10 build 20348 or later and can still fail for protec
 - Waveform scale markings are in dBFS.
 - Spectrum display uses an FFT-derived, Mel-spaced 192-bin display for smoother horizontal rolling output.
 
-True-peak detection and waveform/spectrum display currently use separate reconstruction buffers. True peak reports a recent-window maximum; the display path keeps ordered oversampled samples for drawing and FFT analysis. This separation keeps metering behavior isolated, but it is a performance cleanup candidate.
+True-peak detection and waveform/spectrum display now share the same oversampled reconstruction output within each analyzer path. The native RfRapid path keeps the reconstruction batched per incoming audio block; the managed fallback keeps the original per-frame estimator for portability.
 
 ## Next Slice
 

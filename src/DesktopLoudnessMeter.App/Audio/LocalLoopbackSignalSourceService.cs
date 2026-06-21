@@ -62,7 +62,11 @@ public sealed class LocalLoopbackSignalSourceService :
                     ProcessAudio(packet);
                     break;
                 case LocalLoopbackPacketType.Close:
-                    _sourcesByHandle.Remove(packet.Handle);
+                    if (_sourcesByHandle.Remove(packet.Handle, out var source))
+                    {
+                        source.Dispose();
+                    }
+
                     break;
                 case LocalLoopbackPacketType.Ack:
                     break;
@@ -184,6 +188,11 @@ public sealed class LocalLoopbackSignalSourceService :
         lock (_lock)
         {
             _isDisposed = true;
+            foreach (var source in _sourcesByHandle.Values)
+            {
+                source.Dispose();
+            }
+
             _sourcesByHandle.Clear();
         }
     }
@@ -203,6 +212,11 @@ public sealed class LocalLoopbackSignalSourceService :
             source.SourceKind = NormalizeSourceKind(packet.SourceKind);
             source.Touch(_clock());
             return;
+        }
+
+        if (_sourcesByHandle.Remove(packet.Handle, out var previousSource))
+        {
+            previousSource.Dispose();
         }
 
         _sourcesByHandle[packet.Handle] = new SourceState(
@@ -286,6 +300,7 @@ public sealed class LocalLoopbackSignalSourceService :
 
         foreach (var source in _sourcesByHandle.Values.Where(source => now - source.LastSeenAt > _sourceTimeout).ToArray())
         {
+            source.Dispose();
             _sourcesByHandle.Remove(source.Handle);
         }
     }
@@ -335,7 +350,7 @@ public sealed class LocalLoopbackSignalSourceService :
         }
     }
 
-    private sealed class SourceState
+    private sealed class SourceState : IDisposable
     {
         private PcmMetricAnalyzer _analyzer;
         private int _truePeakOversampling;
@@ -411,7 +426,9 @@ public sealed class LocalLoopbackSignalSourceService :
 
             _truePeakOversampling = oversampling;
             Peak = 0;
+            var previousAnalyzer = _analyzer;
             _analyzer = CreateAnalyzer(SampleRate, Channels, oversampling, _channelWaveformEnabled, _channelSpectrumEnabled, _performanceMode);
+            previousAnalyzer.Dispose();
         }
 
         public void SetChannelWaveformEnabled(bool enabled)
@@ -466,6 +483,11 @@ public sealed class LocalLoopbackSignalSourceService :
             }
 
             return PeakMath.ClampPeak(peak);
+        }
+
+        public void Dispose()
+        {
+            _analyzer.Dispose();
         }
     }
 }

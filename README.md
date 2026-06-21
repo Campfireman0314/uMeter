@@ -4,7 +4,7 @@ Fast floating Windows desktop meter for seeing which app, DAW, or plugin sender 
 
 ## Current Version
 
-`v2.2.7` is the current public release. This patch keeps pop-up detail windows independent from the global `Always on top` state and improves Milk White graph contrast.
+`v2.2.8` is the current public release. This patch adds optional RfRapid acceleration for true-peak reconstruction after benchmarking it against the managed estimator.
 
 ## Usable Baseline
 
@@ -25,7 +25,7 @@ Fast floating Windows desktop meter for seeing which app, DAW, or plugin sender 
 - Global settings window for event history limit and future event output folder selection.
 - Display dB range control for the spectrograph, adjustable from `-200 to 0 dB` and defaulting to `-120 to 0 dB`.
 - Stereo image dot history/intensity control through trace persistence.
-- Optional native RfRapid C++ FFT accelerator for the spectrum path, with managed fallback.
+- Optional native RfRapid C++ FFT and true-peak reconstruction acceleration, with managed fallback.
 - Packaged installer with app install path, shortcut options, and configurable VST3 install path.
 - App and tray icons are included under `src/DesktopLoudnessMeter.App/Assets`.
 
@@ -35,7 +35,7 @@ Fast floating Windows desktop meter for seeing which app, DAW, or plugin sender 
 dotnet run --project .\src\DesktopLoudnessMeter.App\DesktopLoudnessMeter.App.csproj
 ```
 
-To enable the native RfRapid FFT path before running:
+To enable the native RfRapid FFT and true-peak acceleration paths before running:
 
 ```powershell
 .\src\DesktopLoudnessMeter.Native\build-native.ps1 -Configuration Release
@@ -43,7 +43,7 @@ dotnet build .\desktop-loudness-meter.sln
 dotnet run --project .\src\DesktopLoudnessMeter.App\DesktopLoudnessMeter.App.csproj
 ```
 
-The app automatically falls back to the managed FFT if `DesktopLoudnessMeter.Native.dll` is not present or cannot be loaded.
+The app automatically falls back to managed FFT and true-peak reconstruction if `DesktopLoudnessMeter.Native.dll` is not present or cannot be loaded.
 
 ## Validate
 
@@ -71,7 +71,7 @@ The generated installers are written to:
 
 ```text
 artifacts\uMeter.Setup.exe
-artifacts\uMeter-Setup-2.2.7.exe
+artifacts\uMeter-Setup-2.2.8.exe
 ```
 
 The installer contains the desktop app and `uMeter Sender.vst3`. The VST3 install path defaults to:
@@ -110,11 +110,13 @@ For mixed-source behavior, duplicate names, and reconnect preference memory, see
 - `src/DesktopLoudnessMeter.SenderKit` - reusable sender-side core for plugin wrappers and diagnostics.
 - `src/DesktopLoudnessMeter.SenderProbe` - DAW-free plugin-style sender probe for local smoke tests.
 - `src/DesktopLoudnessMeter.JucePlugin` - native JUCE VST3 sender plugin.
-- `src/DesktopLoudnessMeter.Native` - optional RfRapid-backed native FFT wrapper.
+- `src/DesktopLoudnessMeter.Native` - optional RfRapid-backed native FFT and true-peak wrapper.
+- `tests/DesktopLoudnessMeter.Benchmarks` - lightweight local benchmark harness for DSP hot paths.
 - `tests/DesktopLoudnessMeter.Tests` - unit tests for math and view-model reconciliation.
 - `docs/current-status.md` - current release status and remaining known limits.
 - `docs/product-roadmap/` - post-v2.2.4 product roadmap and planning notes.
 - `docs/rendering-architecture.md` - graph rendering cleanup notes.
+- `docs/v2.2.8-release.md` - v2.2.8 release notes.
 - `docs/v2.2.7-release.md` - v2.2.7 release notes.
 - `docs/v2.2.6-release.md` - v2.2.6 release notes.
 - `docs/v2.2.5-release.md` - v2.2.5 release notes.
@@ -143,3 +145,4 @@ For mixed-source behavior, duplicate names, and reconnect preference memory, see
 12. Done: v2.2.5 overlap-event slice, VST3 sender acknowledgements/status, and reset-rendering stability.
 13. Done: v2.2.6 Cycle 5 rendering architecture cleanup slices and Cycle 6 platform strategy notes.
 14. Done: v2.2.7 detail-window topmost isolation and Milk White graph contrast polish.
+15. Done: v2.2.8 RfRapid true-peak acceleration with benchmark coverage and managed fallback.

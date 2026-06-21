@@ -4,6 +4,26 @@
 
 - Nothing yet.
 
+## v2.2.8 - 2026-06-21
+
+RfRapid true-peak acceleration release.
+
+### Added
+
+- Added a lightweight `DesktopLoudnessMeter.Benchmarks` console harness for comparing managed and RfRapid-backed true-peak reconstruction.
+
+### Changed
+
+- True-peak oversampled reconstruction can now use `DesktopLoudnessMeter.Native.dll` RfRapid acceleration, with automatic managed fallback when the native DLL is unavailable.
+- Native true-peak processing is batched per audio block and preserves the existing 100 ms rolling true-peak window plus waveform/spectrum display samples.
+
+### Verified
+
+- RfRapid true-peak benchmark on a 30 s stereo 48 kHz signal: 8x improved from about `1.95 Mframes/s` managed to about `4.44 Mframes/s` native with matching peak output.
+- `.\build-installer.ps1 -Configuration Release -Version 2.2.8 -JuceDir E:\JUCE`.
+- `dotnet build src\DesktopLoudnessMeter.App\DesktopLoudnessMeter.App.csproj --no-restore`.
+- `dotnet test tests\DesktopLoudnessMeter.Tests\DesktopLoudnessMeter.Tests.csproj --no-restore` with 206 passing tests.
+
 ## v2.2.7 - 2026-06-21
 
 Detail-window and Milk White graph-contrast polish release.

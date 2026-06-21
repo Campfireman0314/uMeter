@@ -67,6 +67,11 @@ internal sealed class ProcessLoopbackCaptureWorker : IProcessLoopbackCaptureWork
         _stopRequested = true;
         _frameEvent?.Set();
         _captureThread?.Join(TimeSpan.FromSeconds(2));
+        lock (_lock)
+        {
+            _analyzer.Dispose();
+        }
+
         _audioClient?.Dispose();
         _frameEvent?.Dispose();
     }
@@ -88,7 +93,9 @@ internal sealed class ProcessLoopbackCaptureWorker : IProcessLoopbackCaptureWork
                 return;
             }
 
+            var previousAnalyzer = _analyzer;
             _analyzer = CreateAnalyzer(oversampling, _channelWaveformEnabled, _channelSpectrumEnabled, _performanceMode);
+            previousAnalyzer.Dispose();
             _truePeakOversampling = oversampling;
         }
     }

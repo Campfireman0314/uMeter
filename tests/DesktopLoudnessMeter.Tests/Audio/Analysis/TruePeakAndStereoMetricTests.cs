@@ -122,6 +122,58 @@ public sealed class TruePeakAndStereoMetricTests
     }
 
     [Fact]
+    public void NativeRfRapidTruePeakMatchesManagedEstimatorWhenAvailable()
+    {
+        using var native = TryCreateNativeTruePeakEstimator(channels: 2, oversampling: 8, windowFrames: SampleRate / 10);
+        if (native is null)
+        {
+            return;
+        }
+
+        var samples = Sine(
+            seconds: 0.12,
+            leftAmplitude: 0.9,
+            rightAmplitude: 0.8,
+            frequency: SampleRate / 4d,
+            phaseRadians: 3 * Math.PI / 8);
+        var managed = new TruePeakEstimator(channels: 2, oversampling: 8, windowFrames: SampleRate / 10);
+        Span<double> frame = stackalloc double[2];
+        Span<double> managedMono = stackalloc double[8];
+        Span<double> managedInterleaved = stackalloc double[16];
+
+        var nativeInput = new double[samples.Length];
+        for (var index = 0; index < samples.Length; index++)
+        {
+            nativeInput[index] = samples[index];
+        }
+
+        var frameCount = samples.Length / 2;
+        var nativeMono = new double[frameCount * 8];
+        var nativeInterleaved = new double[frameCount * 8 * 2];
+        var nativeFramePeaks = new double[frameCount];
+        var nativeFrameOutputCounts = new int[frameCount];
+
+        native.Process(nativeInput, frameCount, nativeMono, nativeInterleaved, nativeFramePeaks, nativeFrameOutputCounts);
+
+        for (var sampleIndex = 0; sampleIndex < samples.Length; sampleIndex += 2)
+        {
+            frame[0] = samples[sampleIndex];
+            frame[1] = samples[sampleIndex + 1];
+            var frameIndex = sampleIndex / 2;
+            var managedCount = managed.Add(frame, managedMono, managedInterleaved);
+            var nativeOffset = frameIndex * 8;
+
+            Assert.Equal(managedCount, nativeFrameOutputCounts[frameIndex]);
+            for (var index = 0; index < managedCount; index++)
+            {
+                Assert.Equal(managedMono[index], nativeMono[nativeOffset + index], precision: 12);
+            }
+        }
+
+        Assert.Equal(managed.TruePeak, native.TruePeak, precision: 12);
+    }
+
+    [Fact]
     public void AnalyzerExposesWaveformAndSpectrumRollData()
     {
         var analyzer = Analyzer();
@@ -213,6 +265,25 @@ public sealed class TruePeakAndStereoMetricTests
     private static PcmMetricAnalyzer Analyzer()
     {
         return new PcmMetricAnalyzer(new PcmMetricAnalyzerOptions(SampleRate, 2, 4));
+    }
+
+    private static NativeRfRapidTruePeakEstimator? TryCreateNativeTruePeakEstimator(
+        int channels,
+        int oversampling,
+        int windowFrames)
+    {
+        try
+        {
+            return new NativeRfRapidTruePeakEstimator(channels, oversampling, windowFrames);
+        }
+        catch (Exception ex) when (ex is DllNotFoundException
+            or EntryPointNotFoundException
+            or BadImageFormatException
+            or InvalidOperationException
+            or System.Runtime.InteropServices.SEHException)
+        {
+            return null;
+        }
     }
 
     private static float[] Sine(

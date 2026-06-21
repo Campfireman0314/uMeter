@@ -37,6 +37,10 @@ public sealed class SpectrumFftTests
         {
             Assert.True(NativeLibrary.TryGetExport(handle, "DlmRfRapidInit", out _));
             Assert.True(NativeLibrary.TryGetExport(handle, "DlmRfRapidSpectrumF64", out _));
+            Assert.True(NativeLibrary.TryGetExport(handle, "DlmRfRapidTruePeakCreate", out _));
+            Assert.True(NativeLibrary.TryGetExport(handle, "DlmRfRapidTruePeakProcessF64", out _));
+            Assert.True(NativeLibrary.TryGetExport(handle, "DlmRfRapidTruePeakReset", out _));
+            Assert.True(NativeLibrary.TryGetExport(handle, "DlmRfRapidTruePeakDestroy", out _));
         }
         finally
         {
