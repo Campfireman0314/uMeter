@@ -32,6 +32,8 @@ juce::String normalizeDisplayName (const juce::String& displayName)
     const auto trimmed = displayName.trim();
     return trimmed.isEmpty() ? dlm::PluginState::defaultDisplayName : trimmed;
 }
+
+constexpr double connectedAckTimeoutMs = 2500.0;
 }
 
 namespace dlm
@@ -63,6 +65,7 @@ void LoopbackSender::start (const LoopbackSenderConfig& config)
     currentConfig.maxSamplesPerPacket = std::max (config.maxSamplesPerPacket, currentConfig.channels);
     pendingRename = {};
     renamePending.store (false, std::memory_order_release);
+    lastAckReceivedMs.store (0.0, std::memory_order_release);
 
     audioQueue = std::make_unique<RealtimeAudioQueue> (currentConfig.queueCapacity, currentConfig.maxSamplesPerPacket);
 
@@ -126,6 +129,41 @@ bool LoopbackSender::isActive() const noexcept
     return active.load (std::memory_order_acquire);
 }
 
+LoopbackSenderConnectionState LoopbackSender::getConnectionState() const noexcept
+{
+    if (! active.load (std::memory_order_acquire))
+    {
+        return LoopbackSenderConnectionState::Stopped;
+    }
+
+    const auto nowMs = juce::Time::getMillisecondCounterHiRes();
+    const auto lastAckMs = lastAckReceivedMs.load (std::memory_order_acquire);
+    if (lastAckMs <= 0.0)
+    {
+        return LoopbackSenderConnectionState::WaitingForReceiver;
+    }
+
+    return nowMs - lastAckMs <= connectedAckTimeoutMs
+        ? LoopbackSenderConnectionState::Connected
+        : LoopbackSenderConnectionState::NoRecentAck;
+}
+
+juce::String LoopbackSender::getConnectionStatusText() const
+{
+    switch (getConnectionState())
+    {
+        case LoopbackSenderConnectionState::Stopped:
+            return "Sender stopped";
+        case LoopbackSenderConnectionState::Connected:
+            return "Connected to uMeter";
+        case LoopbackSenderConnectionState::NoRecentAck:
+            return "Sending, no recent reply";
+        case LoopbackSenderConnectionState::WaitingForReceiver:
+        default:
+            return "Waiting for uMeter";
+    }
+}
+
 std::uint64_t LoopbackSender::getDroppedPacketCount() const noexcept
 {
     return audioQueue == nullptr ? 0 : audioQueue->getDroppedPacketCount();
@@ -163,6 +201,8 @@ void LoopbackSender::run()
                         configSnapshot.port);
         }
 
+        pollForAck (socket, configSnapshot.handle);
+
         if (renamePending.exchange (false, std::memory_order_acq_rel))
         {
             juce::String renameValue;
@@ -193,6 +233,8 @@ void LoopbackSender::run()
             lastHeartbeatMs = nowMs;
         }
 
+        pollForAck (socket, configSnapshot.handle);
+
         wait (5);
     }
 
@@ -211,5 +253,30 @@ void LoopbackSender::sendPacket (juce::DatagramSocket& socket, const juce::Memor
                   port,
                   packet.getData(),
                   static_cast<int> (packet.getSize()));
+}
+
+void LoopbackSender::pollForAck (juce::DatagramSocket& socket, const juce::String& handle) noexcept
+{
+    char buffer[2048] {};
+    for (auto attempt = 0; attempt < 8; ++attempt)
+    {
+        if (socket.waitUntilReady (true, 0) != 1)
+        {
+            return;
+        }
+
+        juce::String senderAddress;
+        int senderPort = 0;
+        const auto bytesRead = socket.read (buffer, sizeof (buffer), false, senderAddress, senderPort);
+        if (bytesRead <= 0)
+        {
+            return;
+        }
+
+        if (LoopbackProtocol::isAckForHandle (buffer, bytesRead, handle))
+        {
+            lastAckReceivedMs.store (juce::Time::getMillisecondCounterHiRes(), std::memory_order_release);
+        }
+    }
 }
 }

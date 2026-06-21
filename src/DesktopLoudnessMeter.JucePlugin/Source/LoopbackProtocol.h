@@ -24,5 +24,7 @@ public:
     static juce::MemoryBlock encodeRename (const juce::String& handle, const juce::String& displayName);
     static juce::MemoryBlock encodeAudio (const juce::String& handle, std::int64_t sequence, const float* samples, int sampleCount);
     static juce::MemoryBlock encodeClose (const juce::String& handle);
+    static juce::MemoryBlock encodeAck (const juce::String& handle);
+    static bool isAckForHandle (const void* data, int sizeInBytes, const juce::String& handle);
 };
 }

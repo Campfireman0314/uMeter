@@ -34,19 +34,10 @@ public sealed class SpectrumRollView : FrameworkElement
     private int _filledColumns;
     private int _nextColumnIndex;
     private IReadOnlyList<double>? _pendingSpectrumBuckets;
-    private bool _hasPendingSpectrumUpdate;
-    private bool _isSpectrumUpdateQueued;
     private bool _bitmapNeedsFullWrite;
     private bool _isBitmapWriteRetryQueued;
-    private DrawingGroup? _backgroundDrawing;
-    private double _backgroundWidth;
-    private double _backgroundHeight;
-    private double _backgroundPixelsPerDip;
-    private double _backgroundViewportMinimum;
-    private double _backgroundViewportSpan;
-    private Color _backgroundTrackColor;
-    private Color _backgroundOutlineColor;
-    private Color _backgroundSubtleColor;
+    private readonly DeferredRenderUpdate _spectrumUpdate;
+    private readonly PlotBackgroundCache _backgroundCache = new();
     private Color _bitmapAccent;
     private Color _bitmapWarm;
     private double _bitmapDisplayFloorDb = DefaultDisplayFloorDb;
@@ -60,6 +51,7 @@ public sealed class SpectrumRollView : FrameworkElement
 
     public SpectrumRollView()
     {
+        _spectrumUpdate = new DeferredRenderUpdate(this, CanApplySpectrumUpdate, ApplyPendingSpectrumUpdate);
         Cursor = Cursors.SizeNS;
         RenderOptions.SetBitmapScalingMode(this, BitmapScalingMode.Linear);
         SnapsToDevicePixels = true;
@@ -273,28 +265,16 @@ public sealed class SpectrumRollView : FrameworkElement
         var outlineColor = CurrentOutline();
         var subtleColor = CurrentSubtle();
 
-        if (_backgroundDrawing is null
-            || !AreClose(_backgroundWidth, width)
-            || !AreClose(_backgroundHeight, height)
-            || !AreClose(_backgroundPixelsPerDip, pixelsPerDip)
-            || !AreClose(_backgroundViewportMinimum, viewport.Minimum)
-            || !AreClose(_backgroundViewportSpan, viewport.Span)
-            || _backgroundTrackColor != trackColor
-            || _backgroundOutlineColor != outlineColor
-            || _backgroundSubtleColor != subtleColor)
-        {
-            _backgroundDrawing = CreateBackgroundDrawing(width, height, plot);
-            _backgroundWidth = width;
-            _backgroundHeight = height;
-            _backgroundPixelsPerDip = pixelsPerDip;
-            _backgroundViewportMinimum = viewport.Minimum;
-            _backgroundViewportSpan = viewport.Span;
-            _backgroundTrackColor = trackColor;
-            _backgroundOutlineColor = outlineColor;
-            _backgroundSubtleColor = subtleColor;
-        }
-
-        drawingContext.DrawDrawing(_backgroundDrawing);
+        drawingContext.DrawDrawing(_backgroundCache.GetOrCreate(
+            width,
+            height,
+            pixelsPerDip,
+            viewport.Minimum,
+            viewport.Span,
+            trackColor,
+            outlineColor,
+            subtleColor,
+            () => CreateBackgroundDrawing(width, height, plot)));
     }
 
     private DrawingGroup CreateBackgroundDrawing(double width, double height, Rect plot)
@@ -303,8 +283,8 @@ public sealed class SpectrumRollView : FrameworkElement
         using (var drawingContext = group.Open())
         {
             drawingContext.DrawRoundedRectangle(
-                ThemedDrawing.GetBrush(this, "MeterTrackBrush", Color.FromRgb(17, 20, 25)),
-                ThemedDrawing.GetPen(this, "ChromeBorderBrush", 1, Color.FromRgb(58, 66, 77)),
+                ThemedDrawing.GetBrush(this, PlotColorRole.Track),
+                ThemedDrawing.GetPen(this, PlotColorRole.Outline, 1),
                 new Rect(0, 0, width, height),
                 6,
                 6);
@@ -325,7 +305,7 @@ public sealed class SpectrumRollView : FrameworkElement
         if (_bitmap is null || _filledColumns == 0)
         {
             drawingContext.DrawRoundedRectangle(
-                ThemedDrawing.GetBrush(this, "SubtleTextBrush", 28, Color.FromRgb(174, 183, 194)),
+                ThemedDrawing.GetBrush(this, PlotColorRole.Subtle, 28),
                 null,
                 plot,
                 4,
@@ -520,7 +500,7 @@ public sealed class SpectrumRollView : FrameworkElement
             FlowDirection.LeftToRight,
             new Typeface("Segoe UI"),
             10,
-            ThemedDrawing.GetBrush(this, "SubtleTextBrush", 180, Color.FromRgb(174, 183, 194)),
+            ThemedDrawing.GetBrush(this, PlotColorRole.Subtle, 180),
             VisualTreeHelper.GetDpi(this).PixelsPerDip);
 
         drawingContext.DrawText(formatted, origin);
@@ -558,35 +538,16 @@ public sealed class SpectrumRollView : FrameworkElement
     private void ScheduleSpectrumUpdate(IReadOnlyList<double>? buckets)
     {
         _pendingSpectrumBuckets = buckets is { Count: > 0 } ? buckets : null;
-        _hasPendingSpectrumUpdate = true;
-        QueuePendingSpectrumUpdate();
-    }
-
-    private void QueuePendingSpectrumUpdate()
-    {
-        if (_isSpectrumUpdateQueued)
-        {
-            return;
-        }
-
-        _isSpectrumUpdateQueued = true;
-        Dispatcher.BeginInvoke(
-            (Action)(() =>
-            {
-                _isSpectrumUpdateQueued = false;
-                ApplyPendingSpectrumUpdateIfReady();
-            }),
-            DispatcherPriority.Render);
+        _spectrumUpdate.Request();
     }
 
     private void ApplyPendingSpectrumUpdateIfReady()
     {
-        if (!_hasPendingSpectrumUpdate || !CanApplySpectrumUpdate())
-        {
-            return;
-        }
+        _spectrumUpdate.TryApply();
+    }
 
-        _hasPendingSpectrumUpdate = false;
+    private void ApplyPendingSpectrumUpdate()
+    {
         if (_pendingSpectrumBuckets is not { Count: > 0 } buckets)
         {
             ClearSpectrum();
@@ -742,42 +703,42 @@ public sealed class SpectrumRollView : FrameworkElement
 
     private Pen GridPen()
     {
-        return ThemedDrawing.GetPen(this, "SubtleTextBrush", 42, 1, Color.FromRgb(174, 183, 194));
+        return ThemedDrawing.GetPen(this, PlotColorRole.Subtle, 42, 1);
     }
 
     private Pen TickPen()
     {
-        return ThemedDrawing.GetPen(this, "SubtleTextBrush", 95, 1, Color.FromRgb(174, 183, 194));
+        return ThemedDrawing.GetPen(this, PlotColorRole.Subtle, 95, 1);
     }
 
     private Color CurrentAccent()
     {
-        return ThemedDrawing.GetColor(this, "SignalBrush", Color.FromRgb(46, 196, 182));
+        return ThemedDrawing.GetColor(this, PlotColorRole.Signal);
     }
 
     private Color CurrentWarm()
     {
-        return ThemedDrawing.GetColor(this, "SpectrumWarmBrush", Color.FromRgb(255, 176, 0));
+        return ThemedDrawing.GetColor(this, PlotColorRole.SpectrumWarm);
     }
 
     private Color CurrentTrack()
     {
-        return ThemedDrawing.GetColor(this, "MeterTrackBrush", Color.FromRgb(17, 20, 25));
+        return ThemedDrawing.GetColor(this, PlotColorRole.Track);
     }
 
     private Color CurrentOutline()
     {
-        return ThemedDrawing.GetColor(this, "ChromeBorderBrush", Color.FromRgb(58, 66, 77));
+        return ThemedDrawing.GetColor(this, PlotColorRole.Outline);
     }
 
     private Color CurrentSubtle()
     {
-        return ThemedDrawing.GetColor(this, "SubtleTextBrush", Color.FromRgb(174, 183, 194));
+        return ThemedDrawing.GetColor(this, PlotColorRole.Subtle);
     }
 
     private void InvalidateBackground()
     {
-        _backgroundDrawing = null;
+        _backgroundCache.Invalidate();
     }
 
     private static bool AreClose(double first, double second)

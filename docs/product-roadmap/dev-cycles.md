@@ -69,7 +69,9 @@ uMeter gains a bounded language for "what just happened" without yet pretending 
 
 ### Status
 
-Next cycle after `v2.2.4`.
+First slice completed in `v2.2.5`.
+
+The first landed slice turns the existing collision analyzer output into bounded, neutral Recent Events entries. It records a `Possible overlap` event when the enabled detail collision analyzer finds a stable, prominent overlap region, and suppresses repeats while the same region remains active.
 
 ### Bundled Areas
 
@@ -84,12 +86,18 @@ uMeter starts surfacing useful, signal-derived mix clues while keeping the langu
 
 ### First Delivery
 
-- "Possible frequency overlap" history.
-- Recent collision regions.
+- "Possible frequency overlap" history. [landed]
+- Recent collision regions. [landed]
 - Source-pair collision events.
 - User-tunable sensitivity.
 
 ## Cycle 4: Sender Ecosystem Maturity
+
+### Status
+
+First slice completed in `v2.2.5`.
+
+The first landed slice adds receiver acknowledgements to the local loopback protocol and surfaces VST3 sender connection state in the plugin editor. The sender now distinguishes waiting for uMeter, connected, and no-recent-reply states without changing the audio transport shape.
 
 ### Bundled Areas
 
@@ -116,6 +124,14 @@ The sender plugin feels like a dependable bridge, not just a silent data emitter
 
 ## Cycle 5: Rendering Architecture Cleanup
 
+### Status
+
+Started after `v2.2.5`.
+
+First cleanup slices completed in `v2.2.6`.
+
+This pass extracted `DeferredRenderUpdate`, migrated waveform and spectrum controls to the shared one-queued-render-callback policy, moved the main graph controls onto named `PlotColorRole` lookups, and extracted `PlotBackgroundCache` for static plot backgrounds. `docs/rendering-architecture.md` now records the current control responsibilities and next cleanup candidates.
+
 ### Bundled Areas
 
 - Shared plot color roles.
@@ -128,6 +144,12 @@ The sender plugin feels like a dependable bridge, not just a silent data emitter
 Graph rendering becomes easier to reason about, test, and extend.
 
 ## Cycle 6: Platform Strategy
+
+### Status
+
+First planning slice completed in `v2.2.6`.
+
+`docs/product-roadmap/platform-strategy.md` now separates reusable contracts from Windows/WPF/VST3-specific boundaries and records expansion order for AAX, macOS/AU, and iOS.
 
 ### Bundled Areas
 

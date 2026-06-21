@@ -71,6 +71,11 @@ void registerHeartbeatRenameAndCloseUseV1Shape()
     expect (property (parseJson (dlm::LoopbackProtocol::encodeHeartbeat (handle)), "type") == "heartbeat", "heartbeat type mismatch");
     expect (property (parseJson (dlm::LoopbackProtocol::encodeRename (handle, "Drum Bus")), "displayName") == "Drum Bus", "rename display name mismatch");
     expect (property (parseJson (dlm::LoopbackProtocol::encodeClose (handle)), "type") == "close", "close type mismatch");
+
+    const auto ack = dlm::LoopbackProtocol::encodeAck (handle);
+    expect (property (parseJson (ack), "type") == "ack", "ack type mismatch");
+    expect (dlm::LoopbackProtocol::isAckForHandle (ack.getData(), static_cast<int> (ack.getSize()), handle), "ack should match its handle");
+    expect (! dlm::LoopbackProtocol::isAckForHandle (ack.getData(), static_cast<int> (ack.getSize()), "other-handle"), "ack should reject other handles");
 }
 
 void audioUsesLittleEndianFloatBase64()

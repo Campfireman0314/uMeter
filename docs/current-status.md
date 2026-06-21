@@ -2,9 +2,11 @@
 
 ## Checkpoint
 
-`v2.2.4` - Recent Events and global event-settings patch, pinned on 2026-06-21.
+`v2.2.7` - Detail-window and Milk White graph-contrast polish, pinned on 2026-06-21.
 
-This checkpoint builds on the v2.2.3 source-workspace and collision-analyzer polish release. Cycle 2's first event substrate is now present: the global view shows bounded Recent Events for source lifecycle, true-peak max, and loudness-jump events; the result area is fixed-height and filterable; and the global settings window controls retained event count plus a future event output folder. The installer still ships the desktop app plus the `uMeter Sender.vst3` bundle and exposes both the app install folder and VST3 install folder.
+This checkpoint builds on the v2.2.6 rendering architecture and platform-strategy patch. Pop-up detail windows no longer use the global window as their WPF owner, so the global `Always on top` state no longer forces detail pop-ups above other apps. Milk White graph colors now use a warmer track plus stronger blue/amber plot accents for clearer waveform, stereo image, spectrum, and collision displays. The installer still ships the desktop app plus the `uMeter Sender.vst3` bundle and exposes both the app install folder and VST3 install folder.
+
+The remaining roadmap work after this checkpoint should focus on metering trust fixtures, richer sender reconnect diagnostics, or a deliberately scoped next product feature.
 
 ## What Works
 
@@ -13,6 +15,7 @@ This checkpoint builds on the v2.2.3 source-workspace and collision-analyzer pol
 - Mixed WASAPI, localhost loopback, and plugin sender rows in one source list.
 - JUCE `uMeter Sender` VST3 audio-effect plugin with pass-through audio.
 - Minimal VST3 sender editor with source-name rename while typing and temporary mute.
+- VST3 sender editor shows receiver connection feedback from desktop-app acknowledgements.
 - Host-based VST3 default source names such as `Cubase 7F3A`.
 - Stable persisted plugin source handles and periodic register packets for late desktop-app startup.
 - Plugin rows are removed from the main source list on unload; open detail views show an `Instance not found` overlay until the same instance returns or the view is switched.
@@ -26,6 +29,7 @@ This checkpoint builds on the v2.2.3 source-workspace and collision-analyzer pol
 - Global true-peak option shell with 2x, 4x, and 8x ratios.
 - Inline detail view with Back navigation.
 - Per-app pop-up detail windows with independent always-on-top state.
+- Pop-up detail windows do not inherit the global window's `Always on top` behavior.
 - Independent stereo image scale settings per pop-up and inline detail view.
 - Stereo image auto-scale controls for range, lower limit, manual top, speed, trace persistence, and reset.
 - Per-app true-peak oversampling selector in inline and pop-up detail views.
@@ -42,6 +46,8 @@ This checkpoint builds on the v2.2.3 source-workspace and collision-analyzer pol
 - Custom styling for buttons, combo boxes, checkboxes, scrollbars, and selectable app themes.
 - Persisted selected theme under %APPDATA%\uMeter\settings.json.
 - Themed stereo image, waveform, spectrum, and correlation plot drawing.
+- Main graph controls use shared plot color roles for common theme resources.
+- Milk White graph colors use a higher-contrast blue/amber plot palette on a warm parchment track.
 - Eco mode for lower UI refresh and spectrum analysis CPU use.
 - Startup compatibility notice for unsupported or experimental Windows process-loopback builds.
 - Separate hidden waveform and spectrum panels in inline and pop-up detail views.
@@ -58,9 +64,12 @@ This checkpoint builds on the v2.2.3 source-workspace and collision-analyzer pol
 - Collision analyzer options include source selection, `Level floor`, `Prominence`, and `Match tolerance`.
 - Collision analyzer single-value sliders support double-click numeric entry.
 - Global Recent Events strip shows a bounded, filterable view of source lifecycle, true-peak max, and loudness-jump events.
+- Recent Events can include conservative `Possible overlap` entries from enabled detail collision analysis.
 - Global settings expose maximum retained event entries and an event output folder selector.
 - Spectrograph display range can be adjusted from `-200 to 0 dB` with a themed two-thumb dB slider, defaulting to `-120 to 0 dB`.
 - Spectrum bitmap rendering tolerates transient WPF read/write lock conflicts without terminating the app.
+- Waveform and spectrum controls share a deferred render-update scheduler so property churn coalesces into one queued UI render callback per control.
+- Waveform, spectrum, and collision controls share static plot-background cache invalidation logic.
 - Spectrograph rendering uses a soft visual floor and light neighboring-bin smoothing so low-energy history stays readable without mutating stored spectrum levels.
 - Spectrum FFT can use the optional `DesktopLoudnessMeter.Native.dll` RfRapid C++ accelerator, with automatic managed fallback.
 - Crash/startup logging under `%LOCALAPPDATA%\uMeter`.
@@ -105,20 +114,21 @@ cmake --build .\build\juce-vst3 --config Release --target DesktopLoudnessMeterSe
 Latest verified status:
 
 - App build: clean.
-- Native build: not rerun for this checkpoint.
-- Tests: 198 passing.
-- JUCE VST3 native CTest: not rerun for this checkpoint.
-- JUCE VST3 Release build: not rerun for this checkpoint.
+- Native build: Release passed through installer packaging.
+- Tests: 205 passing.
+- JUCE VST3 native CTest: Debug passed.
+- JUCE VST3 Release build: passed through installer packaging.
 - Format: not rerun for this checkpoint.
-- Installer build: not regenerated in this checkpoint; run `.\build-installer.ps1 -Version 2.2.4 -JuceDir E:\JUCE` when ready.
-- Installer payload: not revalidated for this checkpoint.
+- Installer build: `artifacts\uMeter-Setup-2.2.7.exe` generated successfully.
+- Installer SHA256: `744C03A16EA38C8128CED1715FFF2A146D61E89CA7531EF71579F7FBE3D5997A`.
+- Installer payload: desktop app, native FFT DLL, and bundled `uMeter Sender.vst3` generated by the packaging script.
 
 ## Installer Notes
 
 - Default app install folder: `%LOCALAPPDATA%\Programs\uMeter`.
 - Default VST3 install folder: `C:\Program Files\VSTPlugins`.
 - Standard VST3 mirror folder: `C:\Program Files\Common Files\VST3`.
-- Default artifacts: `artifacts\uMeter.Setup.exe` and `artifacts\uMeter-Setup-2.2.4.exe`.
+- Default artifacts: `artifacts\uMeter.Setup.exe` and `artifacts\uMeter-Setup-2.2.7.exe`.
 - Quiet install supports `--install-dir`, `--vst-dir`, `--no-vst`, `--no-desktop-shortcut`, `--no-start-menu-shortcut`, and `--no-shortcuts`.
 - Installing the VST3 sender into Program Files may trigger UAC elevation.
 - Uninstall cleanup relaunches elevated when protected app or VST3 locations need administrator permission.
@@ -133,7 +143,7 @@ Suggested release commit:
 cd D:\GitRepo\desktop-loudness-meter
 git status --short
 git add .
-git commit -m "Release uMeter v2.2.4"
+git commit -m "Release uMeter v2.2.7"
 git push
 ```
 
@@ -143,6 +153,9 @@ Before committing, review generated folders and build outputs are still ignored 
 
 - `README.md` - project overview, run commands, roadmap.
 - `CHANGELOG.md` - version history.
+- docs/v2.2.7-release.md - v2.2.7 release notes.
+- docs/v2.2.6-release.md - v2.2.6 release notes.
+- docs/v2.2.5-release.md - v2.2.5 release notes.
 - docs/v2.2.4-release.md - v2.2.4 release notes.
 - docs/v2.2.3-release.md - v2.2.3 release notes.
 - docs/v2.2.2-release.md - v2.2.2 release notes.
@@ -154,6 +167,8 @@ Before committing, review generated folders and build outputs are still ignored 
 - `docs/vst3-first-usable-version.md` - first usable JUCE VST3 sender checkpoint.
 - `docs/audio-metering-notes.md` - DSP and WASAPI behavior notes.
 - `docs/local-loopback-protocol.md` - localhost loopback protocol notes.
+- `docs/rendering-architecture.md` - graph rendering cleanup notes.
+- `docs/product-roadmap/platform-strategy.md` - cross-platform contract and boundary notes.
 - `docs/plugin-sender-prototype.md` - sender probe usage and plugin packaging status.
 - `docs/juce-vst3-sender.md` - JUCE VST3 sender build, install, and smoke-test notes.
 - `docs/source-management.md` - mixed source ordering, identity, duplicate-name, and reconnect behavior.
@@ -168,14 +183,15 @@ Before committing, review generated folders and build outputs are still ignored 
 - Multiple detail windows watching the same process share one analyzer stream, so the latest true-peak oversampling choice for that process wins.
 - Process-loopback depends on Windows support and target-session behavior.
 - AAX sender groundwork exists, but distributable AAX builds still require Avid/PACE signing, validation, and Pro Tools smoke testing.
-- The VST3 sender still uses the inspectable JSON/base64 UDP loopback protocol and fixed receiver port `38173`.
+- The VST3 sender still uses the inspectable JSON/base64 UDP loopback protocol and fixed receiver port `38173`; sender connection status is based on lightweight receiver `ack` packets.
 - DSP behavior has synthetic coverage but is not certified against official loudness reference vectors yet.
 - The installer is unsigned, so Windows SmartScreen may warn during first launch on other machines.
 
 ## Sensible Next Slice
 
-- Start Cycle 3 with conservative mix-problem detection over recent collision regions.
-- Add connection/status feedback to the VST3 sender editor.
+- Extend Cycle 3 overlap events with source-pair attribution beyond the current selected/global collision context.
+- Add richer reconnect diagnostics to the VST3 sender editor.
 - Consider a binary loopback protocol path after the UI direction settles.
+- Use `docs/product-roadmap/platform-strategy.md` before starting AAX, AU/macOS, or iOS implementation work.
 - Add signed installer or release signing workflow.
 - Compare loudness and true-peak behavior against official reference vectors.

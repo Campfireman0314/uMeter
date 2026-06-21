@@ -8,3 +8,4 @@ The goal is to keep future work grounded: not just a feature wishlist, but a set
 
 - `dream-map.md` - ordered long-term improvement map for discussion and planning.
 - `dev-cycles.md` - bundled implementation cycles and delivery boundaries.
+- `platform-strategy.md` - reusable platform contracts and expansion boundaries.

@@ -510,7 +510,7 @@ public sealed class AudioSessionMeterViewModel : ObservableObject
             OnPropertyChanged(nameof(CorrelationValue));
         }
 
-        if (_waveformSamples.Count > 0 && snapshot.PlotFrameVersion > _lastWaveformPlotFrameVersion)
+        if (_waveformSamples.Count > 0 && IsFreshPlotFrame(snapshot.PlotFrameVersion, _lastWaveformPlotFrameVersion))
         {
             _lastWaveformPlotFrameVersion = snapshot.PlotFrameVersion;
             _waveformPlotTick++;
@@ -532,7 +532,7 @@ public sealed class AudioSessionMeterViewModel : ObservableObject
             OnPropertyChanged(nameof(RightWaveformSamples));
         }
 
-        if (_spectrumBuckets.Count > 0 && snapshot.PlotFrameVersion > _lastSpectrumPlotFrameVersion)
+        if (_spectrumBuckets.Count > 0 && IsFreshPlotFrame(snapshot.PlotFrameVersion, _lastSpectrumPlotFrameVersion))
         {
             _lastSpectrumPlotFrameVersion = snapshot.PlotFrameVersion;
             _spectrumPlotTick++;
@@ -573,6 +573,10 @@ public sealed class AudioSessionMeterViewModel : ObservableObject
         _spectrumBuckets = EmptyDoubleSamples;
         _leftSpectrumBuckets = EmptyDoubleSamples;
         _rightSpectrumBuckets = EmptyDoubleSamples;
+        _lastWaveformPlotFrameVersion = -1;
+        _lastSpectrumPlotFrameVersion = -1;
+        _waveformPlotTick++;
+        _spectrumPlotTick++;
         RefreshPrimaryValueText();
 
         OnPropertyChanged(nameof(MomentaryLufsText));
@@ -597,9 +601,11 @@ public sealed class AudioSessionMeterViewModel : ObservableObject
         OnPropertyChanged(nameof(WaveformSamples));
         OnPropertyChanged(nameof(LeftWaveformSamples));
         OnPropertyChanged(nameof(RightWaveformSamples));
+        OnPropertyChanged(nameof(WaveformPlotTick));
         OnPropertyChanged(nameof(SpectrumBuckets));
         OnPropertyChanged(nameof(LeftSpectrumBuckets));
         OnPropertyChanged(nameof(RightSpectrumBuckets));
+        OnPropertyChanged(nameof(SpectrumPlotTick));
     }
 
     private void RefreshPrimaryValueText()
@@ -674,6 +680,11 @@ public sealed class AudioSessionMeterViewModel : ObservableObject
 
         field = value;
         return true;
+    }
+
+    private static bool IsFreshPlotFrame(long plotFrameVersion, long lastPlotFrameVersion)
+    {
+        return plotFrameVersion != lastPlotFrameVersion;
     }
 
     private bool UpdateTruePeakMax(double? value)

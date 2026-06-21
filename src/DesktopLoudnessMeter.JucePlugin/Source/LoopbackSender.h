@@ -22,6 +22,14 @@ struct LoopbackSenderConfig
     int maxSamplesPerPacket = 8192;
 };
 
+enum class LoopbackSenderConnectionState
+{
+    Stopped,
+    WaitingForReceiver,
+    Connected,
+    NoRecentAck
+};
+
 class LoopbackSender final : private juce::Thread
 {
 public:
@@ -34,11 +42,14 @@ public:
 
     bool tryEnqueue (const juce::AudioBuffer<float>& buffer, int channelCount) noexcept;
     bool isActive() const noexcept;
+    LoopbackSenderConnectionState getConnectionState() const noexcept;
+    juce::String getConnectionStatusText() const;
     std::uint64_t getDroppedPacketCount() const noexcept;
 
 private:
     void run() override;
     void sendPacket (juce::DatagramSocket& socket, const juce::MemoryBlock& packet, int port) const;
+    void pollForAck (juce::DatagramSocket& socket, const juce::String& handle) noexcept;
 
     mutable juce::CriticalSection stateLock;
     LoopbackSenderConfig currentConfig;
@@ -46,5 +57,6 @@ private:
     std::unique_ptr<RealtimeAudioQueue> audioQueue;
     std::atomic<bool> active { false };
     std::atomic<bool> renamePending { false };
+    std::atomic<double> lastAckReceivedMs { 0.0 };
 };
 }

@@ -43,6 +43,9 @@ public:
 
     bool isMuted() const noexcept;
     void setMuted (bool shouldMute) noexcept;
+    dlm::LoopbackSenderConnectionState getSenderConnectionState() const noexcept;
+    juce::String getSenderConnectionStatusText() const;
+    std::uint64_t getDroppedSenderPacketCount() const noexcept;
 
 private:
     static juce::String getHostDisplayName();

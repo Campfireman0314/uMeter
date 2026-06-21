@@ -43,11 +43,16 @@ public sealed class LocalLoopbackProtocolTests
     [Theory]
     [InlineData(LocalLoopbackPacketType.Heartbeat)]
     [InlineData(LocalLoopbackPacketType.Close)]
+    [InlineData(LocalLoopbackPacketType.Ack)]
     public void SimpleControlPacketsRoundTrip(LocalLoopbackPacketType type)
     {
-        var bytes = type == LocalLoopbackPacketType.Heartbeat
-            ? LocalLoopbackProtocol.EncodeHeartbeat("plugin-1")
-            : LocalLoopbackProtocol.EncodeClose("plugin-1");
+        var bytes = type switch
+        {
+            LocalLoopbackPacketType.Heartbeat => LocalLoopbackProtocol.EncodeHeartbeat("plugin-1"),
+            LocalLoopbackPacketType.Close => LocalLoopbackProtocol.EncodeClose("plugin-1"),
+            LocalLoopbackPacketType.Ack => LocalLoopbackProtocol.EncodeAck("plugin-1"),
+            _ => throw new ArgumentOutOfRangeException(nameof(type), type, null)
+        };
 
         Assert.True(LocalLoopbackProtocol.TryDecode(bytes, out var packet));
 

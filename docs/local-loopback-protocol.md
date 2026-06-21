@@ -8,6 +8,7 @@ First added in `2026-06-17-signal-source-expansion/02-local-loopback-ingest`.
 - Default port: `38173`.
 - Packets are UTF-8 JSON.
 - Audio samples are little-endian IEEE float32 values encoded as base64.
+- Receivers may reply to valid sender packets with an `ack` packet sent back to the sender's source UDP port.
 
 This first protocol is intentionally inspectable and testable. Future plugin work can add a binary fast path while keeping the same source-provider contract.
 
@@ -87,3 +88,15 @@ Samples are interleaved according to the format from the register packet.
   "handle": "plugin-1"
 }
 ```
+
+### Ack
+
+```json
+{
+  "protocol": "desktop-loudness-meter.loopback.v1",
+  "type": "ack",
+  "handle": "plugin-1"
+}
+```
+
+`ack` is receiver-to-sender feedback. It confirms that the desktop receiver decoded a packet for the sender handle. Senders use recent ack timestamps for connection UI only; metering data remains sender-to-receiver.

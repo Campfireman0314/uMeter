@@ -4,6 +4,77 @@
 
 - Nothing yet.
 
+## v2.2.7 - 2026-06-21
+
+Detail-window and Milk White graph-contrast polish release.
+
+### Changed
+
+- Pop-up detail windows are no longer owned by the global window, preventing the global `Always on top` state from forcing detail windows above other apps.
+- Pop-up detail windows still open near the main window when the main window is visible, and fall back to center screen when opened from a hidden/tray state.
+- Milk White graph colors now use a warmer parchment plot track, muted porcelain-blue signal, and stronger amber spectrum accent for clearer waveform, stereo, spectrum, and collision displays.
+- App, setup, protocol, sender kit, sender probe, VST3 sender project, and AAX sender project metadata now report version `2.2.7`.
+- Default versioned installer artifact is now `uMeter-Setup-2.2.7.exe`.
+
+### Verified
+
+- `dotnet build src\DesktopLoudnessMeter.App\DesktopLoudnessMeter.App.csproj --no-restore`.
+- `dotnet test tests\DesktopLoudnessMeter.Tests\DesktopLoudnessMeter.Tests.csproj --no-restore` with 205 passing tests.
+- JUCE VST3 native CTest Debug suite.
+- `.\build-installer.ps1 -Configuration Release -Version 2.2.7 -JuceDir E:\JUCE`.
+
+## v2.2.6 - 2026-06-21
+
+Rendering architecture and platform-strategy patch release.
+
+### Added
+
+- Shared `DeferredRenderUpdate` helper for coalescing waveform and spectrum plot updates onto one queued render callback per control.
+- Shared `PlotBackgroundCache` helper for waveform, spectrum, and collision analyzer static plot backgrounds.
+- Named `PlotColorRole` lookups for main graph controls.
+- Rendering architecture notes covering current graph responsibilities and next cleanup candidates.
+- Platform strategy notes separating reusable source, protocol, metering, theme, event, AAX, macOS/AU, and iOS boundaries.
+
+### Changed
+
+- App, setup, protocol, sender kit, sender probe, VST3 sender project, and AAX sender project metadata now report version `2.2.6`.
+- Default versioned installer artifact is now `uMeter-Setup-2.2.6.exe`.
+
+### Verified
+
+- `dotnet build src\DesktopLoudnessMeter.App\DesktopLoudnessMeter.App.csproj --no-restore`.
+- `dotnet test tests\DesktopLoudnessMeter.Tests\DesktopLoudnessMeter.Tests.csproj --no-restore` with 204 passing tests.
+- JUCE VST3 native CTest Debug suite.
+- `.\build-installer.ps1 -Configuration Release -Version 2.2.6 -JuceDir E:\JUCE`.
+
+## v2.2.5 - 2026-06-21
+
+Mix-event and sender-status patch release.
+
+### Added
+
+- Conservative `Possible overlap` Recent Events are generated from enabled detail collision analysis and deduplicated while the same overlap region remains active.
+- Local loopback receivers now reply to valid sender packets with lightweight `ack` packets.
+- JUCE VST3 sender editor now shows live receiver status: waiting, connected, or sending with no recent reply.
+- JUCE sender native tests cover ack packet shape, ack matching, and sender state transition after receiver acknowledgement.
+
+### Changed
+
+- App, setup, protocol, sender kit, sender probe, VST3 sender project, and AAX sender project metadata now report version `2.2.5`.
+- Default versioned installer artifact is now `uMeter-Setup-2.2.5.exe`.
+- VST3 sender status indicator layout and painting now keep the indicator circular and visually calmer in the plugin header.
+
+### Fixed
+
+- Reset no longer leaves waveform and spectrograph rolls stuck waiting for pre-reset plot-frame versions.
+
+### Verified
+
+- `dotnet build src\DesktopLoudnessMeter.App\DesktopLoudnessMeter.App.csproj --no-restore`.
+- `dotnet test tests\DesktopLoudnessMeter.Tests\DesktopLoudnessMeter.Tests.csproj` with 204 passing tests.
+- JUCE VST3 native CTest Debug suite.
+- `.\build-installer.ps1 -Configuration Release -Version 2.2.5 -JuceDir E:\JUCE`.
+
 ## v2.2.4 - 2026-06-21
 
 Recent Events and global event-settings patch release.

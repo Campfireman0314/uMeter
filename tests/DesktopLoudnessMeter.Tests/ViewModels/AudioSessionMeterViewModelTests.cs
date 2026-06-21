@@ -359,6 +359,43 @@ public sealed class AudioSessionMeterViewModelTests
         Assert.DoesNotContain(nameof(AudioSessionMeterViewModel.SpectrumBuckets), changedProperties);
     }
 
+    [Fact]
+    public void ResetClearsRollBuffersAndAcceptsRewoundPlotFrames()
+    {
+        double[] waveform = [0.1, -0.2];
+        double[] spectrum = [0.25, 0.75];
+        var row = new AudioSessionMeterViewModel(Snapshot(
+            waveformSamples: waveform,
+            spectrumBuckets: spectrum,
+            plotFrameVersion: 4096));
+        var waveformTickBeforeReset = row.WaveformPlotTick;
+        var spectrumTickBeforeReset = row.SpectrumPlotTick;
+        var changedProperties = new List<string?>();
+        row.PropertyChanged += (_, args) => changedProperties.Add(args.PropertyName);
+
+        row.Reset();
+
+        Assert.Empty(row.WaveformSamples);
+        Assert.Empty(row.SpectrumBuckets);
+        Assert.True(row.WaveformPlotTick > waveformTickBeforeReset);
+        Assert.True(row.SpectrumPlotTick > spectrumTickBeforeReset);
+        Assert.Contains(nameof(AudioSessionMeterViewModel.WaveformSamples), changedProperties);
+        Assert.Contains(nameof(AudioSessionMeterViewModel.SpectrumBuckets), changedProperties);
+        Assert.Contains(nameof(AudioSessionMeterViewModel.WaveformPlotTick), changedProperties);
+        Assert.Contains(nameof(AudioSessionMeterViewModel.SpectrumPlotTick), changedProperties);
+
+        changedProperties.Clear();
+        row.Update(Snapshot(
+            waveformSamples: waveform,
+            spectrumBuckets: spectrum,
+            plotFrameVersion: 128));
+
+        Assert.Equal(waveform, row.WaveformSamples);
+        Assert.Equal(spectrum, row.SpectrumBuckets);
+        Assert.Contains(nameof(AudioSessionMeterViewModel.WaveformPlotTick), changedProperties);
+        Assert.Contains(nameof(AudioSessionMeterViewModel.SpectrumPlotTick), changedProperties);
+    }
+
     private static AudioSessionSnapshot Snapshot(
         string peakDbText = "-12.0 dB",
         float peak = 0.25f,

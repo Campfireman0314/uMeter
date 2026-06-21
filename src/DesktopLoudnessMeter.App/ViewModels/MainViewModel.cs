@@ -16,6 +16,8 @@ public sealed class MainViewModel : ObservableObject, IDisposable
     private const int DefaultMaxRecentEventEntries = 6;
     private const int MinimumMaxRecentEventEntries = 1;
     private const int MaximumMaxRecentEventEntries = 200;
+    private const double CollisionEventMinimumBandWidthRatio = 0.02;
+    private const double CollisionEventMinimumIntensity = 0.08;
     private const double RollTrackMinHeight = 185;
     private const double RollGroupPadding = 20;
     private const double RollChannelLabelAllowance = 40;
@@ -50,6 +52,7 @@ public sealed class MainViewModel : ObservableObject, IDisposable
     private readonly Func<string?, string?> _selectFolder;
     private readonly Dictionary<string, bool> _truePeakRiskBySourceKey = [];
     private readonly Dictionary<string, double> _lastMomentaryLufsBySourceKey = [];
+    private string? _activeCollisionEventSignature;
     private bool _isApplyingWorkspacePreferences;
     private RecentEventFilterOption _selectedRecentEventFilter;
     private int _maxRecentEventEntries = DefaultMaxRecentEventEntries;
@@ -137,7 +140,8 @@ public sealed class MainViewModel : ObservableObject, IDisposable
         new(null, "All"),
         new(RecentEventKind.Source, "Sources"),
         new(RecentEventKind.TruePeak, "Peaks"),
-        new(RecentEventKind.Loudness, "Loudness")
+        new(RecentEventKind.Loudness, "Loudness"),
+        new(RecentEventKind.Collision, "Overlap")
     ];
 
     public RecentEventFilterOption SelectedRecentEventFilter
@@ -776,18 +780,21 @@ public sealed class MainViewModel : ObservableObject, IDisposable
             || selected.SpectrumBuckets.Count == 0)
         {
             SetFrequencyCollisionBands(Array.Empty<FrequencyCollisionBand>());
+            ClearCollisionEventState();
             return;
         }
 
         var selectedComparison = SelectedFrequencyCollisionSource;
-        SetFrequencyCollisionBands(FrequencyCollisionAnalyzer.Analyze(
+        var bands = FrequencyCollisionAnalyzer.Analyze(
             Sessions,
             selected.SourceKey,
             selectedComparison.SourceKey,
             selectedComparison.IsAllSources,
             CollisionLevelFloorDb,
             CollisionProminenceThresholdDb,
-            CollisionRelativeThreshold));
+            CollisionRelativeThreshold);
+        SetFrequencyCollisionBands(bands);
+        TrackCollisionEvent(selected, selectedComparison, bands);
     }
 
     private FrequencyCollisionSourceOption FindFrequencyCollisionSourceOption(string sourceKey)
@@ -942,6 +949,44 @@ public sealed class MainViewModel : ObservableObject, IDisposable
     {
         _truePeakRiskBySourceKey.Remove(sourceKey);
         _lastMomentaryLufsBySourceKey.Remove(sourceKey);
+        if (_activeCollisionEventSignature?.Contains(sourceKey, StringComparison.Ordinal) == true)
+        {
+            ClearCollisionEventState();
+        }
+    }
+
+    private void TrackCollisionEvent(
+        AudioSessionMeterViewModel selected,
+        FrequencyCollisionSourceOption selectedComparison,
+        IReadOnlyList<FrequencyCollisionBand> bands)
+    {
+        var strongestBand = bands
+            .Where(band => band.EndRatio - band.StartRatio >= CollisionEventMinimumBandWidthRatio)
+            .OrderByDescending(band => band.Intensity)
+            .FirstOrDefault(band => band.Intensity >= CollisionEventMinimumIntensity);
+        if (strongestBand is null)
+        {
+            ClearCollisionEventState();
+            return;
+        }
+
+        var signature = BuildCollisionEventSignature(selected.SourceKey, selectedComparison, strongestBand);
+        if (string.Equals(signature, _activeCollisionEventSignature, StringComparison.Ordinal))
+        {
+            return;
+        }
+
+        _activeCollisionEventSignature = signature;
+        AddRecentEvent(
+            RecentEventKind.Collision,
+            "Possible overlap",
+            $"{selected.DisplayTitle} vs {selectedComparison.DisplayName}: {FormatCollisionRange(strongestBand)}",
+            ReadoutSeverity.Warm);
+    }
+
+    private void ClearCollisionEventState()
+    {
+        _activeCollisionEventSignature = null;
     }
 
     private static bool TryGetFinite(double? value, out double finiteValue)
@@ -975,6 +1020,47 @@ public sealed class MainViewModel : ObservableObject, IDisposable
         return value >= 0
             ? $"+{value:0.#} dBTP"
             : $"{value:0.#} dBTP";
+    }
+
+    private static string BuildCollisionEventSignature(
+        string selectedSourceKey,
+        FrequencyCollisionSourceOption selectedComparison,
+        FrequencyCollisionBand band)
+    {
+        var comparisonKey = selectedComparison.IsAllSources
+            ? "__global__"
+            : selectedComparison.SourceKey;
+        return string.Join(
+            "|",
+            selectedSourceKey,
+            comparisonKey,
+            QuantizeCollisionRatio(band.StartRatio),
+            QuantizeCollisionRatio(band.EndRatio));
+    }
+
+    private static int QuantizeCollisionRatio(double ratio)
+    {
+        return (int)Math.Round(Math.Clamp(ratio, 0, 1) * 32, MidpointRounding.AwayFromZero);
+    }
+
+    private static string FormatCollisionRange(FrequencyCollisionBand band)
+    {
+        return $"{FormatFrequencyLabel(RatioToDisplayFrequency(band.StartRatio))}-{FormatFrequencyLabel(RatioToDisplayFrequency(band.EndRatio))}";
+    }
+
+    private static double RatioToDisplayFrequency(double ratio)
+    {
+        const double minFrequency = 20;
+        const double maxFrequency = 22_000;
+        var clamped = Math.Clamp(ratio, 0, 1);
+        return minFrequency * Math.Pow(maxFrequency / minFrequency, clamped);
+    }
+
+    private static string FormatFrequencyLabel(double frequency)
+    {
+        return frequency >= 1_000
+            ? $"{frequency / 1_000:0.#} kHz"
+            : $"{frequency:0} Hz";
     }
 
     private static int ClampMaxRecentEventEntries(int value)

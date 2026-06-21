@@ -6,7 +6,8 @@ public enum LocalLoopbackPacketType
     Heartbeat,
     Rename,
     Audio,
-    Close
+    Close,
+    Ack
 }
 
 public sealed record LocalLoopbackPacket(

@@ -5,6 +5,18 @@ namespace DesktopLoudnessMeter.App.Controls;
 
 internal static class ThemedDrawing
 {
+    public static Brush GetBrush(FrameworkElement element, PlotColorRole role)
+    {
+        var (key, fallback) = GetRoleDefinition(role);
+        return GetBrush(element, key, fallback);
+    }
+
+    public static Brush GetBrush(FrameworkElement element, PlotColorRole role, byte alpha)
+    {
+        var color = GetColor(element, role);
+        return new SolidColorBrush(Color.FromArgb(alpha, color.R, color.G, color.B));
+    }
+
     public static Brush GetBrush(FrameworkElement element, string key, Color fallback)
     {
         return element.TryFindResource(key) as Brush
@@ -22,9 +34,25 @@ internal static class ThemedDrawing
         return new Pen(GetBrush(element, key, fallback), thickness);
     }
 
+    public static Pen GetPen(FrameworkElement element, PlotColorRole role, double thickness)
+    {
+        return new Pen(GetBrush(element, role), thickness);
+    }
+
+    public static Pen GetPen(FrameworkElement element, PlotColorRole role, byte alpha, double thickness)
+    {
+        return new Pen(GetBrush(element, role, alpha), thickness);
+    }
+
     public static Pen GetPen(FrameworkElement element, string key, byte alpha, double thickness, Color fallback)
     {
         return new Pen(GetBrush(element, key, alpha, fallback), thickness);
+    }
+
+    public static Color GetColor(FrameworkElement element, PlotColorRole role)
+    {
+        var (key, fallback) = GetRoleDefinition(role);
+        return GetColor(element, key, fallback);
     }
 
     public static Color GetColor(FrameworkElement element, string key, Color fallback)
@@ -71,6 +99,21 @@ internal static class ThemedDrawing
         return WithAlpha(color, alpha);
     }
 
+    private static (string Key, Color Fallback) GetRoleDefinition(PlotColorRole role)
+    {
+        return role switch
+        {
+            PlotColorRole.Track => ("MeterTrackBrush", Color.FromRgb(17, 20, 25)),
+            PlotColorRole.Outline => ("ChromeBorderBrush", Color.FromRgb(58, 66, 77)),
+            PlotColorRole.Subtle => ("SubtleTextBrush", Color.FromRgb(174, 183, 194)),
+            PlotColorRole.Signal => ("SignalBrush", Color.FromRgb(46, 196, 182)),
+            PlotColorRole.SpectrumWarm => ("SpectrumWarmBrush", Color.FromRgb(255, 176, 0)),
+            PlotColorRole.Text => ("TextBrush", Color.FromRgb(244, 247, 250)),
+            PlotColorRole.ControlPressed => ("ControlPressedBrush", Color.FromRgb(53, 65, 77)),
+            _ => ("SignalBrush", Color.FromRgb(46, 196, 182))
+        };
+    }
+
     public static Color Blend(Color from, Color to, double amount)
     {
         amount = Math.Clamp(amount, 0, 1);
@@ -79,4 +122,15 @@ internal static class ThemedDrawing
             (byte)Math.Round(from.G + ((to.G - from.G) * amount)),
             (byte)Math.Round(from.B + ((to.B - from.B) * amount)));
     }
+}
+
+internal enum PlotColorRole
+{
+    Track,
+    Outline,
+    Subtle,
+    Signal,
+    SpectrumWarm,
+    Text,
+    ControlPressed
 }

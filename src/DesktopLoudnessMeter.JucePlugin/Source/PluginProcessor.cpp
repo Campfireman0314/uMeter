@@ -232,6 +232,21 @@ void DesktopLoudnessMeterAudioProcessor::setMuted (bool shouldMute) noexcept
     muted.store (shouldMute, std::memory_order_release);
 }
 
+dlm::LoopbackSenderConnectionState DesktopLoudnessMeterAudioProcessor::getSenderConnectionState() const noexcept
+{
+    return sender.getConnectionState();
+}
+
+juce::String DesktopLoudnessMeterAudioProcessor::getSenderConnectionStatusText() const
+{
+    return sender.getConnectionStatusText();
+}
+
+std::uint64_t DesktopLoudnessMeterAudioProcessor::getDroppedSenderPacketCount() const noexcept
+{
+    return sender.getDroppedPacketCount();
+}
+
 juce::String DesktopLoudnessMeterAudioProcessor::getHostDisplayName()
 {
     const auto hostPath = juce::File::getSpecialLocation (juce::File::hostApplicationPath);

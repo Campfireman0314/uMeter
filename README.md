@@ -4,7 +4,7 @@ Fast floating Windows desktop meter for seeing which app, DAW, or plugin sender 
 
 ## Current Version
 
-`v2.2.4` is the current public release. This patch closes the first event-substrate cycle with a bounded Recent Events strip, event-type filtering, configurable retained event count, and a global settings window for event output planning.
+`v2.2.7` is the current public release. This patch keeps pop-up detail windows independent from the global `Always on top` state and improves Milk White graph contrast.
 
 ## Usable Baseline
 
@@ -71,7 +71,7 @@ The generated installers are written to:
 
 ```text
 artifacts\uMeter.Setup.exe
-artifacts\uMeter-Setup-2.2.4.exe
+artifacts\uMeter-Setup-2.2.7.exe
 ```
 
 The installer contains the desktop app and `uMeter Sender.vst3`. The VST3 install path defaults to:
@@ -114,6 +114,10 @@ For mixed-source behavior, duplicate names, and reconnect preference memory, see
 - `tests/DesktopLoudnessMeter.Tests` - unit tests for math and view-model reconciliation.
 - `docs/current-status.md` - current release status and remaining known limits.
 - `docs/product-roadmap/` - post-v2.2.4 product roadmap and planning notes.
+- `docs/rendering-architecture.md` - graph rendering cleanup notes.
+- `docs/v2.2.7-release.md` - v2.2.7 release notes.
+- `docs/v2.2.6-release.md` - v2.2.6 release notes.
+- `docs/v2.2.5-release.md` - v2.2.5 release notes.
 - `docs/v2.2.4-release.md` - v2.2.4 release notes.
 - `docs/v2.2.3-release.md` - v2.2.3 release notes.
 - `docs/v2.2.2-release.md` - v2.2.2 release notes.
@@ -136,4 +140,6 @@ For mixed-source behavior, duplicate names, and reconnect preference memory, see
 9. Done: v2.2.2 spectrograph continuity, color-floor, and numeric range-entry polish.
 10. Done: v2.2.3 source workspace memory and smarter collision-analyzer polish.
 11. Done: v2.2.4 Recent Events substrate and global event settings.
-12. Next: Cycle 3 mix problem detection MVP.
+12. Done: v2.2.5 overlap-event slice, VST3 sender acknowledgements/status, and reset-rendering stability.
+13. Done: v2.2.6 Cycle 5 rendering architecture cleanup slices and Cycle 6 platform strategy notes.
+14. Done: v2.2.7 detail-window topmost isolation and Milk White graph contrast polish.

@@ -4,5 +4,6 @@ public enum RecentEventKind
 {
     Source,
     TruePeak,
-    Loudness
+    Loudness,
+    Collision
 }

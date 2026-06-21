@@ -12,13 +12,7 @@ public sealed class FrequencyCollisionBar : FrameworkElement
     private static readonly double MinimumMel = SpectrumScale.HertzToMel(SpectrumScale.MinimumFrequencyHz);
     private static readonly double MaximumMel = SpectrumScale.HertzToMel(SpectrumScale.MaximumFrequencyHz);
     private static readonly double[] MajorFrequencies = [20d, 100d, 1000d, 4000d, 12000d, 22000d];
-    private DrawingGroup? _backgroundDrawing;
-    private double _backgroundWidth;
-    private double _backgroundHeight;
-    private double _backgroundPixelsPerDip;
-    private Color _backgroundTrackColor;
-    private Color _backgroundOutlineColor;
-    private Color _backgroundSubtleColor;
+    private readonly PlotBackgroundCache _backgroundCache = new();
     private Point? _hoverPoint;
 
     public FrequencyCollisionBar()
@@ -61,29 +55,19 @@ public sealed class FrequencyCollisionBar : FrameworkElement
 
     private void DrawBackground(DrawingContext drawingContext, Rect track)
     {
-        var trackColor = ThemedDrawing.GetColor(this, "MeterTrackBrush", Color.FromRgb(17, 20, 25));
-        var outlineColor = ThemedDrawing.GetColor(this, "ChromeBorderBrush", Color.FromRgb(58, 66, 77));
-        var subtleColor = ThemedDrawing.GetColor(this, "SubtleTextBrush", Color.FromRgb(174, 183, 194));
+        var trackColor = ThemedDrawing.GetColor(this, PlotColorRole.Track);
+        var outlineColor = ThemedDrawing.GetColor(this, PlotColorRole.Outline);
+        var subtleColor = ThemedDrawing.GetColor(this, PlotColorRole.Subtle);
         var pixelsPerDip = VisualTreeHelper.GetDpi(this).PixelsPerDip;
 
-        if (_backgroundDrawing is null
-            || !AreClose(_backgroundWidth, ActualWidth)
-            || !AreClose(_backgroundHeight, ActualHeight)
-            || !AreClose(_backgroundPixelsPerDip, pixelsPerDip)
-            || _backgroundTrackColor != trackColor
-            || _backgroundOutlineColor != outlineColor
-            || _backgroundSubtleColor != subtleColor)
-        {
-            _backgroundDrawing = CreateBackgroundDrawing(track, trackColor, outlineColor, subtleColor, pixelsPerDip);
-            _backgroundWidth = ActualWidth;
-            _backgroundHeight = ActualHeight;
-            _backgroundPixelsPerDip = pixelsPerDip;
-            _backgroundTrackColor = trackColor;
-            _backgroundOutlineColor = outlineColor;
-            _backgroundSubtleColor = subtleColor;
-        }
-
-        drawingContext.DrawDrawing(_backgroundDrawing);
+        drawingContext.DrawDrawing(_backgroundCache.GetOrCreate(
+            ActualWidth,
+            ActualHeight,
+            pixelsPerDip,
+            trackColor,
+            outlineColor,
+            subtleColor,
+            () => CreateBackgroundDrawing(track, trackColor, outlineColor, subtleColor, pixelsPerDip)));
     }
 
     private static DrawingGroup CreateBackgroundDrawing(
@@ -120,8 +104,8 @@ public sealed class FrequencyCollisionBar : FrameworkElement
             return;
         }
 
-        var accent = ThemedDrawing.GetColor(this, "SignalBrush", Color.FromRgb(46, 196, 182));
-        var warm = ThemedDrawing.GetColor(this, "SpectrumWarmBrush", Color.FromRgb(255, 176, 0));
+        var accent = ThemedDrawing.GetColor(this, PlotColorRole.Signal);
+        var warm = ThemedDrawing.GetColor(this, PlotColorRole.SpectrumWarm);
 
         foreach (var band in bands)
         {
@@ -150,7 +134,7 @@ public sealed class FrequencyCollisionBar : FrameworkElement
             FreezeIfPossible(brush);
 
             drawingContext.DrawRoundedRectangle(
-                ThemedDrawing.GetBrush(this, "SignalBrush", (byte)Math.Round(22 + (intensity * 42)), Color.FromRgb(46, 196, 182)),
+                ThemedDrawing.GetBrush(this, PlotColorRole.Signal, (byte)Math.Round(22 + (intensity * 42))),
                 null,
                 new Rect(Math.Max(track.Left + 1, core.Left - 2), core.Top - 2, Math.Min(track.Right - core.Left, core.Width + 4), core.Height + 4),
                 5,
@@ -210,7 +194,7 @@ public sealed class FrequencyCollisionBar : FrameworkElement
         var x = Math.Clamp(point.X, track.Left, track.Right);
         var frequency = XToFrequency(track, x);
         var label = FormatFrequency(frequency);
-        var accent = ThemedDrawing.GetColor(this, "SignalBrush", Color.FromRgb(46, 196, 182));
+        var accent = ThemedDrawing.GetColor(this, PlotColorRole.Signal);
         var markerPen = FrozenPen(accent, 220, 1.2);
         drawingContext.DrawLine(markerPen, new Point(x, track.Top - 8), new Point(x, track.Bottom + 5));
 
@@ -231,7 +215,7 @@ public sealed class FrequencyCollisionBar : FrameworkElement
             FlowDirection.LeftToRight,
             new Typeface("Segoe UI"),
             10,
-            ThemedDrawing.GetBrush(this, "TextBrush", Color.FromRgb(244, 247, 250)),
+            ThemedDrawing.GetBrush(this, PlotColorRole.Text),
             VisualTreeHelper.GetDpi(this).PixelsPerDip);
         var paddingX = 6d;
         var bubbleWidth = formatted.Width + (paddingX * 2);
@@ -239,8 +223,8 @@ public sealed class FrequencyCollisionBar : FrameworkElement
         var bubbleX = Math.Clamp(x - (bubbleWidth / 2), 0, Math.Max(0, ActualWidth - bubbleWidth));
         var bubble = new Rect(bubbleX, 0, bubbleWidth, bubbleHeight);
         drawingContext.DrawRoundedRectangle(
-            ThemedDrawing.GetBrush(this, "ControlPressedBrush", Color.FromRgb(53, 65, 77)),
-            ThemedDrawing.GetPen(this, "AccentBrush", 1, Color.FromRgb(46, 196, 182)),
+            ThemedDrawing.GetBrush(this, PlotColorRole.ControlPressed),
+            ThemedDrawing.GetPen(this, PlotColorRole.Signal, 1),
             bubble,
             4,
             4);
@@ -272,11 +256,6 @@ public sealed class FrequencyCollisionBar : FrameworkElement
     private static Rect GetTrackRect(double width)
     {
         return new Rect(0.5, 10.5, Math.Max(1, width - 1), 18);
-    }
-
-    private static bool AreClose(double first, double second)
-    {
-        return Math.Abs(first - second) < 0.5;
     }
 
     private static SolidColorBrush FrozenBrush(Color color)

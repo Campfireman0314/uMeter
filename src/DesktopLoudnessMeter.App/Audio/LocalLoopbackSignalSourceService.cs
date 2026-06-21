@@ -64,6 +64,8 @@ public sealed class LocalLoopbackSignalSourceService :
                 case LocalLoopbackPacketType.Close:
                     _sourcesByHandle.Remove(packet.Handle);
                     break;
+                case LocalLoopbackPacketType.Ack:
+                    break;
             }
         }
     }

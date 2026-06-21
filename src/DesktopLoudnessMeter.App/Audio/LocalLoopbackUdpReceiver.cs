@@ -90,7 +90,11 @@ public sealed class LocalLoopbackUdpReceiver : IDisposable
 
                 if (LocalLoopbackProtocol.TryDecode(received.Buffer, out var packet))
                 {
-                    _sourceService.Ingest(packet);
+                    if (packet.Type != LocalLoopbackPacketType.Ack)
+                    {
+                        _sourceService.Ingest(packet);
+                        await SendAckAsync(packet.Handle, received.RemoteEndPoint).ConfigureAwait(false);
+                    }
                 }
             }
         }
@@ -106,5 +110,17 @@ public sealed class LocalLoopbackUdpReceiver : IDisposable
     private static bool IsExpectedShutdownException(Exception ex)
     {
         return ex is OperationCanceledException or ObjectDisposedException or SocketException;
+    }
+
+    private async Task SendAckAsync(string handle, IPEndPoint remoteEndPoint)
+    {
+        try
+        {
+            var bytes = LocalLoopbackProtocol.EncodeAck(handle);
+            await _udpClient.SendAsync(bytes, bytes.Length, remoteEndPoint).ConfigureAwait(false);
+        }
+        catch (Exception ex) when (ex is SocketException or ObjectDisposedException or InvalidOperationException)
+        {
+        }
     }
 }

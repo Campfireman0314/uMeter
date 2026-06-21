@@ -5,6 +5,22 @@ namespace
 constexpr auto textEditorCornerRadius = 8.0f;
 constexpr auto textEditorTopIndent = 1;
 constexpr auto textEditorHorizontalViewportInset = 1;
+
+juce::Colour statusColour (dlm::LoopbackSenderConnectionState state)
+{
+    switch (state)
+    {
+        case dlm::LoopbackSenderConnectionState::Connected:
+            return juce::Colour (0xff2dd4bf);
+        case dlm::LoopbackSenderConnectionState::NoRecentAck:
+            return juce::Colour (0xfff59e0b);
+        case dlm::LoopbackSenderConnectionState::WaitingForReceiver:
+            return juce::Colour (0xff94a3b8);
+        case dlm::LoopbackSenderConnectionState::Stopped:
+        default:
+            return juce::Colour (0xff64748b);
+    }
+}
 }
 
 DesktopLoudnessMeterAudioProcessorEditor::DesktopLoudnessMeterAudioProcessorEditor (DesktopLoudnessMeterAudioProcessor& processor)
@@ -18,6 +34,12 @@ DesktopLoudnessMeterAudioProcessorEditor::DesktopLoudnessMeterAudioProcessorEdit
     titleLabel.setColour (juce::Label::textColourId, juce::Colour (0xfff2f5f8));
     titleLabel.setFont (juce::FontOptions (18.0f, juce::Font::bold));
     addAndMakeVisible (titleLabel);
+
+    statusLabel.setJustificationType (juce::Justification::centredLeft);
+    statusLabel.setColour (juce::Label::textColourId, juce::Colour (0xffaab4c2));
+    statusLabel.setFont (juce::FontOptions (13.0f, juce::Font::plain));
+    addAndMakeVisible (statusIndicator);
+    addAndMakeVisible (statusLabel);
 
     sourceNameLabel.setText ("Source name", juce::dontSendNotification);
     sourceNameLabel.setJustificationType (juce::Justification::centredLeft);
@@ -60,6 +82,9 @@ DesktopLoudnessMeterAudioProcessorEditor::DesktopLoudnessMeterAudioProcessorEdit
     };
     refreshMuteButton();
     addAndMakeVisible (muteButton);
+
+    refreshConnectionStatus();
+    startTimerHz (4);
 }
 
 DesktopLoudnessMeterAudioProcessorEditor::~DesktopLoudnessMeterAudioProcessorEditor()
@@ -97,6 +122,33 @@ void DesktopLoudnessMeterAudioProcessorEditor::RoundedTextEditorLookAndFeel::dra
     graphics.drawRoundedRectangle (area, textEditorCornerRadius, hasFocus ? 1.6f : 1.0f);
 }
 
+void DesktopLoudnessMeterAudioProcessorEditor::StatusIndicator::setState (dlm::LoopbackSenderConnectionState nextState)
+{
+    if (state == nextState)
+    {
+        return;
+    }
+
+    state = nextState;
+    repaint();
+}
+
+void DesktopLoudnessMeterAudioProcessorEditor::StatusIndicator::paint (juce::Graphics& graphics)
+{
+    const auto area = getLocalBounds().toFloat();
+    const auto size = juce::jmin (area.getWidth(), area.getHeight());
+    const auto outer = juce::Rectangle<float> (size, size).withCentre (area.getCentre()).reduced (1.5f);
+    const auto inner = outer.reduced (4.0f);
+    const auto colour = statusColour (state);
+
+    graphics.setColour (colour.withAlpha (0.16f));
+    graphics.fillEllipse (outer);
+    graphics.setColour (colour.withAlpha (0.42f));
+    graphics.drawEllipse (outer.reduced (1.0f), 1.1f);
+    graphics.setColour (colour);
+    graphics.fillEllipse (inner);
+}
+
 void DesktopLoudnessMeterAudioProcessorEditor::paint (juce::Graphics& graphics)
 {
     graphics.fillAll (juce::Colour (0xff0f1722));
@@ -105,7 +157,12 @@ void DesktopLoudnessMeterAudioProcessorEditor::paint (juce::Graphics& graphics)
 void DesktopLoudnessMeterAudioProcessorEditor::resized()
 {
     auto bounds = getLocalBounds().reduced (18);
-    titleLabel.setBounds (bounds.removeFromTop (28));
+    auto header = bounds.removeFromTop (28);
+    auto statusArea = header.removeFromRight (214);
+    statusIndicator.setBounds (statusArea.removeFromLeft (18).withSizeKeepingCentre (18, 18));
+    statusArea.removeFromLeft (7);
+    statusLabel.setBounds (statusArea);
+    titleLabel.setBounds (header);
     bounds.removeFromTop (12);
 
     auto row = bounds.removeFromTop (42);
@@ -129,4 +186,24 @@ void DesktopLoudnessMeterAudioProcessorEditor::updateSourceName (bool refreshEdi
 void DesktopLoudnessMeterAudioProcessorEditor::refreshMuteButton()
 {
     muteButton.setButtonText (audioProcessor.isMuted() ? "Muted" : "Mute");
+}
+
+void DesktopLoudnessMeterAudioProcessorEditor::refreshConnectionStatus()
+{
+    const auto state = audioProcessor.getSenderConnectionState();
+    auto text = audioProcessor.getSenderConnectionStatusText();
+    const auto dropped = audioProcessor.getDroppedSenderPacketCount();
+    if (dropped > 0)
+    {
+        text += " - dropped " + juce::String (static_cast<juce::int64> (dropped));
+    }
+
+    statusIndicator.setState (state);
+    statusLabel.setText (text, juce::dontSendNotification);
+    statusLabel.setColour (juce::Label::textColourId, statusColour (state).interpolatedWith (juce::Colour (0xffd8e1ec), 0.45f));
+}
+
+void DesktopLoudnessMeterAudioProcessorEditor::timerCallback()
+{
+    refreshConnectionStatus();
 }

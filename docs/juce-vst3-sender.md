@@ -12,6 +12,7 @@ The plugin now has a minimal editor with:
 
 - A source-name field. Press Enter or leave the field to rename the source in the desktop app.
 - Source-name changes are sent while typing, so the desktop app follows edits immediately.
+- A receiver status indicator that reports `Waiting for uMeter`, `Connected to uMeter`, or `Sending, no recent reply`.
 - A temporary `Mute` button. This silences the plugin output while active, but it is not saved with the project state.
 
 ## Build
@@ -46,7 +47,7 @@ cmake --build .\build\juce-vst3 --config Debug --target DesktopLoudnessMeterJuce
 ctest --test-dir .\build\juce-vst3 -C Debug --output-on-failure
 ```
 
-These tests cover v1 packet shape, little-endian float sample encoding, bounded queue drops, plugin state restore, and the sender worker's register/heartbeat/audio/close UDP lifecycle.
+These tests cover v1 packet shape, little-endian float sample encoding, receiver acknowledgements, bounded queue drops, plugin state restore, and the sender worker's register/heartbeat/audio/close UDP lifecycle.
 
 ## Artifact Location
 
@@ -93,6 +94,7 @@ Run PowerShell as administrator if the copy is denied.
 Expected result:
 
 - A `Plugin` source appears in the desktop app.
+- The plugin editor status changes from `Waiting for uMeter` to `Connected to uMeter`.
 - The source name defaults to the host process name plus a short stable suffix, such as `Cubase 7F3A`.
 - The source animates while the host plays audio.
 - Removing the plugin or closing the host removes the source from the main list. Any open detail view for that instance shows `Instance not found` until the same instance returns or the detail view is closed.

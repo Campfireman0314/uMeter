@@ -3,6 +3,7 @@ using DesktopLoudnessMeter.App.Audio.Analysis;
 using DesktopLoudnessMeter.App.Settings;
 using DesktopLoudnessMeter.App.Themes;
 using DesktopLoudnessMeter.App.ViewModels;
+using System.Windows.Media;
 
 namespace DesktopLoudnessMeter.Tests.ViewModels;
 
@@ -563,6 +564,17 @@ public sealed class MainViewModelAdvancedControlsTests
     }
 
     [Fact]
+    public void MilkWhitePlotPaletteKeepsGraphContrast()
+    {
+        var theme = AppThemes.FindById("milk-white");
+
+        Assert.True(ColorDistance(theme.Signal, theme.MeterTrack) > 90);
+        Assert.True(ColorDistance(theme.SpectrumWarm, theme.MeterTrack) > 80);
+        Assert.True(theme.Signal.B > theme.Signal.R);
+        Assert.True(theme.SpectrumWarm.R > theme.SpectrumWarm.B);
+    }
+
+    [Fact]
     public void FrequencyCollisionDetectsSimilarSpectrumBins()
     {
         var service = new StaticSignalSourceMeterService(
@@ -579,6 +591,65 @@ public sealed class MainViewModelAdvancedControlsTests
         Assert.True(viewModel.HasFrequencyCollisionSources);
         Assert.Equal("Global", viewModel.SelectedFrequencyCollisionSource.DisplayName);
         Assert.Contains(viewModel.FrequencyCollisionBands, band => band.StartRatio <= 2.0 / 6.0 && band.EndRatio >= 3.0 / 6.0);
+    }
+
+    [Fact]
+    public void FrequencyCollisionRecordsConservativeOverlapEvent()
+    {
+        var service = new StaticSignalSourceMeterService(
+            [
+                Source("plugin:lead", "Lead", SignalSourceKind.Plugin, spectrumBuckets: [0.0, 0.18, 0.42, 0.18, 0.72, 0.08]),
+                Source("plugin:keys", "Keys", SignalSourceKind.Plugin, spectrumBuckets: [0.0, 0.17, 0.43, 0.16, 0.18, 0.09])
+            ]);
+        var viewModel = new MainViewModel(service, startTimer: false);
+
+        viewModel.RefreshNow();
+        viewModel.Sessions.Single(session => session.SourceKey == "plugin:lead").OpenDetailCommand.Execute(null);
+        viewModel.IsInlineCollisionVisible = true;
+
+        var overlapEvent = Assert.Single(viewModel.RecentEvents.Where(item => item.Kind == RecentEventKind.Collision));
+        Assert.Equal("Possible overlap", overlapEvent.Title);
+        Assert.Contains("Lead", overlapEvent.Detail);
+        Assert.Contains("Global", overlapEvent.Detail);
+        Assert.Equal(ReadoutSeverity.Warm, overlapEvent.Severity);
+    }
+
+    [Fact]
+    public void FrequencyCollisionDoesNotRepeatSameOverlapWhileActive()
+    {
+        var service = new StaticSignalSourceMeterService(
+            [
+                Source("plugin:lead", "Lead", SignalSourceKind.Plugin, spectrumBuckets: [0.0, 0.18, 0.42, 0.18, 0.72, 0.08]),
+                Source("plugin:keys", "Keys", SignalSourceKind.Plugin, spectrumBuckets: [0.0, 0.17, 0.43, 0.16, 0.18, 0.09])
+            ]);
+        var viewModel = new MainViewModel(service, startTimer: false);
+
+        viewModel.RefreshNow();
+        viewModel.Sessions.Single(session => session.SourceKey == "plugin:lead").OpenDetailCommand.Execute(null);
+        viewModel.IsInlineCollisionVisible = true;
+        viewModel.RefreshNow();
+
+        Assert.Single(viewModel.RecentEvents.Where(item => item.Kind == RecentEventKind.Collision));
+    }
+
+    [Fact]
+    public void RecentEventFilterCanShowCollisionOverlapEvents()
+    {
+        var service = new StaticSignalSourceMeterService(
+            [
+                Source("plugin:lead", "Lead", SignalSourceKind.Plugin, spectrumBuckets: [0.0, 0.18, 0.42, 0.18, 0.72, 0.08]),
+                Source("plugin:keys", "Keys", SignalSourceKind.Plugin, spectrumBuckets: [0.0, 0.17, 0.43, 0.16, 0.18, 0.09])
+            ]);
+        var viewModel = new MainViewModel(service, startTimer: false);
+
+        viewModel.RefreshNow();
+        viewModel.Sessions.Single(session => session.SourceKey == "plugin:lead").OpenDetailCommand.Execute(null);
+        viewModel.IsInlineCollisionVisible = true;
+        viewModel.SelectedRecentEventFilter = viewModel.RecentEventFilterOptions.Single(option => option.Kind == RecentEventKind.Collision);
+
+        var visibleEvent = Assert.Single(viewModel.VisibleRecentEvents);
+        Assert.Equal(RecentEventKind.Collision, visibleEvent.Kind);
+        Assert.Equal("Possible overlap", visibleEvent.Title);
     }
 
     [Fact]
@@ -769,6 +840,14 @@ public sealed class MainViewModelAdvancedControlsTests
     private static MainViewModel CreateViewModel(params AudioSessionSnapshot[] snapshots)
     {
         return new MainViewModel(new StaticAudioSessionMeterService(snapshots), startTimer: false);
+    }
+
+    private static double ColorDistance(Color first, Color second)
+    {
+        var red = first.R - second.R;
+        var green = first.G - second.G;
+        var blue = first.B - second.B;
+        return Math.Sqrt((red * red) + (green * green) + (blue * blue));
     }
 
     private static AudioSessionSnapshot Snapshot(string key = "a", double? momentaryLufs = null, int processId = 42)

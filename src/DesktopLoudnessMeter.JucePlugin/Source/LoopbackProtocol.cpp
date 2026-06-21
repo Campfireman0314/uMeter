@@ -120,4 +120,29 @@ juce::MemoryBlock LoopbackProtocol::encodeClose (const juce::String& handle)
 {
     return simplePacket ("close", handle);
 }
+
+juce::MemoryBlock LoopbackProtocol::encodeAck (const juce::String& handle)
+{
+    return simplePacket ("ack", handle);
+}
+
+bool LoopbackProtocol::isAckForHandle (const void* data, int sizeInBytes, const juce::String& handle)
+{
+    if (data == nullptr || sizeInBytes <= 0 || ! isValidHandle (handle))
+    {
+        return false;
+    }
+
+    const auto json = juce::String::fromUTF8 (static_cast<const char*> (data), sizeInBytes);
+    const auto parsed = juce::JSON::parse (json);
+    auto* object = parsed.getDynamicObject();
+    if (object == nullptr)
+    {
+        return false;
+    }
+
+    return object->getProperty ("protocol").toString() == protocolVersion
+        && object->getProperty ("type").toString() == "ack"
+        && object->getProperty ("handle").toString() == handle;
+}
 }

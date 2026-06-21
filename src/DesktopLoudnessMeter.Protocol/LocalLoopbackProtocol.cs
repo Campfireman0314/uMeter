@@ -69,6 +69,15 @@ public static class LocalLoopbackProtocol
         });
     }
 
+    public static byte[] EncodeAck(string handle)
+    {
+        return Encode(new WirePacket
+        {
+            Type = "ack",
+            Handle = handle
+        });
+    }
+
     public static bool TryDecode(ReadOnlySpan<byte> bytes, out LocalLoopbackPacket packet)
     {
         packet = default!;
@@ -121,7 +130,7 @@ public static class LocalLoopbackProtocol
             LocalLoopbackPacketType.Register => TryCreateRegister(wire, sourceKind, out packet),
             LocalLoopbackPacketType.Rename => TryCreateRename(wire, sourceKind, out packet),
             LocalLoopbackPacketType.Audio => TryCreateAudio(wire, sourceKind, out packet),
-            LocalLoopbackPacketType.Heartbeat or LocalLoopbackPacketType.Close => TryCreateSimple(wire, type, sourceKind, out packet),
+            LocalLoopbackPacketType.Heartbeat or LocalLoopbackPacketType.Close or LocalLoopbackPacketType.Ack => TryCreateSimple(wire, type, sourceKind, out packet),
             _ => false
         };
     }
@@ -195,6 +204,7 @@ public static class LocalLoopbackProtocol
             "rename" => LocalLoopbackPacketType.Rename,
             "audio" => LocalLoopbackPacketType.Audio,
             "close" => LocalLoopbackPacketType.Close,
+            "ack" => LocalLoopbackPacketType.Ack,
             _ => default
         };
         return value is not null

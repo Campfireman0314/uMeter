@@ -1,6 +1,8 @@
 using DesktopLoudnessMeter.App.Audio;
 using DesktopLoudnessMeter.Protocol;
 using DesktopLoudnessMeter.SenderKit;
+using System.Net;
+using System.Net.Sockets;
 
 namespace DesktopLoudnessMeter.Tests.SenderKit;
 
@@ -39,6 +41,32 @@ public sealed class LocalLoopbackSenderTests
 
         await sender.DisposeAsync();
         await WaitUntil(() => service.GetCurrentSources().Count == 0);
+    }
+
+    [Fact]
+    public async Task ReceiverAcknowledgesValidSenderPackets()
+    {
+        const string handle = "plugin-probe-ack";
+        using var service = new LocalLoopbackSignalSourceService();
+        using var receiver = LocalLoopbackUdpReceiver.Start(service, port: 0);
+        using var client = new UdpClient(new IPEndPoint(IPAddress.Loopback, 0));
+        var endpoint = new IPEndPoint(IPAddress.Loopback, receiver.Port);
+        var bytes = LocalLoopbackProtocol.EncodeRegister(
+            handle,
+            "Probe Ack",
+            LocalLoopbackSourceKind.Plugin,
+            sampleRate: 48000,
+            channels: 2);
+
+        await client.SendAsync(bytes, bytes.Length, endpoint);
+
+        using var timeout = new CancellationTokenSource(TimeSpan.FromSeconds(2));
+        var received = await client.ReceiveAsync(timeout.Token);
+
+        Assert.True(LocalLoopbackProtocol.TryDecode(received.Buffer, out var packet));
+        Assert.Equal(LocalLoopbackPacketType.Ack, packet.Type);
+        Assert.Equal(handle, packet.Handle);
+        await WaitUntil(() => service.GetCurrentSources().Count == 1);
     }
 
     [Fact]

@@ -2,7 +2,6 @@ using System.Globalization;
 using System.Windows;
 using System.Windows.Input;
 using System.Windows.Media;
-using System.Windows.Threading;
 
 namespace DesktopLoudnessMeter.App.Controls;
 
@@ -20,26 +19,18 @@ public sealed class WaveformRollView : FrameworkElement
     private double _panStartSpan;
     private double _viewportCenter;
     private double _viewportSpan = DomainSpan;
+    private readonly DeferredRenderUpdate _waveformUpdate;
     private IReadOnlyList<double>? _pendingWaveformSamples;
-    private bool _hasPendingWaveformUpdate;
-    private bool _isWaveformUpdateQueued;
     private IReadOnlyList<double>? _renderedWaveformSamples;
     private StreamGeometry? _waveformGeometry;
     private Rect _waveformGeometryPlot;
     private double _waveformGeometryViewportMinimum;
     private double _waveformGeometryViewportSpan;
-    private DrawingGroup? _backgroundDrawing;
-    private double _backgroundWidth;
-    private double _backgroundHeight;
-    private double _backgroundPixelsPerDip;
-    private double _backgroundViewportMinimum;
-    private double _backgroundViewportSpan;
-    private Color _backgroundTrackColor;
-    private Color _backgroundOutlineColor;
-    private Color _backgroundSubtleColor;
+    private readonly PlotBackgroundCache _backgroundCache = new();
 
     public WaveformRollView()
     {
+        _waveformUpdate = new DeferredRenderUpdate(this, CanApplyWaveformUpdate, ApplyPendingWaveformUpdate);
         Cursor = Cursors.SizeNS;
         SnapsToDevicePixels = true;
         Loaded += (_, _) => ApplyPendingWaveformUpdateIfReady();
@@ -183,8 +174,8 @@ public sealed class WaveformRollView : FrameworkElement
         var centerY = ValueToY(plot, 0);
         if (IsVisibleY(plot, centerY))
         {
-            var centerPen = ThemedDrawing.GetPen(this, "SubtleTextBrush", 110, 1, Color.FromRgb(174, 183, 194));
-            var gridPen = ThemedDrawing.GetPen(this, "SubtleTextBrush", 58, 1, Color.FromRgb(174, 183, 194));
+            var centerPen = ThemedDrawing.GetPen(this, PlotColorRole.Subtle, 110, 1);
+            var gridPen = ThemedDrawing.GetPen(this, PlotColorRole.Subtle, 58, 1);
             drawingContext.DrawLine(centerPen, new Point(plot.Left, centerY), new Point(plot.Right, centerY));
             drawingContext.DrawLine(gridPen, new Point(plot.Left - 5, centerY), new Point(plot.Left, centerY));
             DrawLabel(drawingContext, "-inf", new Point(15, centerY - 7));
@@ -199,28 +190,16 @@ public sealed class WaveformRollView : FrameworkElement
         var outlineColor = CurrentOutline();
         var subtleColor = CurrentSubtle();
 
-        if (_backgroundDrawing is null
-            || !AreClose(_backgroundWidth, width)
-            || !AreClose(_backgroundHeight, height)
-            || !AreClose(_backgroundPixelsPerDip, pixelsPerDip)
-            || !AreClose(_backgroundViewportMinimum, viewport.Minimum)
-            || !AreClose(_backgroundViewportSpan, viewport.Span)
-            || _backgroundTrackColor != trackColor
-            || _backgroundOutlineColor != outlineColor
-            || _backgroundSubtleColor != subtleColor)
-        {
-            _backgroundDrawing = CreateBackgroundDrawing(width, height, plot);
-            _backgroundWidth = width;
-            _backgroundHeight = height;
-            _backgroundPixelsPerDip = pixelsPerDip;
-            _backgroundViewportMinimum = viewport.Minimum;
-            _backgroundViewportSpan = viewport.Span;
-            _backgroundTrackColor = trackColor;
-            _backgroundOutlineColor = outlineColor;
-            _backgroundSubtleColor = subtleColor;
-        }
-
-        drawingContext.DrawDrawing(_backgroundDrawing);
+        drawingContext.DrawDrawing(_backgroundCache.GetOrCreate(
+            width,
+            height,
+            pixelsPerDip,
+            viewport.Minimum,
+            viewport.Span,
+            trackColor,
+            outlineColor,
+            subtleColor,
+            () => CreateBackgroundDrawing(width, height, plot)));
     }
 
     private DrawingGroup CreateBackgroundDrawing(double width, double height, Rect plot)
@@ -229,8 +208,8 @@ public sealed class WaveformRollView : FrameworkElement
         using (var drawingContext = group.Open())
         {
             drawingContext.DrawRoundedRectangle(
-                ThemedDrawing.GetBrush(this, "MeterTrackBrush", Color.FromRgb(17, 20, 25)),
-                ThemedDrawing.GetPen(this, "ChromeBorderBrush", 1, Color.FromRgb(58, 66, 77)),
+                ThemedDrawing.GetBrush(this, PlotColorRole.Track),
+                ThemedDrawing.GetPen(this, PlotColorRole.Outline, 1),
                 new Rect(0, 0, width, height),
                 6,
                 6);
@@ -253,7 +232,7 @@ public sealed class WaveformRollView : FrameworkElement
             return;
         }
 
-        var gridPen = ThemedDrawing.GetPen(this, "SubtleTextBrush", 58, 1, Color.FromRgb(174, 183, 194));
+        var gridPen = ThemedDrawing.GetPen(this, PlotColorRole.Subtle, 58, 1);
         drawingContext.DrawLine(gridPen, new Point(plot.Left, y), new Point(plot.Right, y));
         drawingContext.DrawLine(gridPen, new Point(plot.Left - 5, y), new Point(plot.Left, y));
         if (!string.IsNullOrEmpty(label))
@@ -267,7 +246,7 @@ public sealed class WaveformRollView : FrameworkElement
         if (_renderedWaveformSamples is not { Count: > 1 } samples)
         {
             drawingContext.DrawRoundedRectangle(
-                ThemedDrawing.GetBrush(this, "SubtleTextBrush", 28, Color.FromRgb(174, 183, 194)),
+                ThemedDrawing.GetBrush(this, PlotColorRole.Subtle, 28),
                 null,
                 plot,
                 4,
@@ -278,7 +257,7 @@ public sealed class WaveformRollView : FrameworkElement
         var geometry = GetWaveformGeometry(samples, plot);
         drawingContext.DrawGeometry(
             null,
-            ThemedDrawing.GetPen(this, "SignalBrush", 1.45, Color.FromRgb(46, 196, 182)),
+            ThemedDrawing.GetPen(this, PlotColorRole.Signal, 1.45),
             geometry);
     }
 
@@ -443,7 +422,7 @@ public sealed class WaveformRollView : FrameworkElement
             FlowDirection.LeftToRight,
             new Typeface("Segoe UI"),
             10,
-            ThemedDrawing.GetBrush(this, "SubtleTextBrush", 180, Color.FromRgb(174, 183, 194)),
+            ThemedDrawing.GetBrush(this, PlotColorRole.Subtle, 180),
             VisualTreeHelper.GetDpi(this).PixelsPerDip);
 
         drawingContext.DrawText(formatted, origin);
@@ -468,35 +447,16 @@ public sealed class WaveformRollView : FrameworkElement
     private void ScheduleWaveformUpdate(IReadOnlyList<double>? samples)
     {
         _pendingWaveformSamples = samples is { Count: > 0 } ? samples : null;
-        _hasPendingWaveformUpdate = true;
-        QueuePendingWaveformUpdate();
-    }
-
-    private void QueuePendingWaveformUpdate()
-    {
-        if (_isWaveformUpdateQueued)
-        {
-            return;
-        }
-
-        _isWaveformUpdateQueued = true;
-        Dispatcher.BeginInvoke(
-            (Action)(() =>
-            {
-                _isWaveformUpdateQueued = false;
-                ApplyPendingWaveformUpdateIfReady();
-            }),
-            DispatcherPriority.Render);
+        _waveformUpdate.Request();
     }
 
     private void ApplyPendingWaveformUpdateIfReady()
     {
-        if (!_hasPendingWaveformUpdate || !CanApplyWaveformUpdate())
-        {
-            return;
-        }
+        _waveformUpdate.TryApply();
+    }
 
-        _hasPendingWaveformUpdate = false;
+    private void ApplyPendingWaveformUpdate()
+    {
         _renderedWaveformSamples = _pendingWaveformSamples;
         InvalidateWaveformGeometry();
         InvalidateVisual();
@@ -513,22 +473,22 @@ public sealed class WaveformRollView : FrameworkElement
 
     private Color CurrentTrack()
     {
-        return ThemedDrawing.GetColor(this, "MeterTrackBrush", Color.FromRgb(17, 20, 25));
+        return ThemedDrawing.GetColor(this, PlotColorRole.Track);
     }
 
     private Color CurrentOutline()
     {
-        return ThemedDrawing.GetColor(this, "ChromeBorderBrush", Color.FromRgb(58, 66, 77));
+        return ThemedDrawing.GetColor(this, PlotColorRole.Outline);
     }
 
     private Color CurrentSubtle()
     {
-        return ThemedDrawing.GetColor(this, "SubtleTextBrush", Color.FromRgb(174, 183, 194));
+        return ThemedDrawing.GetColor(this, PlotColorRole.Subtle);
     }
 
     private void InvalidateBackground()
     {
-        _backgroundDrawing = null;
+        _backgroundCache.Invalidate();
     }
 
     private void InvalidateWaveformGeometry()

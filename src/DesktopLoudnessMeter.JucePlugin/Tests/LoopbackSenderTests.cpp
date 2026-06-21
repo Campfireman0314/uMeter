@@ -1,4 +1,5 @@
 #include "LoopbackSender.h"
+#include "LoopbackProtocol.h"
 
 #include <juce_audio_basics/juce_audio_basics.h>
 #include <juce_core/juce_core.h>
@@ -34,15 +35,29 @@ juce::String property (const juce::var& packet, const char* name)
     return object->getProperty (name).toString();
 }
 
-juce::MemoryBlock readPacket (juce::DatagramSocket& socket, int timeoutMs)
+struct ReceivedPacket
+{
+    juce::MemoryBlock block;
+    juce::String senderAddress;
+    int senderPort = 0;
+};
+
+ReceivedPacket readPacketWithSender (juce::DatagramSocket& socket, int timeoutMs)
 {
     expect (socket.waitUntilReady (true, timeoutMs) == 1, "timed out waiting for sender packet");
 
     char buffer[8192] {};
-    const auto bytesRead = socket.read (buffer, sizeof (buffer), false);
+    juce::String senderAddress;
+    int senderPort = 0;
+    const auto bytesRead = socket.read (buffer, sizeof (buffer), false, senderAddress, senderPort);
     expect (bytesRead > 0, "sender packet read failed");
 
-    return juce::MemoryBlock (buffer, static_cast<std::size_t> (bytesRead));
+    return { juce::MemoryBlock (buffer, static_cast<std::size_t> (bytesRead)), senderAddress, senderPort };
+}
+
+juce::MemoryBlock readPacket (juce::DatagramSocket& socket, int timeoutMs)
+{
+    return readPacketWithSender (socket, timeoutMs).block;
 }
 
 juce::var readUntilType (juce::DatagramSocket& socket, const char* expectedType, int attempts)
@@ -57,6 +72,36 @@ juce::var readUntilType (juce::DatagramSocket& socket, const char* expectedType,
     }
 
     throw std::runtime_error ("expected packet type did not arrive");
+}
+
+ReceivedPacket readPacketWithSenderUntilType (juce::DatagramSocket& socket, const char* expectedType, int attempts)
+{
+    for (auto attempt = 0; attempt < attempts; ++attempt)
+    {
+        auto received = readPacketWithSender (socket, 1000);
+        auto packet = parsePacket (received.block);
+        if (property (packet, "type") == expectedType)
+        {
+            return received;
+        }
+    }
+
+    throw std::runtime_error ("expected packet type did not arrive");
+}
+
+void waitUntilConnected (const dlm::LoopbackSender& sender)
+{
+    for (auto attempt = 0; attempt < 100; ++attempt)
+    {
+        if (sender.getConnectionState() == dlm::LoopbackSenderConnectionState::Connected)
+        {
+            return;
+        }
+
+        juce::Thread::sleep (10);
+    }
+
+    throw std::runtime_error ("sender did not observe receiver ack");
 }
 
 juce::AudioBuffer<float> makeAudioBlock()
@@ -115,10 +160,44 @@ void senderEmitsLifecyclePacketsFromWorker()
 
     const auto close = readUntilType (receiver, "close", 5);
     expect (property (close, "handle") == config.handle, "sender close handle mismatch");
+    expect (sender.getConnectionState() == dlm::LoopbackSenderConnectionState::Stopped, "sender should report stopped after stop");
+}
+
+void senderReportsConnectedAfterReceiverAck()
+{
+    juce::DatagramSocket receiver;
+    expect (receiver.bindToPort (0, "127.0.0.1"), "test UDP receiver should bind");
+
+    dlm::LoopbackSender sender;
+    dlm::LoopbackSenderConfig config;
+    config.handle = "juce-vst3-ack-test";
+    config.displayName = "Ack Test";
+    config.sampleRate = 48000;
+    config.channels = 2;
+    config.port = receiver.getBoundPort();
+    config.heartbeatIntervalMs = 25;
+    config.registerIntervalMs = 25;
+
+    sender.start (config);
+    expect (sender.getConnectionState() == dlm::LoopbackSenderConnectionState::WaitingForReceiver, "sender should wait before first ack");
+
+    const auto registration = readPacketWithSenderUntilType (receiver, "register", 3);
+    const auto ack = dlm::LoopbackProtocol::encodeAck (config.handle);
+    expect (receiver.write (registration.senderAddress,
+                            registration.senderPort,
+                            ack.getData(),
+                            static_cast<int> (ack.getSize())) > 0,
+            "test receiver should send ack");
+
+    waitUntilConnected (sender);
+    expect (sender.getConnectionStatusText() == "Connected to uMeter", "sender connected status text mismatch");
+
+    sender.stop();
 }
 }
 
 void runLoopbackSenderTests()
 {
     senderEmitsLifecyclePacketsFromWorker();
+    senderReportsConnectedAfterReceiverAck();
 }

@@ -46,9 +46,9 @@ public static class AppThemes
             Color.FromRgb(228, 219, 205),
             Color.FromRgb(195, 183, 166),
             Color.FromRgb(216, 226, 244),
-            Color.FromRgb(214, 202, 184),
-            Color.FromRgb(255, 251, 241),
-            Color.FromRgb(250, 232, 204)),
+            Color.FromRgb(232, 221, 205),
+            Color.FromRgb(88, 123, 178),
+            Color.FromRgb(196, 126, 62)),
 
         new(
             "forest-green",

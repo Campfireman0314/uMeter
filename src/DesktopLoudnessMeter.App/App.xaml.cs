@@ -121,11 +121,36 @@ public partial class App : Application
     {
         var window = new DetailWindow
         {
-            Owner = _mainWindow?.IsVisible == true ? _mainWindow : null,
             DataContext = new DetailWindowViewModel(session, GetActiveDetailSwitchTargets, _workspaceSettings)
         };
+        PositionDetailPopup(window, _mainWindow);
         window.Show();
         window.Activate();
+    }
+
+    private static void PositionDetailPopup(Window popup, Window? mainWindow)
+    {
+        if (mainWindow?.IsVisible != true)
+        {
+            popup.WindowStartupLocation = WindowStartupLocation.CenterScreen;
+            return;
+        }
+
+        popup.WindowStartupLocation = WindowStartupLocation.Manual;
+        var mainWidth = mainWindow.ActualWidth > 0 ? mainWindow.ActualWidth : mainWindow.Width;
+        var mainHeight = mainWindow.ActualHeight > 0 ? mainWindow.ActualHeight : mainWindow.Height;
+        var popupWidth = popup.Width > 0 ? popup.Width : 460;
+        var popupHeight = popup.Height > 0 ? popup.Height : 840;
+        popup.Left = ClampToVirtualScreen(mainWindow.Left + ((mainWidth - popupWidth) / 2), popupWidth, isHorizontal: true);
+        popup.Top = ClampToVirtualScreen(mainWindow.Top + ((mainHeight - popupHeight) / 2), popupHeight, isHorizontal: false);
+    }
+
+    private static double ClampToVirtualScreen(double value, double length, bool isHorizontal)
+    {
+        var minimum = isHorizontal ? SystemParameters.VirtualScreenLeft : SystemParameters.VirtualScreenTop;
+        var span = isHorizontal ? SystemParameters.VirtualScreenWidth : SystemParameters.VirtualScreenHeight;
+        var maximum = Math.Max(minimum, minimum + span - length);
+        return Math.Clamp(value, minimum, maximum);
     }
 
     private IReadOnlyList<AudioSessionMeterViewModel> GetActiveDetailSwitchTargets()
