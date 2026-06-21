@@ -11,6 +11,7 @@ public sealed class AudioSessionMeterViewModel : ObservableObject
     private string _sourceKey;
     private SignalSourceKind _sourceKind;
     private string _displayName;
+    private string? _alias;
     private int? _processId;
     private double _peakDb;
     private bool _hasLivePeak = true;
@@ -133,14 +134,36 @@ public sealed class AudioSessionMeterViewModel : ObservableObject
         {
             if (SetProperty(ref _displayName, value))
             {
+                OnPropertyChanged(nameof(EffectiveDisplayName));
                 OnPropertyChanged(nameof(DisplayTitle));
+                OnPropertyChanged(nameof(HasAlias));
             }
         }
     }
 
+    public string EffectiveDisplayName => string.IsNullOrWhiteSpace(Alias) ? DisplayName : Alias!;
+
+    public string? Alias
+    {
+        get => _alias;
+        set
+        {
+            var next = string.IsNullOrWhiteSpace(value) ? null : value.Trim();
+            if (SetProperty(ref _alias, next))
+            {
+                OnPropertyChanged(nameof(EffectiveDisplayName));
+                OnPropertyChanged(nameof(DisplayTitle));
+                OnPropertyChanged(nameof(HasAlias));
+                AliasChanged?.Invoke(this, next);
+            }
+        }
+    }
+
+    public bool HasAlias => !string.IsNullOrWhiteSpace(Alias);
+
     public string DisplayTitle => _hasDisplayNameCollision
-        ? $"{DisplayName} - {SourceQualifier}"
-        : DisplayName;
+        ? $"{EffectiveDisplayName} - {SourceQualifier}"
+        : EffectiveDisplayName;
 
     public string PeakDbText
     {
@@ -247,6 +270,8 @@ public sealed class AudioSessionMeterViewModel : ObservableObject
     public event Action<AudioSessionMeterViewModel, WaveformDisplayMode>? WaveformDisplayModeRequested;
 
     public event Action<AudioSessionMeterViewModel, SpectrumDisplayMode>? SpectrumDisplayModeRequested;
+
+    public event Action<AudioSessionMeterViewModel, string?>? AliasChanged;
 
     public string MomentaryLufsText => FormatLufs(_momentaryLufs);
 

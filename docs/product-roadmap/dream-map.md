@@ -1,6 +1,6 @@
 # uMeter Dream Map
 
-This document captures the post-`v2.2.2` product directions in the order I would pursue them if I were stewarding the project.
+This document captures the post-`v2.2.4` product directions in the order I would pursue them if I were stewarding the project.
 
 The ranking favors changes that increase daily usefulness, trust, and product identity before broader platform expansion.
 
@@ -285,3 +285,5 @@ That discussion should answer:
 - Which settings deserve persistence first?
 - Where should reset/forget controls live?
 - How much source management UI is needed for the first release?
+
+The current bundled delivery plan lives in `dev-cycles.md`.

@@ -88,6 +88,22 @@
                         <TextBlock FontSize="10"
                                    Foreground="{DynamicResource SubtleTextBrush}"
                                    Text="{Binding Session.SourceStatusText}" />
+                        <Grid Margin="0,6,0,0">
+                            <Grid.ColumnDefinitions>
+                                <ColumnDefinition Width="Auto" />
+                                <ColumnDefinition Width="8" />
+                                <ColumnDefinition Width="*" />
+                            </Grid.ColumnDefinitions>
+                            <TextBlock VerticalAlignment="Center"
+                                       Foreground="{DynamicResource SubtleTextBrush}"
+                                       FontSize="11"
+                                       Text="Alias" />
+                            <TextBox Grid.Column="2"
+                                     Style="{StaticResource NamingTextEditor}"
+                                     GotKeyboardFocus="NamingTextBox_OnGotKeyboardFocus"
+                                     Text="{Binding Session.Alias, Mode=TwoWay, UpdateSourceTrigger=LostFocus}"
+                                     ToolTip="Optional display name for this source." />
+                        </Grid>
                     </StackPanel>
 
                     <StackPanel Grid.Column="1"
@@ -349,18 +365,20 @@
                                                 </Grid.ColumnDefinitions>
                                                 <TextBlock Foreground="{DynamicResource SubtleTextBrush}"
                                                            FontSize="11"
-                                                           Text="Absolute" />
+                                                           Text="Level floor" />
                                                 <TextBlock Grid.Column="1"
                                                            Foreground="{DynamicResource TextBrush}"
                                                            FontSize="11"
-                                                           Text="{Binding CollisionAbsoluteThresholdText}" />
+                                                           Text="{Binding CollisionLevelFloorText}" />
                                             </Grid>
-                                            <Slider Minimum="0.5"
-                                                    Maximum="36"
-                                                    TickFrequency="0.5"
-                                                    ToolTipService.InitialShowDelay="1000"
-                                                    ToolTip="Maximum dB distance between the focused source and comparison source for a frequency to be treated as a collision."
-                                                    Value="{Binding CollisionAbsoluteThresholdDb, Mode=TwoWay, UpdateSourceTrigger=PropertyChanged}" />
+                                            <controls:EditableValueSlider Minimum="-200"
+                                                                          Maximum="0"
+                                                                          Step="1"
+                                                                          DisplayFormat="0"
+                                                                          DisplaySuffix=" dB"
+                                                                          ToolTipService.InitialShowDelay="1000"
+                                                                          ToolTip="Ignores frequency bins unless both the focused source and comparison source are at or above this level."
+                                                                          Value="{Binding CollisionLevelFloorDb, Mode=TwoWay, UpdateSourceTrigger=PropertyChanged}" />
 
                                             <Grid Margin="0,10,0,0">
                                                 <Grid.ColumnDefinitions>
@@ -369,18 +387,43 @@
                                                 </Grid.ColumnDefinitions>
                                                 <TextBlock Foreground="{DynamicResource SubtleTextBrush}"
                                                            FontSize="11"
-                                                           Text="Relative" />
+                                                           Text="Prominence" />
+                                                <TextBlock Grid.Column="1"
+                                                           Foreground="{DynamicResource TextBrush}"
+                                                           FontSize="11"
+                                                           Text="{Binding CollisionProminenceThresholdText}" />
+                                            </Grid>
+                                            <controls:EditableValueSlider Minimum="0"
+                                                                          Maximum="24"
+                                                                          Step="1"
+                                                                          DisplayFormat="0"
+                                                                          DisplaySuffix=" dB"
+                                                                          ToolTipService.InitialShowDelay="1000"
+                                                                          ToolTip="Requires both sources to rise above their nearby spectrum background before a frequency is treated as a collision."
+                                                                          Value="{Binding CollisionProminenceThresholdDb, Mode=TwoWay, UpdateSourceTrigger=PropertyChanged}" />
+
+                                            <Grid Margin="0,10,0,0">
+                                                <Grid.ColumnDefinitions>
+                                                    <ColumnDefinition Width="*" />
+                                                    <ColumnDefinition Width="Auto" />
+                                                </Grid.ColumnDefinitions>
+                                                <TextBlock Foreground="{DynamicResource SubtleTextBrush}"
+                                                           FontSize="11"
+                                                           Text="Match tolerance" />
                                                 <TextBlock Grid.Column="1"
                                                            Foreground="{DynamicResource TextBrush}"
                                                            FontSize="11"
                                                            Text="{Binding CollisionRelativeThresholdText}" />
                                             </Grid>
-                                            <Slider Minimum="0.02"
-                                                    Maximum="0.8"
-                                                    TickFrequency="0.02"
-                                                    ToolTipService.InitialShowDelay="1000"
-                                                    ToolTip="Maximum normalized display-level difference as a percentage of the stronger source in each frequency bin."
-                                                    Value="{Binding CollisionRelativeThreshold, Mode=TwoWay, UpdateSourceTrigger=PropertyChanged}" />
+                                            <controls:EditableValueSlider Minimum="0.02"
+                                                                          Maximum="0.8"
+                                                                          Step="0.02"
+                                                                          DisplayScale="100"
+                                                                          DisplayFormat="0"
+                                                                          DisplaySuffix="%"
+                                                                          ToolTipService.InitialShowDelay="1000"
+                                                                          ToolTip="Maximum normalized level difference allowed between two prominent frequency bins."
+                                                                          Value="{Binding CollisionRelativeThreshold, Mode=TwoWay, UpdateSourceTrigger=PropertyChanged}" />
                                         </StackPanel>
                                     </Border>
                                 </Popup>

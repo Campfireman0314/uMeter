@@ -74,6 +74,14 @@ public partial class DetailWindow : Window
         OpenButtonContextMenu(sender);
     }
 
+    private void NamingTextBox_OnGotKeyboardFocus(object sender, KeyboardFocusChangedEventArgs e)
+    {
+        if (sender is TextBox textBox)
+        {
+            textBox.SelectAll();
+        }
+    }
+
     private static void OpenButtonContextMenu(object sender)
     {
         if (sender is not Button { ContextMenu: { } contextMenu } button)

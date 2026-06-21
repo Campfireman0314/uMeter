@@ -1,30 +1,15 @@
-using System.IO;
-using System.Text.Json;
 using DesktopLoudnessMeter.App.Diagnostics;
+using DesktopLoudnessMeter.App.Settings;
 
 namespace DesktopLoudnessMeter.App.Themes;
 
 public static class UserThemeSettings
 {
-    private const string SettingsFileName = "settings.json";
-
-    private static readonly JsonSerializerOptions JsonOptions = new()
-    {
-        WriteIndented = true
-    };
-
     public static string? LoadThemeId()
     {
         try
         {
-            var path = GetSettingsPath();
-            if (!File.Exists(path))
-            {
-                return null;
-            }
-
-            var json = File.ReadAllText(path);
-            return JsonSerializer.Deserialize<SettingsDto>(json)?.ThemeId;
+            return UserWorkspaceSettings.Load().ThemeId;
         }
         catch (Exception ex)
         {
@@ -37,24 +22,13 @@ public static class UserThemeSettings
     {
         try
         {
-            var path = GetSettingsPath();
-            Directory.CreateDirectory(Path.GetDirectoryName(path)!);
-            var json = JsonSerializer.Serialize(new SettingsDto(themeId), JsonOptions);
-            File.WriteAllText(path, json);
+            var settings = UserWorkspaceSettings.Load();
+            settings.ThemeId = themeId;
+            settings.Save();
         }
         catch (Exception ex)
         {
             AppLogger.Error("Failed to save user theme settings.", ex);
         }
     }
-
-    private static string GetSettingsPath()
-    {
-        return Path.Combine(
-            Environment.GetFolderPath(Environment.SpecialFolder.ApplicationData),
-            "uMeter",
-            SettingsFileName);
-    }
-
-    private sealed record SettingsDto(string? ThemeId);
 }

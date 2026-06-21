@@ -4,8 +4,7 @@ internal static class FrequencyCollisionAnalyzer
 {
     private const double DisplayFloorDb = -200;
     private const double DisplayRangeDb = 200;
-    private const double MinimumAudibleDb = -120;
-    private const double MinimumAudibleDisplayLevel = (MinimumAudibleDb - DisplayFloorDb) / DisplayRangeDb;
+    private const int MaximumProminenceRadius = 8;
     private const double ComparisonTolerance = 1e-9;
 
     public static IReadOnlyList<FrequencyCollisionBand> Analyze(
@@ -13,7 +12,8 @@ internal static class FrequencyCollisionAnalyzer
         string focusSourceKey,
         string selectedComparisonSourceKey,
         bool compareAllComparisons,
-        double absoluteThresholdDb,
+        double levelFloorDb,
+        double prominenceThresholdDb,
         double relativeThreshold)
     {
         var active = sessions
@@ -43,7 +43,7 @@ internal static class FrequencyCollisionAnalyzer
         }
 
         var collisions = new double[bucketCount];
-        AnalyzeFocus(focus, comparisons, bucketCount, absoluteThresholdDb, relativeThreshold, collisions);
+        AnalyzeFocus(focus, comparisons, bucketCount, levelFloorDb, prominenceThresholdDb, relativeThreshold, collisions);
         return CompactBands(collisions);
     }
 
@@ -51,18 +51,36 @@ internal static class FrequencyCollisionAnalyzer
         AudioSessionMeterViewModel focus,
         IEnumerable<AudioSessionMeterViewModel> comparisons,
         int bucketCount,
-        double absoluteThresholdDb,
+        double levelFloorDb,
+        double prominenceThresholdDb,
         double relativeThreshold,
         double[] collisions)
     {
+        var safeLevelFloorDb = Math.Clamp(levelFloorDb, DisplayFloorDb, 0);
+        var safeLevelFloor = DbToDisplayLevel(safeLevelFloorDb);
+        var safeProminenceThresholdDb = Math.Clamp(prominenceThresholdDb, 0, 48);
+        var safeRelativeThreshold = Math.Max(relativeThreshold, 0.001);
+        var focusProminence = CalculateProminenceScores(
+            focus.SpectrumBuckets,
+            bucketCount,
+            safeLevelFloor,
+            safeProminenceThresholdDb);
+
         foreach (var comparison in comparisons)
         {
+            var comparisonProminence = CalculateProminenceScores(
+                comparison.SpectrumBuckets,
+                bucketCount,
+                safeLevelFloor,
+                safeProminenceThresholdDb);
             AnalyzePair(
                 focus.SpectrumBuckets,
                 comparison.SpectrumBuckets,
                 bucketCount,
-                absoluteThresholdDb,
-                relativeThreshold,
+                safeLevelFloor,
+                safeRelativeThreshold,
+                focusProminence,
+                comparisonProminence,
                 collisions);
         }
     }
@@ -71,42 +89,110 @@ internal static class FrequencyCollisionAnalyzer
         IReadOnlyList<double> first,
         IReadOnlyList<double> second,
         int bucketCount,
-        double absoluteThresholdDb,
-        double relativeThreshold,
+        double safeLevelFloor,
+        double safeRelativeThreshold,
+        IReadOnlyList<double> firstProminence,
+        IReadOnlyList<double> secondProminence,
         double[] collisions)
     {
-        var safeAbsoluteThresholdDb = Math.Max(absoluteThresholdDb, 0.001);
-        var safeRelativeThreshold = Math.Max(relativeThreshold, 0.001);
-
         for (var index = 0; index < bucketCount; index++)
         {
             var firstLevel = Math.Clamp(first[index], 0, 1);
             var secondLevel = Math.Clamp(second[index], 0, 1);
             var stronger = Math.Max(firstLevel, secondLevel);
-            if (stronger < MinimumAudibleDisplayLevel)
+            var weaker = Math.Min(firstLevel, secondLevel);
+            if (weaker + ComparisonTolerance < safeLevelFloor)
+            {
+                continue;
+            }
+
+            var prominenceFit = Math.Min(firstProminence[index], secondProminence[index]);
+            if (prominenceFit <= 0)
             {
                 continue;
             }
 
             var displayGap = Math.Abs(firstLevel - secondLevel);
-            var absoluteGapDb = Math.Abs(DisplayLevelToDb(firstLevel) - DisplayLevelToDb(secondLevel));
-            var relativeGap = displayGap / Math.Max(stronger, MinimumAudibleDisplayLevel);
-            if (absoluteGapDb > safeAbsoluteThresholdDb + ComparisonTolerance
-                || relativeGap > safeRelativeThreshold + ComparisonTolerance)
+            var relativeGap = displayGap / Math.Max(stronger, safeLevelFloor);
+            if (relativeGap > safeRelativeThreshold + ComparisonTolerance)
             {
                 continue;
             }
 
-            var absoluteFit = 1 - (absoluteGapDb / safeAbsoluteThresholdDb);
             var relativeFit = 1 - (relativeGap / safeRelativeThreshold);
-            var intensity = Math.Clamp(Math.Min(absoluteFit, relativeFit) * stronger, 0, 1);
+            var intensity = Math.Clamp(relativeFit * prominenceFit * stronger, 0, 1);
             collisions[index] = Math.Max(collisions[index], intensity);
         }
     }
 
-    private static double DisplayLevelToDb(double displayLevel)
+    private static double[] CalculateProminenceScores(
+        IReadOnlyList<double> levels,
+        int bucketCount,
+        double safeLevelFloor,
+        double prominenceThresholdDb)
     {
-        return DisplayFloorDb + (Math.Clamp(displayLevel, 0, 1) * DisplayRangeDb);
+        var scores = new double[bucketCount];
+        if (bucketCount < 3 || prominenceThresholdDb <= 0)
+        {
+            Array.Fill(scores, 1);
+            return scores;
+        }
+
+        var radius = GetProminenceRadius(bucketCount);
+        for (var index = 0; index < bucketCount; index++)
+        {
+            var level = Math.Clamp(levels[index], 0, 1);
+            if (level + ComparisonTolerance < safeLevelFloor)
+            {
+                continue;
+            }
+
+            var localBackground = EstimateLocalBackground(levels, bucketCount, index, radius);
+            var prominenceDb = (level - localBackground) * DisplayRangeDb;
+            if (prominenceDb + ComparisonTolerance < prominenceThresholdDb)
+            {
+                continue;
+            }
+
+            scores[index] = Math.Clamp(prominenceDb / (prominenceThresholdDb * 2), 0, 1);
+        }
+
+        return scores;
+    }
+
+    private static int GetProminenceRadius(int bucketCount)
+    {
+        return Math.Clamp(bucketCount / 32, 1, MaximumProminenceRadius);
+    }
+
+    private static double EstimateLocalBackground(
+        IReadOnlyList<double> levels,
+        int bucketCount,
+        int centerIndex,
+        int radius)
+    {
+        var start = Math.Max(0, centerIndex - radius);
+        var end = Math.Min(bucketCount - 1, centerIndex + radius);
+        var sum = 0d;
+        var count = 0;
+
+        for (var index = start; index <= end; index++)
+        {
+            if (index == centerIndex)
+            {
+                continue;
+            }
+
+            sum += Math.Clamp(levels[index], 0, 1);
+            count++;
+        }
+
+        return count == 0 ? 0 : sum / count;
+    }
+
+    private static double DbToDisplayLevel(double decibels)
+    {
+        return Math.Clamp((decibels - DisplayFloorDb) / DisplayRangeDb, 0, 1);
     }
 
     private static IReadOnlyList<FrequencyCollisionBand> CompactBands(IReadOnlyList<double> collisions)

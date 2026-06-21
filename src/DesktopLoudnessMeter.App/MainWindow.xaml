@@ -47,6 +47,7 @@
                         <ColumnDefinition Width="32" />
                         <ColumnDefinition Width="32" />
                         <ColumnDefinition Width="32" />
+                        <ColumnDefinition Width="32" />
                     </Grid.ColumnDefinitions>
 
                     <StackPanel VerticalAlignment="Center">
@@ -91,12 +92,21 @@
                     </Button>
 
                     <Button Grid.Column="2"
+                            x:Name="GlobalSettingsButton"
+                            Style="{StaticResource ChromeIconButton}"
+                            FontFamily="Segoe MDL2 Assets"
+                            FontSize="14"
+                            Content="&#xE713;"
+                            Click="GlobalSettingsButton_OnClick"
+                            ToolTip="Global settings" />
+
+                    <Button Grid.Column="3"
                             Style="{StaticResource ChromeIconButton}"
                             Click="MinimizeButton_OnClick"
                             Content="-"
                             ToolTip="Hide to tray" />
 
-                    <Button Grid.Column="3"
+                    <Button Grid.Column="4"
                             Style="{StaticResource ChromeIconButton}"
                             Click="CloseButton_OnClick"
                             Content="X"
@@ -117,6 +127,7 @@
                 </Grid.Style>
 
                 <Grid.RowDefinitions>
+                    <RowDefinition Height="Auto" />
                     <RowDefinition Height="Auto" />
                     <RowDefinition Height="Auto" />
                     <RowDefinition Height="*" />
@@ -235,7 +246,146 @@
                     </Grid>
                 </Border>
 
-                <ScrollViewer Grid.Row="2"
+                <Border Grid.Row="2"
+                        Margin="12,0,12,8"
+                        Padding="10,8"
+                        Height="150"
+                        Background="{DynamicResource PanelAltBrush}"
+                        BorderBrush="{DynamicResource ControlBorderBrush}"
+                        BorderThickness="1"
+                        CornerRadius="6">
+                    <Border.Style>
+                        <Style TargetType="Border">
+                            <Setter Property="Visibility" Value="Visible" />
+                            <Style.Triggers>
+                                <DataTrigger Binding="{Binding HasRecentEvents}" Value="False">
+                                    <Setter Property="Visibility" Value="Collapsed" />
+                                </DataTrigger>
+                            </Style.Triggers>
+                        </Style>
+                    </Border.Style>
+                    <Grid>
+                        <Grid.RowDefinitions>
+                            <RowDefinition Height="26" />
+                            <RowDefinition Height="8" />
+                            <RowDefinition Height="*" />
+                        </Grid.RowDefinitions>
+                        <Grid>
+                            <Grid.ColumnDefinitions>
+                                <ColumnDefinition Width="Auto" />
+                                <ColumnDefinition Width="*" />
+                                <ColumnDefinition Width="94" />
+                            </Grid.ColumnDefinitions>
+                            <TextBlock VerticalAlignment="Center"
+                                       Foreground="{DynamicResource SubtleTextBrush}"
+                                       FontSize="10"
+                                       FontWeight="SemiBold"
+                                       Text="Recent" />
+                            <ComboBox Grid.Column="2"
+                                      Height="24"
+                                      ItemsSource="{Binding RecentEventFilterOptions}"
+                                      SelectedItem="{Binding SelectedRecentEventFilter, Mode=TwoWay}">
+                                <ComboBox.ItemTemplate>
+                                    <DataTemplate>
+                                        <TextBlock Text="{Binding DisplayName}" />
+                                    </DataTemplate>
+                                </ComboBox.ItemTemplate>
+                            </ComboBox>
+                        </Grid>
+
+                        <Grid Grid.Row="2">
+                            <TextBlock HorizontalAlignment="Center"
+                                       VerticalAlignment="Center"
+                                       Foreground="{DynamicResource DisabledTextBrush}"
+                                       FontSize="11"
+                                       Text="No matching events">
+                                <TextBlock.Style>
+                                    <Style TargetType="TextBlock">
+                                        <Setter Property="Visibility" Value="Collapsed" />
+                                        <Style.Triggers>
+                                            <DataTrigger Binding="{Binding HasVisibleRecentEvents}" Value="False">
+                                                <Setter Property="Visibility" Value="Visible" />
+                                            </DataTrigger>
+                                        </Style.Triggers>
+                                    </Style>
+                                </TextBlock.Style>
+                            </TextBlock>
+                            <ScrollViewer HorizontalScrollBarVisibility="Disabled"
+                                          VerticalScrollBarVisibility="Auto">
+                                <ItemsControl ItemsSource="{Binding VisibleRecentEvents}">
+                                <ItemsControl.ItemTemplate>
+                                    <DataTemplate>
+                                        <Grid Margin="0,0,0,5">
+                                            <Grid.ColumnDefinitions>
+                                                <ColumnDefinition Width="52" />
+                                                <ColumnDefinition Width="8" />
+                                                <ColumnDefinition Width="7" />
+                                                <ColumnDefinition Width="8" />
+                                                <ColumnDefinition Width="*" />
+                                            </Grid.ColumnDefinitions>
+                                            <TextBlock VerticalAlignment="Center"
+                                                       Foreground="{DynamicResource DisabledTextBrush}"
+                                                       FontFamily="Consolas"
+                                                       FontSize="10"
+                                                       Text="{Binding TimeText}" />
+                                            <Border Grid.Column="2"
+                                                    Width="7"
+                                                    Height="7"
+                                                    VerticalAlignment="Center"
+                                                    CornerRadius="3.5">
+                                                <Border.Style>
+                                                    <Style TargetType="Border">
+                                                        <Setter Property="Background" Value="{DynamicResource AccentBrush}" />
+                                                        <Setter Property="Opacity" Value="0.9" />
+                                                        <Style.Triggers>
+                                                            <DataTrigger Binding="{Binding Severity}" Value="{x:Static viewModels:ReadoutSeverity.Muted}">
+                                                                <Setter Property="Background" Value="{DynamicResource DisabledTextBrush}" />
+                                                                <Setter Property="Opacity" Value="0.72" />
+                                                            </DataTrigger>
+                                                            <DataTrigger Binding="{Binding Severity}" Value="{x:Static viewModels:ReadoutSeverity.Warm}">
+                                                                <Setter Property="Background" Value="{DynamicResource WarmBrush}" />
+                                                            </DataTrigger>
+                                                            <DataTrigger Binding="{Binding Severity}" Value="{x:Static viewModels:ReadoutSeverity.Hot}">
+                                                                <Setter Property="Background" Value="#FF8A3D" />
+                                                            </DataTrigger>
+                                                            <DataTrigger Binding="{Binding Severity}" Value="{x:Static viewModels:ReadoutSeverity.Critical}">
+                                                                <Setter Property="Background" Value="#FF6B6B" />
+                                                            </DataTrigger>
+                                                            <DataTrigger Binding="{Binding Severity}" Value="{x:Static viewModels:ReadoutSeverity.Over}">
+                                                                <Setter Property="Background" Value="#FF2D2D" />
+                                                            </DataTrigger>
+                                                        </Style.Triggers>
+                                                    </Style>
+                                                </Border.Style>
+                                            </Border>
+                                            <Grid Grid.Column="4">
+                                                <Grid.ColumnDefinitions>
+                                                    <ColumnDefinition Width="Auto" />
+                                                    <ColumnDefinition Width="8" />
+                                                    <ColumnDefinition Width="*" />
+                                                </Grid.ColumnDefinitions>
+                                                <TextBlock VerticalAlignment="Center"
+                                                           Foreground="{DynamicResource TextBrush}"
+                                                           FontSize="11"
+                                                           FontWeight="SemiBold"
+                                                           Text="{Binding Title}" />
+                                                <TextBlock Grid.Column="2"
+                                                           VerticalAlignment="Center"
+                                                           Foreground="{DynamicResource SubtleTextBrush}"
+                                                           FontSize="11"
+                                                           Text="{Binding Detail}"
+                                                           TextTrimming="CharacterEllipsis" />
+                                            </Grid>
+                                        </Grid>
+                                    </DataTemplate>
+                                </ItemsControl.ItemTemplate>
+                                </ItemsControl>
+                            </ScrollViewer>
+                        </Grid>
+                    </Grid>
+                </Border>
+
+                <ScrollViewer Grid.Row="3"
                               Margin="12,0,12,4"
                               HorizontalScrollBarVisibility="Disabled"
                               VerticalScrollBarVisibility="Auto">
@@ -249,7 +399,7 @@
                                     <Grid>
                                         <Grid.RowDefinitions>
                                             <RowDefinition Height="Auto" />
-                                            <RowDefinition Height="10" />
+                                            <RowDefinition Height="Auto" />
                                             <RowDefinition Height="Auto" />
                                             <RowDefinition Height="Auto" />
                                         </Grid.RowDefinitions>
@@ -348,7 +498,26 @@
                                             </Border>
                                         </Grid>
 
-                                        <Grid Grid.Row="2" Height="8">
+                                        <Grid Grid.Row="1" Margin="0,4,0,0">
+                                            <Grid.ColumnDefinitions>
+                                                <ColumnDefinition Width="Auto" />
+                                                <ColumnDefinition Width="8" />
+                                                <ColumnDefinition Width="*" />
+                                            </Grid.ColumnDefinitions>
+                                            <TextBlock VerticalAlignment="Center"
+                                                       Foreground="{DynamicResource SubtleTextBrush}"
+                                                       FontSize="10"
+                                                       Text="Alias" />
+                                            <TextBox Grid.Column="2"
+                                                     Style="{StaticResource NamingTextEditor}"
+                                                     GotKeyboardFocus="NamingTextBox_OnGotKeyboardFocus"
+                                                     Text="{Binding Alias, Mode=TwoWay, UpdateSourceTrigger=LostFocus}"
+                                                     ToolTip="Optional display name for this source." />
+                                        </Grid>
+
+                                        <Grid Grid.Row="2"
+                                              Height="8"
+                                              Margin="0,4,0,0">
                                             <Border Background="{DynamicResource MeterTrackBrush}"
                                                     CornerRadius="4" />
                                             <ProgressBar Maximum="1"
@@ -384,7 +553,7 @@
                     </ItemsControl>
                 </ScrollViewer>
 
-                <TextBlock Grid.Row="3"
+                <TextBlock Grid.Row="4"
                            Margin="14,0,14,8"
                            VerticalAlignment="Center"
                            Foreground="{DynamicResource SubtleTextBrush}"
@@ -464,7 +633,7 @@
                             <TextBlock FontSize="18"
                                        FontWeight="SemiBold"
                                        Foreground="{DynamicResource TextBrush}"
-                                       Text="{Binding SelectedDetailSession.DisplayName}"
+                                       Text="{Binding SelectedDetailSession.DisplayTitle}"
                                        TextTrimming="CharacterEllipsis" />
                             <TextBlock FontSize="11"
                                        Foreground="{DynamicResource SubtleTextBrush}"
@@ -473,6 +642,31 @@
                                        Foreground="{DynamicResource SubtleTextBrush}"
                                        Text="{Binding SelectedDetailSession.SourceStatusText}" />
                         </StackPanel>
+
+                        <Grid Margin="0,0,0,10">
+                            <Grid.ColumnDefinitions>
+                                <ColumnDefinition Width="Auto" />
+                                <ColumnDefinition Width="8" />
+                                <ColumnDefinition Width="*" />
+                                <ColumnDefinition Width="8" />
+                                <ColumnDefinition Width="Auto" />
+                            </Grid.ColumnDefinitions>
+                            <TextBlock VerticalAlignment="Center"
+                                       Foreground="{DynamicResource SubtleTextBrush}"
+                                       FontSize="11"
+                                       Text="Alias" />
+                            <TextBox Grid.Column="2"
+                                     Style="{StaticResource NamingTextEditor}"
+                                     GotKeyboardFocus="NamingTextBox_OnGotKeyboardFocus"
+                                     Text="{Binding SelectedDetailSession.Alias, Mode=TwoWay, UpdateSourceTrigger=LostFocus}"
+                                     ToolTip="Optional display name for this source." />
+                            <Button Grid.Column="4"
+                                    MinWidth="86"
+                                    Height="24"
+                                    Command="{Binding ForgetSelectedSourceCommand}"
+                                    Content="Forget"
+                                    ToolTip="Forget saved alias and detail settings for this source." />
+                        </Grid>
 
                 <StackPanel>
                     <controls:ScaledLevelMeter Height="46"
@@ -690,18 +884,20 @@
                                         </Grid.ColumnDefinitions>
                                         <TextBlock Foreground="{DynamicResource SubtleTextBrush}"
                                                    FontSize="11"
-                                                   Text="Absolute" />
+                                                   Text="Level floor" />
                                         <TextBlock Grid.Column="1"
                                                    Foreground="{DynamicResource TextBrush}"
                                                    FontSize="11"
-                                                   Text="{Binding CollisionAbsoluteThresholdText}" />
+                                                   Text="{Binding CollisionLevelFloorText}" />
                                     </Grid>
-                                    <Slider Minimum="0.5"
-                                            Maximum="36"
-                                            TickFrequency="0.5"
-                                            ToolTipService.InitialShowDelay="1000"
-                                            ToolTip="Maximum dB distance between the focused source and comparison source for a frequency to be treated as a collision."
-                                            Value="{Binding CollisionAbsoluteThresholdDb, Mode=TwoWay, UpdateSourceTrigger=PropertyChanged}" />
+                                    <controls:EditableValueSlider Minimum="-200"
+                                                                  Maximum="0"
+                                                                  Step="1"
+                                                                  DisplayFormat="0"
+                                                                  DisplaySuffix=" dB"
+                                                                  ToolTipService.InitialShowDelay="1000"
+                                                                  ToolTip="Ignores frequency bins unless both the focused source and comparison source are at or above this level."
+                                                                  Value="{Binding CollisionLevelFloorDb, Mode=TwoWay, UpdateSourceTrigger=PropertyChanged}" />
 
                                     <Grid Margin="0,10,0,0">
                                         <Grid.ColumnDefinitions>
@@ -710,18 +906,43 @@
                                         </Grid.ColumnDefinitions>
                                         <TextBlock Foreground="{DynamicResource SubtleTextBrush}"
                                                    FontSize="11"
-                                                   Text="Relative" />
+                                                   Text="Prominence" />
+                                        <TextBlock Grid.Column="1"
+                                                   Foreground="{DynamicResource TextBrush}"
+                                                   FontSize="11"
+                                                   Text="{Binding CollisionProminenceThresholdText}" />
+                                    </Grid>
+                                    <controls:EditableValueSlider Minimum="0"
+                                                                  Maximum="24"
+                                                                  Step="1"
+                                                                  DisplayFormat="0"
+                                                                  DisplaySuffix=" dB"
+                                                                  ToolTipService.InitialShowDelay="1000"
+                                                                  ToolTip="Requires both sources to rise above their nearby spectrum background before a frequency is treated as a collision."
+                                                                  Value="{Binding CollisionProminenceThresholdDb, Mode=TwoWay, UpdateSourceTrigger=PropertyChanged}" />
+
+                                    <Grid Margin="0,10,0,0">
+                                        <Grid.ColumnDefinitions>
+                                            <ColumnDefinition Width="*" />
+                                            <ColumnDefinition Width="Auto" />
+                                        </Grid.ColumnDefinitions>
+                                        <TextBlock Foreground="{DynamicResource SubtleTextBrush}"
+                                                   FontSize="11"
+                                                   Text="Match tolerance" />
                                         <TextBlock Grid.Column="1"
                                                    Foreground="{DynamicResource TextBrush}"
                                                    FontSize="11"
                                                    Text="{Binding CollisionRelativeThresholdText}" />
                                     </Grid>
-                                    <Slider Minimum="0.02"
-                                            Maximum="0.8"
-                                            TickFrequency="0.02"
-                                            ToolTipService.InitialShowDelay="1000"
-                                            ToolTip="Maximum normalized display-level difference as a percentage of the stronger source in each frequency bin."
-                                            Value="{Binding CollisionRelativeThreshold, Mode=TwoWay, UpdateSourceTrigger=PropertyChanged}" />
+                                    <controls:EditableValueSlider Minimum="0.02"
+                                                                  Maximum="0.8"
+                                                                  Step="0.02"
+                                                                  DisplayScale="100"
+                                                                  DisplayFormat="0"
+                                                                  DisplaySuffix="%"
+                                                                  ToolTipService.InitialShowDelay="1000"
+                                                                  ToolTip="Maximum normalized level difference allowed between two prominent frequency bins."
+                                                                  Value="{Binding CollisionRelativeThreshold, Mode=TwoWay, UpdateSourceTrigger=PropertyChanged}" />
                                 </StackPanel>
                             </Border>
                         </Popup>

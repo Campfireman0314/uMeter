@@ -4,7 +4,7 @@ Fast floating Windows desktop meter for seeing which app, DAW, or plugin sender 
 
 ## Current Version
 
-`v2.2.2` is the current public release. This patch keeps the v2.2.0 frequency collision and graph-polish feature set, widens spectrograph inspection to `-200 to 0 dB`, fixes the long-run spectrum bitmap-lock crash from v2.2.1, and polishes spectrograph continuity/color rendering.
+`v2.2.4` is the current public release. This patch closes the first event-substrate cycle with a bounded Recent Events strip, event-type filtering, configurable retained event count, and a global settings window for event output planning.
 
 ## Usable Baseline
 
@@ -20,7 +20,9 @@ Fast floating Windows desktop meter for seeing which app, DAW, or plugin sender 
 - Optional waveform and spectrum panels with overall/channel display modes, vertical pan, mouse-wheel zoom, double-click reset, and stretchable panel height.
 - Oversampled waveform display with dBFS scale markings.
 - Horizontally rolling Mel-scaled FFT spectrum display from 20 Hz to 22 kHz.
-- Frequency collision analyzer for comparing spectrum similarity between sources.
+- Frequency collision analyzer for comparing prominent spectrum overlap between sources, with source selection, level floor, prominence, match tolerance, cursor marker, and double-click numeric slider entry.
+- Recent Events strip for source lifecycle, true-peak max, and loudness-jump events, with type filtering and configurable retained entry count.
+- Global settings window for event history limit and future event output folder selection.
 - Display dB range control for the spectrograph, adjustable from `-200 to 0 dB` and defaulting to `-120 to 0 dB`.
 - Stereo image dot history/intensity control through trace persistence.
 - Optional native RfRapid C++ FFT accelerator for the spectrum path, with managed fallback.
@@ -69,7 +71,7 @@ The generated installers are written to:
 
 ```text
 artifacts\uMeter.Setup.exe
-artifacts\uMeter-Setup-2.2.2.exe
+artifacts\uMeter-Setup-2.2.4.exe
 ```
 
 The installer contains the desktop app and `uMeter Sender.vst3`. The VST3 install path defaults to:
@@ -111,7 +113,9 @@ For mixed-source behavior, duplicate names, and reconnect preference memory, see
 - `src/DesktopLoudnessMeter.Native` - optional RfRapid-backed native FFT wrapper.
 - `tests/DesktopLoudnessMeter.Tests` - unit tests for math and view-model reconciliation.
 - `docs/current-status.md` - current release status and remaining known limits.
-- `docs/product-roadmap/` - post-v2.2.2 product roadmap and planning notes.
+- `docs/product-roadmap/` - post-v2.2.4 product roadmap and planning notes.
+- `docs/v2.2.4-release.md` - v2.2.4 release notes.
+- `docs/v2.2.3-release.md` - v2.2.3 release notes.
 - `docs/v2.2.2-release.md` - v2.2.2 release notes.
 - `docs/v2.2.1-release.md` - v2.2.1 release notes.
 - `docs/v2.2.0-release.md` - v2.2.0 release notes.
@@ -130,3 +134,6 @@ For mixed-source behavior, duplicate names, and reconnect preference memory, see
 7. Done: v2.2.0 frequency collision analysis, graph responsiveness, spectrograph range control, and AAX sender groundwork.
 8. Done: v2.2.1 spectrum bitmap lock crash fix.
 9. Done: v2.2.2 spectrograph continuity, color-floor, and numeric range-entry polish.
+10. Done: v2.2.3 source workspace memory and smarter collision-analyzer polish.
+11. Done: v2.2.4 Recent Events substrate and global event settings.
+12. Next: Cycle 3 mix problem detection MVP.

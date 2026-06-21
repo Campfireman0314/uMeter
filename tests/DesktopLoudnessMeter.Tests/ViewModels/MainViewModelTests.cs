@@ -1,4 +1,5 @@
 using DesktopLoudnessMeter.App.Audio;
+using DesktopLoudnessMeter.App.Settings;
 using DesktopLoudnessMeter.App.ViewModels;
 
 namespace DesktopLoudnessMeter.Tests.ViewModels;
@@ -324,6 +325,211 @@ public sealed class MainViewModelTests
             viewModel.Sessions.Select(row => row.SourceKey).ToArray());
     }
 
+    [Fact]
+    public void RefreshNowRecordsSourceLifecycleEvents()
+    {
+        var service = new SequenceSignalSourceMeterService(
+            Sources(Source("plugin:alpha", "Alpha", SignalSourceKind.Plugin, 0.2f)),
+            Sources());
+        var viewModel = new MainViewModel(
+            service,
+            startTimer: false,
+            now: () => new DateTimeOffset(2026, 6, 21, 12, 34, 56, TimeSpan.Zero));
+
+        viewModel.RefreshNow();
+
+        var appeared = Assert.Single(viewModel.RecentEvents);
+        Assert.Same(appeared, Assert.Single(viewModel.VisibleRecentEvents));
+        Assert.True(viewModel.HasRecentEvents);
+        Assert.True(viewModel.HasVisibleRecentEvents);
+        Assert.Equal("12:34:56", appeared.TimeText);
+        Assert.Equal(RecentEventKind.Source, appeared.Kind);
+        Assert.Equal("Source appeared", appeared.Title);
+        Assert.Equal("Alpha", appeared.Detail);
+        Assert.Equal(ReadoutSeverity.Normal, appeared.Severity);
+
+        viewModel.RefreshNow();
+
+        Assert.Equal(2, viewModel.RecentEvents.Count);
+        Assert.Equal("Source disappeared", viewModel.RecentEvents[0].Title);
+        Assert.Equal("Alpha", viewModel.RecentEvents[0].Detail);
+        Assert.Equal(ReadoutSeverity.Muted, viewModel.RecentEvents[0].Severity);
+    }
+
+    [Fact]
+    public void RecentEventFilterShowsOnlySelectedEventKindWithoutRemovingHistory()
+    {
+        var service = new SequenceSignalSourceMeterService(
+            Sources(Source("plugin:alpha", "Alpha", SignalSourceKind.Plugin, 0.2f, momentaryLufs: -32, truePeakDb: -1)),
+            Sources(Source("plugin:alpha", "Alpha", SignalSourceKind.Plugin, 0.2f, momentaryLufs: -21.5, truePeakDb: 0.2)));
+        var viewModel = new MainViewModel(service, startTimer: false);
+
+        viewModel.RefreshNow();
+        viewModel.RefreshNow();
+
+        Assert.Equal(3, viewModel.RecentEvents.Count);
+        Assert.Equal(3, viewModel.VisibleRecentEvents.Count);
+
+        viewModel.SelectedRecentEventFilter = viewModel.RecentEventFilterOptions.Single(option => option.Kind == RecentEventKind.Loudness);
+
+        var visible = Assert.Single(viewModel.VisibleRecentEvents);
+        Assert.Equal(RecentEventKind.Loudness, visible.Kind);
+        Assert.Equal("Loudness jump", visible.Title);
+        Assert.Equal(3, viewModel.RecentEvents.Count);
+        Assert.True(viewModel.HasRecentEvents);
+        Assert.True(viewModel.HasVisibleRecentEvents);
+    }
+
+    [Fact]
+    public void RecentEventFilterCanShowNoMatchesWhileHistoryRemainsVisible()
+    {
+        var service = new SequenceSignalSourceMeterService(
+            Sources(Source("plugin:alpha", "Alpha", SignalSourceKind.Plugin, 0.2f)));
+        var viewModel = new MainViewModel(service, startTimer: false);
+
+        viewModel.RefreshNow();
+        viewModel.SelectedRecentEventFilter = viewModel.RecentEventFilterOptions.Single(option => option.Kind == RecentEventKind.TruePeak);
+
+        Assert.Single(viewModel.RecentEvents);
+        Assert.Empty(viewModel.VisibleRecentEvents);
+        Assert.True(viewModel.HasRecentEvents);
+        Assert.False(viewModel.HasVisibleRecentEvents);
+    }
+
+    [Fact]
+    public void RefreshNowRecordsTruePeakMaxEventOnlyOnRiskCrossing()
+    {
+        var service = new SequenceSignalSourceMeterService(
+            Sources(Source("plugin:alpha", "Alpha", SignalSourceKind.Plugin, 0.2f, truePeakDb: -1)),
+            Sources(Source("plugin:alpha", "Alpha", SignalSourceKind.Plugin, 0.2f, truePeakDb: 0.2)),
+            Sources(Source("plugin:alpha", "Alpha", SignalSourceKind.Plugin, 0.2f, truePeakDb: 0.4)));
+        var viewModel = new MainViewModel(service, startTimer: false);
+
+        viewModel.RefreshNow();
+        viewModel.RefreshNow();
+        viewModel.RefreshNow();
+
+        var truePeakEvents = viewModel.RecentEvents
+            .Where(item => item.Title == "True peak max")
+            .ToArray();
+        var truePeakEvent = Assert.Single(truePeakEvents);
+        Assert.Equal("Alpha reached +0.2 dBTP", truePeakEvent.Detail);
+        Assert.Equal(ReadoutSeverity.Over, truePeakEvent.Severity);
+    }
+
+    [Fact]
+    public void RefreshNowRecordsMomentaryLoudnessJumpForExistingSource()
+    {
+        var service = new SequenceSignalSourceMeterService(
+            Sources(Source("plugin:alpha", "Alpha", SignalSourceKind.Plugin, 0.2f, momentaryLufs: -32)),
+            Sources(Source("plugin:alpha", "Alpha", SignalSourceKind.Plugin, 0.2f, momentaryLufs: -21.5)));
+        var viewModel = new MainViewModel(service, startTimer: false);
+
+        viewModel.RefreshNow();
+        viewModel.RefreshNow();
+
+        var loudnessEvent = Assert.Single(viewModel.RecentEvents.Where(item => item.Title == "Loudness jump"));
+        Assert.Equal("Alpha rose 10.5 LUFS to -21.5 LUFS", loudnessEvent.Detail);
+        Assert.Equal(ReadoutSeverity.Warm, loudnessEvent.Severity);
+    }
+
+    [Fact]
+    public void RefreshNowKeepsRecentEventsBounded()
+    {
+        var service = new SequenceSignalSourceMeterService(
+            Sources(Source("plugin:0", "Source 0", SignalSourceKind.Plugin, 0.2f)),
+            Sources(Source("plugin:1", "Source 1", SignalSourceKind.Plugin, 0.2f)),
+            Sources(Source("plugin:2", "Source 2", SignalSourceKind.Plugin, 0.2f)),
+            Sources(Source("plugin:3", "Source 3", SignalSourceKind.Plugin, 0.2f)));
+        var viewModel = new MainViewModel(service, startTimer: false);
+
+        viewModel.RefreshNow();
+        viewModel.RefreshNow();
+        viewModel.RefreshNow();
+        viewModel.RefreshNow();
+
+        Assert.Equal(6, viewModel.RecentEvents.Count);
+        Assert.DoesNotContain(viewModel.RecentEvents, item => item.Title == "Source appeared" && item.Detail == "Source 0");
+        Assert.Contains(viewModel.RecentEvents, item => item.Title == "Source appeared" && item.Detail == "Source 3");
+    }
+
+    [Fact]
+    public void MaxRecentEventEntriesLoadsFromWorkspaceAndTrimsHistory()
+    {
+        var workspace = new UserWorkspaceSettings { MaxRecentEventEntries = 3 };
+        var service = new SequenceSignalSourceMeterService(
+            Sources(Source("plugin:0", "Source 0", SignalSourceKind.Plugin, 0.2f)),
+            Sources(Source("plugin:1", "Source 1", SignalSourceKind.Plugin, 0.2f)),
+            Sources(Source("plugin:2", "Source 2", SignalSourceKind.Plugin, 0.2f)));
+        var viewModel = new MainViewModel(service, startTimer: false, workspaceSettings: workspace);
+
+        viewModel.RefreshNow();
+        viewModel.RefreshNow();
+        viewModel.RefreshNow();
+
+        Assert.Equal(3, viewModel.MaxRecentEventEntries);
+        Assert.Equal(3, workspace.MaxRecentEventEntries);
+        Assert.Equal(3, viewModel.RecentEvents.Count);
+        Assert.Contains(viewModel.RecentEvents, item => item.Title == "Source appeared" && item.Detail == "Source 2");
+        Assert.DoesNotContain(viewModel.RecentEvents, item => item.Title == "Source appeared" && item.Detail == "Source 0");
+    }
+
+    [Fact]
+    public void MaxRecentEventEntriesClampsPersistsAndRetrimsExistingEvents()
+    {
+        var service = new SequenceSignalSourceMeterService(
+            Sources(Source("plugin:0", "Source 0", SignalSourceKind.Plugin, 0.2f)),
+            Sources(Source("plugin:1", "Source 1", SignalSourceKind.Plugin, 0.2f)),
+            Sources(Source("plugin:2", "Source 2", SignalSourceKind.Plugin, 0.2f)));
+        var workspace = new UserWorkspaceSettings();
+        var viewModel = new MainViewModel(service, startTimer: false, workspaceSettings: workspace);
+
+        viewModel.RefreshNow();
+        viewModel.RefreshNow();
+        viewModel.RefreshNow();
+        Assert.Equal(5, viewModel.RecentEvents.Count);
+
+        viewModel.MaxRecentEventEntriesText = "2";
+
+        Assert.Equal(2, viewModel.MaxRecentEventEntries);
+        Assert.Equal("2", viewModel.MaxRecentEventEntriesText);
+        Assert.Equal(2, workspace.MaxRecentEventEntries);
+        Assert.Equal(2, viewModel.RecentEvents.Count);
+
+        viewModel.MaxRecentEventEntriesText = "999";
+
+        Assert.Equal(200, viewModel.MaxRecentEventEntries);
+        Assert.Equal("200", viewModel.MaxRecentEventEntriesText);
+        Assert.Equal(200, workspace.MaxRecentEventEntries);
+    }
+
+    [Fact]
+    public void EventOutputFolderPersistsAndCanUseFolderSelector()
+    {
+        string? requestedInitialFolder = null;
+        var workspace = new UserWorkspaceSettings { EventOutputFolder = "  C:\\Events  " };
+        var service = new SequenceSignalSourceMeterService(Sources());
+        var viewModel = new MainViewModel(
+            service,
+            startTimer: false,
+            workspaceSettings: workspace,
+            selectFolder: initialFolder =>
+            {
+                requestedInitialFolder = initialFolder;
+                return "D:\\uMeter Events";
+            });
+
+        Assert.Equal("C:\\Events", viewModel.EventOutputFolder);
+        Assert.Equal("C:\\Events", viewModel.EventOutputFolderDisplayText);
+
+        viewModel.SelectEventOutputFolderCommand.Execute(null);
+
+        Assert.Equal("C:\\Events", requestedInitialFolder);
+        Assert.Equal("D:\\uMeter Events", viewModel.EventOutputFolder);
+        Assert.Equal("D:\\uMeter Events", viewModel.EventOutputFolderDisplayText);
+        Assert.Equal("D:\\uMeter Events", workspace.EventOutputFolder);
+    }
+
     private static AudioSessionSnapshot Snapshot(string key, string name, float peak, int? processId = 42)
     {
         return new AudioSessionSnapshot(
@@ -346,7 +552,9 @@ public sealed class MainViewModelTests
         string name,
         SignalSourceKind kind,
         float peak,
-        int? processId = null)
+        int? processId = null,
+        double? momentaryLufs = null,
+        double? truePeakDb = null)
     {
         return new SignalSourceSnapshot(
             key,
@@ -356,7 +564,9 @@ public sealed class MainViewModelTests
             peak,
             PeakMath.ToDecibels(peak),
             $"{peak:0.0} dB",
-            "Active");
+            "Active",
+            momentaryLufs,
+            TruePeakDb: truePeakDb);
     }
 
     private static IReadOnlyList<SignalSourceSnapshot> Sources(params SignalSourceSnapshot[] snapshots)

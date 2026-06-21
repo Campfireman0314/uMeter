@@ -1,4 +1,5 @@
 using DesktopLoudnessMeter.App.Audio;
+using DesktopLoudnessMeter.App.Settings;
 using DesktopLoudnessMeter.App.ViewModels;
 
 namespace DesktopLoudnessMeter.Tests.ViewModels;
@@ -105,6 +106,71 @@ public sealed class DetailWindowViewModelTests
     }
 
     [Fact]
+    public void PopupDetailPreferencesLoadFromWorkspace()
+    {
+        var workspace = new UserWorkspaceSettings();
+        var settings = workspace.GetOrCreateSource("plugin:first");
+        settings.PopupWaveformVisible = true;
+        settings.PopupSpectrumVisible = true;
+        settings.PopupCollisionVisible = true;
+        settings.PopupCollisionSourceKey = "plugin:second";
+        settings.CollisionLevelFloorDb = -84;
+        settings.CollisionProminenceThresholdDb = 9;
+        settings.CollisionRelativeThreshold = 0.3;
+        settings.SpectrumDisplayFloorDb = -160;
+        settings.SpectrumDisplayCeilingDb = -18;
+        settings.PopupStereo = new StereoWorkspaceSettings { ScaleRangeDb = 48 };
+        var first = new AudioSessionMeterViewModel(Snapshot("plugin:first", "First", spectrumBuckets: [0.0, 0.4]));
+        var second = new AudioSessionMeterViewModel(Snapshot("plugin:second", "Second", spectrumBuckets: [0.0, 0.41]));
+
+        var viewModel = new DetailWindowViewModel(first, () => [first, second], workspace);
+
+        Assert.True(viewModel.IsWaveformVisible);
+        Assert.True(viewModel.IsSpectrumVisible);
+        Assert.True(viewModel.IsCollisionVisible);
+        Assert.Equal("plugin:second", viewModel.SelectedFrequencyCollisionSourceKey);
+        Assert.Equal(-84, viewModel.CollisionLevelFloorDb);
+        Assert.Equal(9, viewModel.CollisionProminenceThresholdDb);
+        Assert.Equal(0.3, viewModel.CollisionRelativeThreshold);
+        Assert.Equal(-160, viewModel.SpectrumDisplayFloorDb);
+        Assert.Equal(-18, viewModel.SpectrumDisplayCeilingDb);
+        Assert.Equal(48, viewModel.StereoSettings.ScaleRangeDb);
+    }
+
+    [Fact]
+    public void PopupDetailPreferencesSaveToWorkspace()
+    {
+        var workspace = new UserWorkspaceSettings();
+        var first = new AudioSessionMeterViewModel(Snapshot("plugin:first", "First", spectrumBuckets: [0.0, 0.4]));
+        var second = new AudioSessionMeterViewModel(Snapshot("plugin:second", "Second", spectrumBuckets: [0.0, 0.41]));
+        var viewModel = new DetailWindowViewModel(first, () => [first, second], workspace);
+
+        viewModel.IsWaveformVisible = true;
+        viewModel.IsSpectrumVisible = true;
+        viewModel.IsCollisionVisible = true;
+        viewModel.SelectedFrequencyCollisionSourceKey = "plugin:second";
+        viewModel.CollisionLevelFloorDb = -90;
+        viewModel.CollisionProminenceThresholdDb = 10;
+        viewModel.CollisionRelativeThreshold = 0.22;
+        viewModel.SpectrumDisplayFloorDb = -140;
+        viewModel.SpectrumDisplayCeilingDb = -10;
+        viewModel.StereoSettings.TracePersistenceSeconds = 0.2;
+
+        var stored = workspace.GetSource("plugin:first");
+        Assert.NotNull(stored);
+        Assert.True(stored!.PopupWaveformVisible);
+        Assert.True(stored.PopupSpectrumVisible);
+        Assert.True(stored.PopupCollisionVisible);
+        Assert.Equal("plugin:second", stored.PopupCollisionSourceKey);
+        Assert.Equal(-90, stored.CollisionLevelFloorDb);
+        Assert.Equal(10, stored.CollisionProminenceThresholdDb);
+        Assert.Equal(0.22, stored.CollisionRelativeThreshold);
+        Assert.Equal(-140, stored.SpectrumDisplayFloorDb);
+        Assert.Equal(-10, stored.SpectrumDisplayCeilingDb);
+        Assert.Equal(0.2, stored.PopupStereo?.TracePersistenceSeconds);
+    }
+
+    [Fact]
     public void DetailWindowSpectrumDisplayRangeClampsToAnalyzerWindow()
     {
         var session = new AudioSessionMeterViewModel(Snapshot());
@@ -123,8 +189,8 @@ public sealed class DetailWindowViewModelTests
     [Fact]
     public void FrequencyCollisionIsAvailableInPopupDetail()
     {
-        var first = new AudioSessionMeterViewModel(Snapshot("plugin:first", "First", spectrumBuckets: [0.0, 0.42, 0.72]));
-        var second = new AudioSessionMeterViewModel(Snapshot("plugin:second", "Second", spectrumBuckets: [0.0, 0.43, 0.18]));
+        var first = new AudioSessionMeterViewModel(Snapshot("plugin:first", "First", spectrumBuckets: [0.0, 0.42, 0.72, 0.18]));
+        var second = new AudioSessionMeterViewModel(Snapshot("plugin:second", "Second", spectrumBuckets: [0.0, 0.43, 0.18, 0.08]));
         var active = new List<AudioSessionMeterViewModel> { first, second };
         var viewModel = new DetailWindowViewModel(first, () => active);
 
@@ -144,8 +210,8 @@ public sealed class DetailWindowViewModelTests
     [Fact]
     public void FrequencyCollisionRefreshesWhenComparisonSpectrumTickAdvances()
     {
-        var first = new AudioSessionMeterViewModel(Snapshot("plugin:first", "First", spectrumBuckets: [0.0, 0.40], plotFrameVersion: 128));
-        var second = new AudioSessionMeterViewModel(Snapshot("plugin:second", "Second", spectrumBuckets: [0.0, 0.08], plotFrameVersion: 128));
+        var first = new AudioSessionMeterViewModel(Snapshot("plugin:first", "First", spectrumBuckets: [0.0, 0.40, 0.0], plotFrameVersion: 128));
+        var second = new AudioSessionMeterViewModel(Snapshot("plugin:second", "Second", spectrumBuckets: [0.0, 0.08, 0.0], plotFrameVersion: 128));
         var active = new List<AudioSessionMeterViewModel> { first, second };
         using var viewModel = new DetailWindowViewModel(first, () => active)
         {
@@ -155,7 +221,7 @@ public sealed class DetailWindowViewModelTests
 
         Assert.Empty(viewModel.FrequencyCollisionBands);
 
-        second.Update(Snapshot("plugin:second", "Second", spectrumBuckets: [0.0, 0.42], plotFrameVersion: 256));
+        second.Update(Snapshot("plugin:second", "Second", spectrumBuckets: [0.0, 0.42, 0.0], plotFrameVersion: 256));
 
         Assert.NotEmpty(viewModel.FrequencyCollisionBands);
     }

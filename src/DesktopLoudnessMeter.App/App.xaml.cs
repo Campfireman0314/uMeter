@@ -1,6 +1,7 @@
 using System.Windows;
 using DesktopLoudnessMeter.App.Audio;
 using DesktopLoudnessMeter.App.Diagnostics;
+using DesktopLoudnessMeter.App.Settings;
 using DesktopLoudnessMeter.App.Themes;
 using DesktopLoudnessMeter.App.ViewModels;
 using Drawing = System.Drawing;
@@ -13,6 +14,7 @@ public partial class App : Application
     private MainViewModel? _mainViewModel;
     private MainWindow? _mainWindow;
     private LocalLoopbackUdpReceiver? _localLoopbackReceiver;
+    private UserWorkspaceSettings? _workspaceSettings;
     private Forms.NotifyIcon? _trayIcon;
     private Forms.ContextMenuStrip? _trayMenu;
     private Drawing.Icon? _trayIconImage;
@@ -23,14 +25,21 @@ public partial class App : Application
         RegisterExceptionLogging();
 
         AppLogger.Info("Application startup began.");
-        var initialTheme = AppThemes.FindById(UserThemeSettings.LoadThemeId());
+        _workspaceSettings = UserWorkspaceSettings.Load();
+        var initialTheme = AppThemes.FindById(_workspaceSettings.ThemeId);
         ThemeManager.Apply(initialTheme);
 
         _mainViewModel = new MainViewModel(
             CreateSignalSourceService(out var sourceWarningText),
             sourceWarningText: sourceWarningText,
             selectedTheme: initialTheme,
-            themeSelected: theme => UserThemeSettings.SaveThemeId(theme.Id));
+            themeSelected: theme =>
+            {
+                _workspaceSettings.ThemeId = theme.Id;
+                _workspaceSettings.Save();
+            },
+            workspaceSettings: _workspaceSettings,
+            selectFolder: DesktopLoudnessMeter.App.MainWindow.SelectFolder);
         _mainViewModel.DetailPopupRequested += OpenDetailPopup;
         _mainViewModel.RefreshNow();
 
@@ -113,7 +122,7 @@ public partial class App : Application
         var window = new DetailWindow
         {
             Owner = _mainWindow?.IsVisible == true ? _mainWindow : null,
-            DataContext = new DetailWindowViewModel(session, GetActiveDetailSwitchTargets)
+            DataContext = new DetailWindowViewModel(session, GetActiveDetailSwitchTargets, _workspaceSettings)
         };
         window.Show();
         window.Activate();

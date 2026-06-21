@@ -4,6 +4,57 @@
 
 - Nothing yet.
 
+## v2.2.4 - 2026-06-21
+
+Recent Events and global event-settings patch release.
+
+### Added
+
+- Global Recent Events strip for source appeared/disappeared, true-peak max, and loudness-jump events.
+- Recent Events display filters for all, source, peak, and loudness event types.
+- Configurable maximum retained recent-event entries, persisted in the user workspace.
+- Global settings window with event-entry limit and future event output folder selection.
+- Fixed-height Recent Events result area with an empty state for filters that have no matching events.
+
+### Changed
+
+- App, setup, protocol, sender kit, sender probe, VST3 sender project, and AAX sender project metadata now report version `2.2.4`.
+- Default versioned installer artifact is now `uMeter-Setup-2.2.4.exe`.
+
+### Verified
+
+- `dotnet build src\DesktopLoudnessMeter.App\DesktopLoudnessMeter.App.csproj`.
+- `dotnet test tests\DesktopLoudnessMeter.Tests\DesktopLoudnessMeter.Tests.csproj` with 198 passing tests.
+
+## v2.2.3 - 2026-06-21
+
+Frequency-collision and source-workspace polish patch release.
+
+### Added
+
+- Source aliases can be edited from the row, inline detail, and pop-up detail naming bars.
+- Per-source analysis preferences persist through the user workspace, including detail visibility, collision source, collision thresholds, spectrum display range, and stereo display settings.
+- Frequency collision settings now include a prominence threshold so flat broadband content is not treated as a full-band feature collision.
+- Collision analyzer single-value sliders support double-click numeric entry, matching the spectrograph range slider interaction.
+
+### Changed
+
+- App, setup, protocol, sender kit, sender probe, VST3 sender project, and AAX sender project metadata now report version `2.2.3`.
+- Default versioned installer artifact is now `uMeter-Setup-2.2.3.exe`.
+- Collision analyzer "Absolute" threshold has been redefined as `Level floor`, requiring both compared bins to clear the floor before analysis.
+- Collision analyzer "Relative" threshold is now labeled `Match tolerance`.
+- Collision analysis now requires locally prominent spectral features from both sources before highlighting a band.
+
+### Fixed
+
+- Flat broadband noise no longer lights the full collision analyzer when compared against peaked musical content.
+- Collision source and detail analyzer preferences survive source reconnects when source keys remain stable.
+
+### Verified
+
+- `dotnet build src\DesktopLoudnessMeter.App\DesktopLoudnessMeter.App.csproj --no-restore -p:OutDir=E:\GitHub\uMeter\.tmp\v223-app-build\`.
+- `dotnet test tests\DesktopLoudnessMeter.Tests\DesktopLoudnessMeter.Tests.csproj --no-restore -p:OutDir=E:\GitHub\uMeter\.tmp\v223-test-build\` with 189 passing tests.
+
 ## v2.2.2 - 2026-06-20
 
 Spectrograph visual polish patch release.

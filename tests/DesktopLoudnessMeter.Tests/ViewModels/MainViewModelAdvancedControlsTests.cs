@@ -1,5 +1,6 @@
 using DesktopLoudnessMeter.App.Audio;
 using DesktopLoudnessMeter.App.Audio.Analysis;
+using DesktopLoudnessMeter.App.Settings;
 using DesktopLoudnessMeter.App.Themes;
 using DesktopLoudnessMeter.App.ViewModels;
 
@@ -328,6 +329,149 @@ public sealed class MainViewModelAdvancedControlsTests
     }
 
     [Fact]
+    public void PerSourceAnalysisSettingsLoadFromWorkspaceBySourceKey()
+    {
+        var workspace = new UserWorkspaceSettings();
+        workspace.GetOrCreateSource("plugin:lead").TruePeakOversampling = TruePeakOversampling.EightX;
+        workspace.GetOrCreateSource("plugin:lead").WaveformDisplayMode = WaveformDisplayMode.Channels;
+        workspace.GetOrCreateSource("plugin:lead").SpectrumDisplayMode = SpectrumDisplayMode.Channels;
+        var service = new StaticSignalSourceMeterService(
+            [Source("plugin:lead", "Lead Vocal", SignalSourceKind.Plugin)]);
+        var viewModel = new MainViewModel(service, startTimer: false, workspaceSettings: workspace);
+
+        viewModel.RefreshNow();
+        var row = Assert.Single(viewModel.Sessions);
+
+        Assert.Equal(TruePeakOversampling.EightX, row.TruePeakOversampling);
+        Assert.Equal(WaveformDisplayMode.Channels, row.WaveformDisplayMode);
+        Assert.Equal(SpectrumDisplayMode.Channels, row.SpectrumDisplayMode);
+        Assert.Contains(("plugin:lead", SignalSourceKind.Plugin, null, 8), service.TruePeakOversamplingRequests);
+        Assert.Contains(("plugin:lead", SignalSourceKind.Plugin, null, true), service.ChannelWaveformRequests);
+        Assert.Contains(("plugin:lead", SignalSourceKind.Plugin, null, true), service.ChannelSpectrumRequests);
+    }
+
+    [Fact]
+    public void SourceAliasPersistsAndDoesNotChangeRawIdentity()
+    {
+        var workspace = new UserWorkspaceSettings();
+        var service = new SequenceSignalSourceMeterService(
+            [Source("plugin:lead", "Lead Vocal", SignalSourceKind.Plugin)],
+            [],
+            [Source("plugin:lead", "Lead Vocal", SignalSourceKind.Plugin)]);
+        var viewModel = new MainViewModel(
+            service,
+            startTimer: false,
+            missingRowRetentionTicks: 0,
+            isProcessAlive: _ => false,
+            workspaceSettings: workspace);
+
+        viewModel.RefreshNow();
+        var row = Assert.Single(viewModel.Sessions);
+        row.Alias = "Lead Bus";
+
+        Assert.Equal("Lead Vocal", row.DisplayName);
+        Assert.Equal("Lead Bus", row.DisplayTitle);
+        Assert.Equal("Lead Bus", workspace.GetSource("plugin:lead")?.Alias);
+
+        viewModel.RefreshNow();
+        Assert.Empty(viewModel.Sessions);
+
+        viewModel.RefreshNow();
+        var reconnected = Assert.Single(viewModel.Sessions);
+        Assert.Equal("Lead Vocal", reconnected.DisplayName);
+        Assert.Equal("Lead Bus", reconnected.DisplayTitle);
+    }
+
+    [Fact]
+    public void InlineDetailPreferencesPersistPerSource()
+    {
+        var workspace = new UserWorkspaceSettings();
+        var service = new StaticSignalSourceMeterService(
+            [
+                Source("plugin:lead", "Lead", SignalSourceKind.Plugin, spectrumBuckets: [0.4]),
+                Source("plugin:keys", "Keys", SignalSourceKind.Plugin, spectrumBuckets: [0.41])
+            ]);
+        var viewModel = new MainViewModel(service, startTimer: false, workspaceSettings: workspace);
+
+        viewModel.RefreshNow();
+        viewModel.Sessions.Single(session => session.SourceKey == "plugin:lead").OpenDetailCommand.Execute(null);
+        viewModel.IsInlineWaveformVisible = true;
+        viewModel.IsInlineSpectrumVisible = true;
+        viewModel.IsInlineCollisionVisible = true;
+        viewModel.SelectedFrequencyCollisionSourceKey = "plugin:keys";
+        viewModel.CollisionLevelFloorDb = -84;
+        viewModel.CollisionProminenceThresholdDb = 9;
+        viewModel.CollisionRelativeThreshold = 0.25;
+        viewModel.SpectrumDisplayFloorDb = -150;
+        viewModel.SpectrumDisplayCeilingDb = -12;
+        viewModel.InlineStereoSettings.ScaleRangeDb = 48;
+
+        var stored = workspace.GetSource("plugin:lead");
+        Assert.NotNull(stored);
+        Assert.True(stored!.InlineWaveformVisible);
+        Assert.True(stored.InlineSpectrumVisible);
+        Assert.True(stored.InlineCollisionVisible);
+        Assert.Equal("plugin:keys", stored.InlineCollisionSourceKey);
+        Assert.Equal(-84, stored.CollisionLevelFloorDb);
+        Assert.Equal(9, stored.CollisionProminenceThresholdDb);
+        Assert.Equal(0.25, stored.CollisionRelativeThreshold);
+        Assert.Equal(-150, stored.SpectrumDisplayFloorDb);
+        Assert.Equal(-12, stored.SpectrumDisplayCeilingDb);
+        Assert.Equal(48, stored.InlineStereo?.ScaleRangeDb);
+
+        var restored = new MainViewModel(service, startTimer: false, workspaceSettings: workspace);
+        restored.RefreshNow();
+        restored.Sessions.Single(session => session.SourceKey == "plugin:lead").OpenDetailCommand.Execute(null);
+
+        Assert.True(restored.IsInlineWaveformVisible);
+        Assert.True(restored.IsInlineSpectrumVisible);
+        Assert.True(restored.IsInlineCollisionVisible);
+        Assert.Equal("plugin:keys", restored.SelectedFrequencyCollisionSourceKey);
+        Assert.Equal(-84, restored.CollisionLevelFloorDb);
+        Assert.Equal(9, restored.CollisionProminenceThresholdDb);
+        Assert.Equal(0.25, restored.CollisionRelativeThreshold);
+        Assert.Equal(-150, restored.SpectrumDisplayFloorDb);
+        Assert.Equal(-12, restored.SpectrumDisplayCeilingDb);
+        Assert.Equal(48, restored.InlineStereoSettings.ScaleRangeDb);
+    }
+
+    [Fact]
+    public void ForgetSelectedSourceClearsSavedWorkspaceAndResetsVisiblePreferences()
+    {
+        var workspace = new UserWorkspaceSettings();
+        var stored = workspace.GetOrCreateSource("plugin:lead");
+        stored.Alias = "Lead Bus";
+        stored.TruePeakOversampling = TruePeakOversampling.EightX;
+        stored.WaveformDisplayMode = WaveformDisplayMode.Channels;
+        stored.SpectrumDisplayMode = SpectrumDisplayMode.Channels;
+        stored.InlineWaveformVisible = true;
+        stored.InlineSpectrumVisible = true;
+        stored.InlineCollisionVisible = true;
+        var service = new StaticSignalSourceMeterService(
+            [Source("plugin:lead", "Lead", SignalSourceKind.Plugin, spectrumBuckets: [0.4])]);
+        var viewModel = new MainViewModel(service, startTimer: false, workspaceSettings: workspace);
+
+        viewModel.RefreshNow();
+        var row = Assert.Single(viewModel.Sessions);
+        row.OpenDetailCommand.Execute(null);
+
+        Assert.Equal("Lead Bus", row.DisplayTitle);
+        Assert.True(viewModel.IsInlineWaveformVisible);
+
+        viewModel.ForgetSelectedSourceCommand.Execute(null);
+
+        Assert.Null(workspace.GetSource("plugin:lead"));
+        Assert.Null(row.Alias);
+        Assert.Equal("Lead", row.DisplayTitle);
+        Assert.Equal(TruePeakOversampling.FourX, row.TruePeakOversampling);
+        Assert.Equal(WaveformDisplayMode.Overall, row.WaveformDisplayMode);
+        Assert.Equal(SpectrumDisplayMode.Overall, row.SpectrumDisplayMode);
+        Assert.False(viewModel.IsInlineWaveformVisible);
+        Assert.False(viewModel.IsInlineSpectrumVisible);
+        Assert.False(viewModel.IsInlineCollisionVisible);
+    }
+
+    [Fact]
     public void EcoModeUpdatesRefreshLabelAndServicePerformanceMode()
     {
         var service = new StaticAudioSessionMeterService([]);
@@ -423,8 +567,8 @@ public sealed class MainViewModelAdvancedControlsTests
     {
         var service = new StaticSignalSourceMeterService(
             [
-                Source("plugin:lead", "Lead", SignalSourceKind.Plugin, spectrumBuckets: [0.0, 0.42, 0.72, 0.08]),
-                Source("plugin:keys", "Keys", SignalSourceKind.Plugin, spectrumBuckets: [0.0, 0.43, 0.18, 0.09])
+                Source("plugin:lead", "Lead", SignalSourceKind.Plugin, spectrumBuckets: [0.0, 0.18, 0.42, 0.18, 0.72, 0.08]),
+                Source("plugin:keys", "Keys", SignalSourceKind.Plugin, spectrumBuckets: [0.0, 0.17, 0.43, 0.16, 0.18, 0.09])
             ]);
         var viewModel = new MainViewModel(service, startTimer: false);
 
@@ -434,7 +578,7 @@ public sealed class MainViewModelAdvancedControlsTests
 
         Assert.True(viewModel.HasFrequencyCollisionSources);
         Assert.Equal("Global", viewModel.SelectedFrequencyCollisionSource.DisplayName);
-        Assert.Contains(viewModel.FrequencyCollisionBands, band => band.StartRatio <= 0.25 && band.EndRatio >= 0.5);
+        Assert.Contains(viewModel.FrequencyCollisionBands, band => band.StartRatio <= 2.0 / 6.0 && band.EndRatio >= 3.0 / 6.0);
     }
 
     [Fact]
@@ -442,8 +586,8 @@ public sealed class MainViewModelAdvancedControlsTests
     {
         var service = new StaticSignalSourceMeterService(
             [
-                Source("plugin:lead", "Lead", SignalSourceKind.Plugin, spectrumBuckets: [0.0, 0.08], plotFrameVersion: 128),
-                Source("plugin:keys", "Keys", SignalSourceKind.Plugin, spectrumBuckets: [0.0, 0.42], plotFrameVersion: 128)
+                Source("plugin:lead", "Lead", SignalSourceKind.Plugin, spectrumBuckets: [0.0, 0.08, 0.0], plotFrameVersion: 128),
+                Source("plugin:keys", "Keys", SignalSourceKind.Plugin, spectrumBuckets: [0.0, 0.42, 0.0], plotFrameVersion: 128)
             ]);
         var viewModel = new MainViewModel(service, startTimer: false);
 
@@ -455,7 +599,7 @@ public sealed class MainViewModelAdvancedControlsTests
 
         Assert.Empty(viewModel.FrequencyCollisionBands);
 
-        lead.Update(Source("plugin:lead", "Lead", SignalSourceKind.Plugin, spectrumBuckets: [0.0, 0.40], plotFrameVersion: 256));
+        lead.Update(Source("plugin:lead", "Lead", SignalSourceKind.Plugin, spectrumBuckets: [0.0, 0.40, 0.0], plotFrameVersion: 256));
 
         Assert.NotEmpty(viewModel.FrequencyCollisionBands);
     }
@@ -470,7 +614,7 @@ public sealed class MainViewModelAdvancedControlsTests
             ]);
         var viewModel = new MainViewModel(service, startTimer: false)
         {
-            CollisionAbsoluteThresholdDb = 3,
+            CollisionLevelFloorDb = -120,
             CollisionRelativeThreshold = 0.1
         };
 
@@ -482,20 +626,63 @@ public sealed class MainViewModelAdvancedControlsTests
     }
 
     [Fact]
-    public void FrequencyCollisionIgnoresSharedSilence()
+    public void FrequencyCollisionLevelFloorRequiresBothSourcesAboveFloor()
     {
         var service = new StaticSignalSourceMeterService(
             [
-                Source("plugin:lead", "Lead", SignalSourceKind.Plugin, spectrumBuckets: [0.01, 0.02]),
-                Source("plugin:keys", "Keys", SignalSourceKind.Plugin, spectrumBuckets: [0.01, 0.02])
+                Source("plugin:lead", "Lead", SignalSourceKind.Plugin, spectrumBuckets: [0.72, 0.60, 0.0, 0.28]),
+                Source("plugin:keys", "Keys", SignalSourceKind.Plugin, spectrumBuckets: [0.71, 0.20, 0.0, 0.27])
             ]);
-        var viewModel = new MainViewModel(service, startTimer: false);
+        var viewModel = new MainViewModel(service, startTimer: false)
+        {
+            CollisionLevelFloorDb = -100,
+            CollisionRelativeThreshold = 0.2
+        };
 
         viewModel.RefreshNow();
         viewModel.Sessions.Single(session => session.SourceKey == "plugin:lead").OpenDetailCommand.Execute(null);
         viewModel.IsInlineCollisionVisible = true;
 
+        Assert.Contains(viewModel.FrequencyCollisionBands, band => band.StartRatio <= 0 && band.EndRatio >= 0.25);
+        Assert.DoesNotContain(viewModel.FrequencyCollisionBands, band => band.StartRatio < 1 && band.EndRatio > 0.25);
+
+        viewModel.CollisionLevelFloorDb = -150;
+
+        Assert.Contains(viewModel.FrequencyCollisionBands, band => band.StartRatio <= 0.75 && band.EndRatio >= 1);
+    }
+
+    [Fact]
+    public void FrequencyCollisionIgnoresFlatBroadbandNoise()
+    {
+        var service = new StaticSignalSourceMeterService(
+            [
+                Source("plugin:vocal", "Vocal", SignalSourceKind.Plugin, spectrumBuckets:
+                [
+                    0.18, 0.22, 0.30, 0.44, 0.62, 0.45, 0.30, 0.24,
+                    0.22, 0.36, 0.58, 0.38, 0.25, 0.21, 0.18, 0.16
+                ]),
+                Source("plugin:noise", "White Noise", SignalSourceKind.Plugin, spectrumBuckets:
+                [
+                    0.40, 0.40, 0.40, 0.40, 0.40, 0.40, 0.40, 0.40,
+                    0.40, 0.40, 0.40, 0.40, 0.40, 0.40, 0.40, 0.40
+                ])
+            ]);
+        var viewModel = new MainViewModel(service, startTimer: false)
+        {
+            CollisionLevelFloorDb = -150,
+            CollisionRelativeThreshold = 0.35
+        };
+
+        viewModel.RefreshNow();
+        viewModel.Sessions.Single(session => session.SourceKey == "plugin:vocal").OpenDetailCommand.Execute(null);
+        viewModel.IsInlineCollisionVisible = true;
+        viewModel.SelectedFrequencyCollisionSourceKey = "plugin:noise";
+
         Assert.Empty(viewModel.FrequencyCollisionBands);
+
+        viewModel.CollisionProminenceThresholdDb = 0;
+
+        Assert.NotEmpty(viewModel.FrequencyCollisionBands);
     }
 
     [Fact]

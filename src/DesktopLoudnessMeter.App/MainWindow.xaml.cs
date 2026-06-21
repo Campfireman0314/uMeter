@@ -2,11 +2,14 @@ using System.Windows;
 using System.Windows.Controls;
 using System.Windows.Input;
 using DesktopLoudnessMeter.App.ViewModels;
+using Forms = System.Windows.Forms;
 
 namespace DesktopLoudnessMeter.App;
 
 public partial class MainWindow : Window
 {
+    private GlobalSettingsWindow? _globalSettingsWindow;
+
     public MainWindow()
     {
         InitializeComponent();
@@ -30,6 +33,24 @@ public partial class MainWindow : Window
     private void ThemeButton_OnClick(object sender, RoutedEventArgs e)
     {
         OpenButtonContextMenu(sender);
+    }
+
+    private void GlobalSettingsButton_OnClick(object sender, RoutedEventArgs e)
+    {
+        if (_globalSettingsWindow is { IsVisible: true } visibleWindow)
+        {
+            visibleWindow.Activate();
+            return;
+        }
+
+        _globalSettingsWindow = new GlobalSettingsWindow
+        {
+            Owner = this,
+            DataContext = DataContext
+        };
+        _globalSettingsWindow.Closed += (_, _) => _globalSettingsWindow = null;
+        _globalSettingsWindow.Show();
+        _globalSettingsWindow.Activate();
     }
 
     private void InlineStereoSettingsButton_OnClick(object sender, RoutedEventArgs e)
@@ -77,6 +98,14 @@ public partial class MainWindow : Window
         OpenButtonContextMenu(sender);
     }
 
+    private void NamingTextBox_OnGotKeyboardFocus(object sender, KeyboardFocusChangedEventArgs e)
+    {
+        if (sender is TextBox textBox)
+        {
+            textBox.SelectAll();
+        }
+    }
+
     private static void OpenButtonContextMenu(object sender)
     {
         if (sender is not Button { ContextMenu: { } contextMenu } button)
@@ -86,5 +115,19 @@ public partial class MainWindow : Window
 
         contextMenu.PlacementTarget = button;
         contextMenu.IsOpen = true;
+    }
+
+    public static string? SelectFolder(string? initialFolder)
+    {
+        using var dialog = new Forms.FolderBrowserDialog
+        {
+            Description = "Choose event output folder",
+            UseDescriptionForTitle = true,
+            SelectedPath = string.IsNullOrWhiteSpace(initialFolder) ? string.Empty : initialFolder
+        };
+
+        return dialog.ShowDialog() == Forms.DialogResult.OK
+            ? dialog.SelectedPath
+            : null;
     }
 }
