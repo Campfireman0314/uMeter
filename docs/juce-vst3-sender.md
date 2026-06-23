@@ -20,31 +20,29 @@ The plugin now has a minimal editor with:
 From the repo root:
 
 ```powershell
-cmake -S .\src\DesktopLoudnessMeter.JucePlugin -B .\build\juce-vst3 -DJUCE_DIR=C:/JUCE
-cmake --build .\build\juce-vst3 --config Release --target DesktopLoudnessMeterSender_VST3
+.\scripts\build-juce-sender.ps1 -Format VST3 -Configuration Release
 ```
 
-The default `JUCE_DIR` is already `C:/JUCE`, so the `-DJUCE_DIR=...` argument is only needed when JUCE lives somewhere else.
+The helper resolves JUCE from `-JuceDir`, `JUCE_DIR`, `JUCE_ROOT`, or common local paths such as `C:\JUCE`. It also refreshes stale in-repo CMake build folders when the checkout path changes.
 
-By default, each VST3 build copies the finished bundle to Steinberg's standard VST3 folder:
+By default, development builds leave the finished bundle under the repo build directory. Add `-InstallCopy` to copy the bundle to Steinberg's standard VST3 folder:
 
 ```text
 C:\Program Files\Common Files\VST3
 ```
 
-It also keeps a second copy in the legacy VST2-style scan folder used during local Cubase smoke tests:
+With `-InstallCopy`, the build also keeps a second copy in the legacy VST2-style scan folder used during local Cubase smoke tests:
 
 ```text
 C:\Program Files\VSTPlugins
 ```
 
-Override these with `-DDLM_VST3_COPY_DIR=<path>` and `-DDLM_EXTRA_VST3_COPY_DIR=<path>`. Disable them with `-DDLM_COPY_VST3_AFTER_BUILD=OFF` or `-DDLM_COPY_EXTRA_VST3_AFTER_BUILD=OFF`.
+When configuring CMake directly, override these with `-DDLM_VST3_COPY_DIR=<path>` and `-DDLM_EXTRA_VST3_COPY_DIR=<path>`. Enable them with `-DDLM_COPY_VST3_AFTER_BUILD=ON` or `-DDLM_COPY_EXTRA_VST3_AFTER_BUILD=ON`.
 
 ## Native Tests
 
 ```powershell
-cmake --build .\build\juce-vst3 --config Debug --target DesktopLoudnessMeterJucePluginTests
-ctest --test-dir .\build\juce-vst3 -C Debug --output-on-failure
+.\scripts\build-juce-sender.ps1 -Format VST3 -Configuration Debug -RunTests
 ```
 
 These tests cover v1 packet shape, little-endian float sample encoding, receiver acknowledgements, bounded queue drops, plugin state restore, and the sender worker's register/heartbeat/audio/close UDP lifecycle.
@@ -61,7 +59,7 @@ For a Debug build, replace `Release` with `Debug`.
 
 ## Install For Host Scan
 
-The development build copies to Steinberg's standard VST3 path:
+Use `-InstallCopy` to copy to Steinberg's standard VST3 path:
 
 ```text
 C:\Program Files\Common Files\VST3

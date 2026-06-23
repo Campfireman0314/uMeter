@@ -19,6 +19,13 @@ target_include_directories(DesktopLoudnessMeterJucePluginTests
 
 target_compile_features(DesktopLoudnessMeterJucePluginTests PRIVATE cxx_std_17)
 
+if (MSVC)
+    target_compile_options(DesktopLoudnessMeterJucePluginTests PRIVATE /utf-8)
+    set_target_properties(DesktopLoudnessMeterJucePluginTests PROPERTIES
+        VS_GLOBAL_VcpkgEnabled false
+        VS_GLOBAL_VcpkgApplocalDeps false)
+endif()
+
 target_compile_definitions(DesktopLoudnessMeterJucePluginTests
     PUBLIC
         JUCE_WEB_BROWSER=0

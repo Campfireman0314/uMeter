@@ -6,7 +6,7 @@ param(
 
     [string]$Version = "2.2.8",
 
-    [string]$JuceDir = "E:\JUCE",
+    [string]$JuceDir = "",
 
     [string]$Vst3BuildDir = (Join-Path $PSScriptRoot "build\juce-vst3-release"),
 
@@ -42,6 +42,17 @@ function Resolve-ToolPath {
         return $command.Source
     }
 
+    if ($CommandName -eq "cmake") {
+        $vswhere = Join-Path ${env:ProgramFiles(x86)} "Microsoft Visual Studio\Installer\vswhere.exe"
+        if (Test-Path -LiteralPath $vswhere) {
+            $vsCMake = & $vswhere -latest -products * -requires Microsoft.Component.MSBuild -find "Common7\IDE\CommonExtensions\Microsoft\CMake\CMake\bin\cmake.exe" |
+                Select-Object -First 1
+            if ($vsCMake -and (Test-Path -LiteralPath $vsCMake)) {
+                return $vsCMake
+            }
+        }
+    }
+
     foreach ($path in $FallbackPaths) {
         if (Test-Path -LiteralPath $path) {
             return $path
@@ -63,6 +74,73 @@ function Test-IsUnderRoot {
     $fullPath = [System.IO.Path]::GetFullPath($Path).TrimEnd('\', '/') + '\'
     $fullRoot = [System.IO.Path]::GetFullPath($RootPath).TrimEnd('\', '/') + '\'
     return $fullPath.StartsWith($fullRoot, [System.StringComparison]::OrdinalIgnoreCase)
+}
+
+function Resolve-JuceDir {
+    param(
+        [string]$ConfiguredPath
+    )
+
+    if (-not [string]::IsNullOrWhiteSpace($ConfiguredPath)) {
+        if (Test-Path -LiteralPath (Join-Path $ConfiguredPath "CMakeLists.txt")) {
+            return [System.IO.Path]::GetFullPath($ConfiguredPath)
+        }
+
+        throw "JUCE_DIR must point to a JUCE checkout containing CMakeLists.txt. Current value: $ConfiguredPath"
+    }
+
+    $candidates = @(
+        $env:JUCE_DIR,
+        $env:JUCE_ROOT,
+        "C:\JUCE",
+        "E:\JUCE"
+    ) | Where-Object { -not [string]::IsNullOrWhiteSpace($_) } | Select-Object -Unique
+
+    foreach ($candidate in $candidates) {
+        if (Test-Path -LiteralPath (Join-Path $candidate "CMakeLists.txt")) {
+            return [System.IO.Path]::GetFullPath($candidate)
+        }
+    }
+
+    throw "JUCE checkout was not found. Pass -JuceDir <path> or set JUCE_DIR to a checkout containing CMakeLists.txt."
+}
+
+function Clear-StaleCMakeBuildDirectory {
+    param(
+        [Parameter(Mandatory = $true)]
+        [string]$BuildDir,
+
+        [Parameter(Mandatory = $true)]
+        [string]$SourceDir
+    )
+
+    $cache = Join-Path $BuildDir "CMakeCache.txt"
+    if (-not (Test-Path -LiteralPath $cache)) {
+        return
+    }
+
+    $cachedHome = Select-String -Path $cache -Pattern '^CMAKE_HOME_DIRECTORY:INTERNAL=(.*)$' |
+        ForEach-Object { $_.Matches[0].Groups[1].Value } |
+        Select-Object -First 1
+
+    if ([string]::IsNullOrWhiteSpace($cachedHome)) {
+        return
+    }
+
+    $sourceFull = [System.IO.Path]::GetFullPath($SourceDir).TrimEnd('\', '/')
+    $cachedFull = [System.IO.Path]::GetFullPath($cachedHome).TrimEnd('\', '/')
+    if ($sourceFull.Equals($cachedFull, [System.StringComparison]::OrdinalIgnoreCase)) {
+        return
+    }
+
+    if (-not (Test-IsUnderRoot -Path $BuildDir -RootPath $root)) {
+        throw "Refusing to clean stale CMake build directory outside the repository: $BuildDir"
+    }
+
+    Write-Host "Removing stale CMake build directory: $BuildDir"
+    Write-Host "  cached source: $cachedFull"
+    Write-Host "  current source: $sourceFull"
+    Remove-Item -LiteralPath $BuildDir -Recurse -Force
 }
 
 function Invoke-Native {
@@ -114,15 +192,14 @@ Invoke-Native "App publish" "dotnet" @(
 )
 
 if (-not $SkipVst3Plugin) {
-    if (-not (Test-Path -LiteralPath (Join-Path $JuceDir "CMakeLists.txt"))) {
-        throw "JUCE_DIR must point to a JUCE checkout containing CMakeLists.txt. Current value: $JuceDir"
-    }
+    $JuceDir = Resolve-JuceDir $JuceDir
 
     $cmake = Resolve-ToolPath "cmake" @(
         "C:\Program Files\CMake\bin\cmake.exe",
-        "C:\Program Files (x86)\CMake\bin\cmake.exe",
-        "D:\Program Files\Microsoft Visual Studio\2022\BuildTools\Common7\IDE\CommonExtensions\Microsoft\CMake\CMake\bin\cmake.exe"
+        "C:\Program Files (x86)\CMake\bin\cmake.exe"
     )
+
+    Clear-StaleCMakeBuildDirectory -BuildDir $Vst3BuildDir -SourceDir $pluginProjectDir
 
     Invoke-Native "VST3 configure" $cmake @(
         "-S", $pluginProjectDir,

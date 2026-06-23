@@ -2,7 +2,14 @@ cmake_minimum_required(VERSION 3.22)
 
 project(DESKTOP_LOUDNESS_METER_JUCE_AAX_PLUGIN VERSION 2.2.8 LANGUAGES CXX)
 
-set(JUCE_DIR "C:/JUCE" CACHE PATH "Path to a JUCE checkout or install tree")
+set(DLM_DEFAULT_JUCE_DIR "C:/JUCE")
+if (DEFINED ENV{JUCE_DIR} AND NOT "$ENV{JUCE_DIR}" STREQUAL "")
+    file(TO_CMAKE_PATH "$ENV{JUCE_DIR}" DLM_DEFAULT_JUCE_DIR)
+elseif (DEFINED ENV{JUCE_ROOT} AND NOT "$ENV{JUCE_ROOT}" STREQUAL "")
+    file(TO_CMAKE_PATH "$ENV{JUCE_ROOT}" DLM_DEFAULT_JUCE_DIR)
+endif()
+
+set(JUCE_DIR "${DLM_DEFAULT_JUCE_DIR}" CACHE PATH "Path to a JUCE checkout or install tree")
 set(DLM_AAX_SDK_DIR "" CACHE PATH "Optional path to an AAX SDK checkout. Leave empty to use JUCE's bundled AAX SDK path when available.")
 set(DLM_AAX_COPY_DIR "" CACHE PATH "Optional folder that receives the built AAX bundle when copy-after-build is enabled")
 option(DLM_COPY_AAX_AFTER_BUILD "Copy the built AAX bundle into DLM_AAX_COPY_DIR after each plugin build" OFF)
@@ -54,6 +61,13 @@ target_include_directories(DesktopLoudnessMeterSender
 
 target_compile_features(DesktopLoudnessMeterSender PRIVATE cxx_std_17)
 
+if (MSVC)
+    target_compile_options(DesktopLoudnessMeterSender PRIVATE /utf-8)
+    set_target_properties(DesktopLoudnessMeterSender PROPERTIES
+        VS_GLOBAL_VcpkgEnabled false
+        VS_GLOBAL_VcpkgApplocalDeps false)
+endif()
+
 target_compile_definitions(DesktopLoudnessMeterSender
     PUBLIC
         JUCE_WEB_BROWSER=0
@@ -67,3 +81,15 @@ target_link_libraries(DesktopLoudnessMeterSender
         juce::juce_recommended_config_flags
         juce::juce_recommended_lto_flags
         juce::juce_recommended_warning_flags)
+
+if (MSVC)
+    foreach (dlm_generated_target
+        DesktopLoudnessMeterSender_AAX)
+        if (TARGET ${dlm_generated_target})
+            target_compile_options(${dlm_generated_target} PRIVATE /utf-8)
+            set_target_properties(${dlm_generated_target} PROPERTIES
+                VS_GLOBAL_VcpkgEnabled false
+                VS_GLOBAL_VcpkgApplocalDeps false)
+        endif()
+    endforeach()
+endif()

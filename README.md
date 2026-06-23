@@ -55,11 +55,11 @@ dotnet test .\desktop-loudness-meter.sln
 For the JUCE VST3 sender:
 
 ```powershell
-cmake -S .\src\DesktopLoudnessMeter.JucePlugin -B .\build\juce-vst3 -DJUCE_DIR=C:/JUCE
-cmake --build .\build\juce-vst3 --config Debug --target DesktopLoudnessMeterJucePluginTests
-ctest --test-dir .\build\juce-vst3 -C Debug --output-on-failure
-cmake --build .\build\juce-vst3 --config Release --target DesktopLoudnessMeterSender_VST3
+.\scripts\build-juce-sender.ps1 -Format VST3 -Configuration Debug -RunTests
+.\scripts\build-juce-sender.ps1 -Format VST3 -Configuration Release
 ```
+
+The JUCE helper resolves `JUCE_DIR` from `-JuceDir`, the `JUCE_DIR`/`JUCE_ROOT` environment variables, or common local paths such as `C:\JUCE`. Add `-InstallCopy` when you want the built VST3 copied into the configured host scan folders.
 
 ## Package
 
