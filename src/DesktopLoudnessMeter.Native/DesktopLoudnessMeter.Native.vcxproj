@@ -73,10 +73,16 @@
   </ItemDefinitionGroup>
   <ItemGroup>
     <ClCompile Include="DesktopLoudnessMeterNative.cpp" />
+    <ClCompile Include="DlmPcmAnalyzer.Core.cpp" />
+    <ClCompile Include="DlmPcmAnalyzer.Loudness.cpp" />
+    <ClCompile Include="DlmPcmAnalyzer.RecentWindow.cpp" />
+    <ClCompile Include="DlmPcmAnalyzer.TruePeak.cpp" />
     <ClCompile Include="RfRapid\RfCPUID.cpp" />
     <ClCompile Include="RfRapid\RfRapid.cpp" />
   </ItemGroup>
   <ItemGroup>
+    <ClInclude Include="DlmPcmAnalyzer.h" />
+    <ClInclude Include="DlmPcmAnalyzerInternal.h" />
     <ClInclude Include="RfRapid\RfCPUID.h" />
     <ClInclude Include="RfRapid\RfMacros.h" />
     <ClInclude Include="RfRapid\RfNumeralTypes.h" />

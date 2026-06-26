@@ -1,3 +1,4 @@
+#include "DlmPcmAnalyzer.h"
 #include "RfRapid/RfRapid.h"
 
 #include <algorithm>
@@ -154,6 +155,109 @@ namespace
                 : *std::max_element(estimator.recentFramePeaks.begin(), estimator.recentFramePeaks.end());
         }
     }
+}
+
+extern "C" __declspec(dllexport) int __cdecl DlmPcmAnalyzerCreateExport(
+    int sampleRate,
+    int channels,
+    int truePeakOversampling,
+    void** handle)
+{
+    return DlmPcmAnalyzerCreate(sampleRate, channels, truePeakOversampling, handle);
+}
+
+extern "C" __declspec(dllexport) void __cdecl DlmPcmAnalyzerDestroyExport(void* handle)
+{
+    DlmPcmAnalyzerDestroy(handle);
+}
+
+extern "C" __declspec(dllexport) int __cdecl DlmPcmAnalyzerResetExport(void* handle)
+{
+    return DlmPcmAnalyzerReset(handle);
+}
+
+extern "C" __declspec(dllexport) int __cdecl DlmPcmAnalyzerProcessF32Export(
+    void* handle,
+    const float* interleavedSamples,
+    int sampleCount)
+{
+    return DlmPcmAnalyzerProcessF32(handle, interleavedSamples, sampleCount);
+}
+
+extern "C" __declspec(dllexport) int __cdecl DlmPcmAnalyzerGetSnapshotExport(
+    void* handle,
+    DlmPcmAnalyzerSnapshot* snapshot)
+{
+    return DlmPcmAnalyzerGetSnapshot(handle, snapshot);
+}
+
+extern "C" __declspec(dllexport) int __cdecl DlmPcmAnalyzerSetChannelWaveformEnabledExport(
+    void* handle,
+    int enabled)
+{
+    return DlmPcmAnalyzerSetChannelWaveformEnabled(handle, enabled);
+}
+
+extern "C" __declspec(dllexport) int __cdecl DlmPcmAnalyzerSetChannelSpectrumEnabledExport(
+    void* handle,
+    int enabled)
+{
+    return DlmPcmAnalyzerSetChannelSpectrumEnabled(handle, enabled);
+}
+
+extern "C" __declspec(dllexport) int __cdecl DlmPcmAnalyzerSetPerformanceModeExport(
+    void* handle,
+    int mode)
+{
+    return DlmPcmAnalyzerSetPerformanceMode(handle, mode);
+}
+
+extern "C" __declspec(dllexport) int __cdecl DlmPcmAnalyzerCopyWaveformExport(
+    void* handle,
+    double* buffer,
+    int capacity,
+    int* actualCount)
+{
+    return DlmPcmAnalyzerCopyWaveform(handle, buffer, capacity, actualCount);
+}
+
+extern "C" __declspec(dllexport) int __cdecl DlmPcmAnalyzerCopyChannelWaveformExport(
+    void* handle,
+    int channel,
+    double* buffer,
+    int capacity,
+    int* actualCount)
+{
+    return DlmPcmAnalyzerCopyChannelWaveform(handle, channel, buffer, capacity, actualCount);
+}
+
+extern "C" __declspec(dllexport) int __cdecl DlmPcmAnalyzerCopySpectrumExport(
+    void* handle,
+    double* buffer,
+    int capacity,
+    int* actualCount)
+{
+    return DlmPcmAnalyzerCopySpectrum(handle, buffer, capacity, actualCount);
+}
+
+extern "C" __declspec(dllexport) int __cdecl DlmPcmAnalyzerCopyChannelSpectrumExport(
+    void* handle,
+    int channel,
+    double* buffer,
+    int capacity,
+    int* actualCount)
+{
+    return DlmPcmAnalyzerCopyChannelSpectrum(handle, channel, buffer, capacity, actualCount);
+}
+
+extern "C" __declspec(dllexport) int __cdecl DlmPcmAnalyzerCopyStereoImagePointsExport(
+    void* handle,
+    double* angleBuffer,
+    double* radiusBuffer,
+    int capacity,
+    int* actualCount)
+{
+    return DlmPcmAnalyzerCopyStereoImagePoints(handle, angleBuffer, radiusBuffer, capacity, actualCount);
 }
 
 extern "C" __declspec(dllexport) int __cdecl DlmRfRapidInit()

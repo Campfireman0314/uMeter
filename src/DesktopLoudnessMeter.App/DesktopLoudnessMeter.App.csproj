@@ -40,16 +40,6 @@
     <Resource Include="Assets\desktop-loudness-meter-tray.png" />
   </ItemGroup>
 
-  <ItemGroup Condition="Exists('..\DesktopLoudnessMeter.Native\x64\$(Configuration)\DesktopLoudnessMeter.Native.dll')">
-    <None Include="..\DesktopLoudnessMeter.Native\x64\$(Configuration)\DesktopLoudnessMeter.Native.dll"
-          Link="DesktopLoudnessMeter.Native.dll"
-          CopyToOutputDirectory="PreserveNewest" />
-  </ItemGroup>
-
-  <ItemGroup Condition="!Exists('..\DesktopLoudnessMeter.Native\x64\$(Configuration)\DesktopLoudnessMeter.Native.dll') And Exists('..\DesktopLoudnessMeter.Native\x64\Release\DesktopLoudnessMeter.Native.dll')">
-    <None Include="..\DesktopLoudnessMeter.Native\x64\Release\DesktopLoudnessMeter.Native.dll"
-          Link="DesktopLoudnessMeter.Native.dll"
-          CopyToOutputDirectory="PreserveNewest" />
-  </ItemGroup>
+  <Import Project="..\DesktopLoudnessMeter.Native\DesktopLoudnessMeter.Native.targets" />
 
 </Project>

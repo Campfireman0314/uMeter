@@ -1,0 +1,32 @@
+<Project>
+  <PropertyGroup>
+    <DesktopLoudnessMeterNativeDllName>DesktopLoudnessMeter.Native.dll</DesktopLoudnessMeterNativeDllName>
+    <DesktopLoudnessMeterNativePreferredPath>$(MSBuildThisFileDirectory)x64\$(Configuration)\$(DesktopLoudnessMeterNativeDllName)</DesktopLoudnessMeterNativePreferredPath>
+    <DesktopLoudnessMeterNativeFallbackPath>$(MSBuildThisFileDirectory)x64\Release\$(DesktopLoudnessMeterNativeDllName)</DesktopLoudnessMeterNativeFallbackPath>
+  </PropertyGroup>
+
+  <Target Name="CopyDesktopLoudnessMeterNativeBinary"
+          AfterTargets="Build"
+          Condition="Exists('$(DesktopLoudnessMeterNativePreferredPath)') Or Exists('$(DesktopLoudnessMeterNativeFallbackPath)')">
+    <PropertyGroup>
+      <DesktopLoudnessMeterNativeCopyDestinationDir>$(MSBuildProjectDirectory)\$(OutputPath)</DesktopLoudnessMeterNativeCopyDestinationDir>
+    </PropertyGroup>
+
+    <ItemGroup>
+      <_DesktopLoudnessMeterNativeBinary Include="$(DesktopLoudnessMeterNativePreferredPath)"
+                                         Condition="Exists('$(DesktopLoudnessMeterNativePreferredPath)')" />
+      <_DesktopLoudnessMeterNativeBinary Include="$(DesktopLoudnessMeterNativeFallbackPath)"
+                                         Condition="'@(_DesktopLoudnessMeterNativeBinary)' == '' and Exists('$(DesktopLoudnessMeterNativeFallbackPath)')" />
+    </ItemGroup>
+
+    <Message Importance="High"
+             Text="Copying %(_DesktopLoudnessMeterNativeBinary.Identity) to $(DesktopLoudnessMeterNativeCopyDestinationDir)" />
+
+    <Copy SourceFiles="@(_DesktopLoudnessMeterNativeBinary)"
+          DestinationFolder="$(DesktopLoudnessMeterNativeCopyDestinationDir)"
+          SkipUnchangedFiles="false"
+          OverwriteReadOnlyFiles="true"
+          Retries="15"
+          RetryDelayMilliseconds="1000" />
+  </Target>
+</Project>
