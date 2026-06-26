@@ -2,9 +2,9 @@
 
 ## Checkpoint
 
-`v2.3.2` - Rendering responsiveness, unified detail title editing, and loudness clock polish, pinned on 2026-06-27.
+`v2.3.3` - UI reliability, detail-layout presets, and loudness clock interaction polish, pinned on 2026-06-27.
 
-This checkpoint builds on the v2.3.0 source-continuity release. Waveform and spectrograph rendering are more viewport-bounded, detail title editing is unified with source rows, and detail views can show a warning-aware loudness clock with cycle controls, scan-line position, fan fill, cycle-origin bridging, and over-maximum danger coloring. The installer still ships the desktop app plus the `uMeter Sender.vst3` bundle and exposes both the app install folder and VST3 install folder.
+This checkpoint builds on the v2.3.2 rendering polish release. Theme changes now refresh slider/control colors immediately across windows and popups, the tray menu uses the native context-menu flow, detail panels can save/load portable JSON layout presets, global settings can load a validated default detail layout from file, and the loudness clock adds time markers plus hover readouts. The installer still ships the desktop app plus the `uMeter Sender.vst3` bundle and exposes both the app install folder and VST3 install folder.
 
 The remaining roadmap work after this checkpoint should focus on deeper metering trust fixtures, measured Mel-band aggregation experiments, richer sender diagnostics, or a deliberately scoped next product feature.
 
@@ -32,6 +32,7 @@ The remaining roadmap work after this checkpoint should focus on deeper metering
 - Global true-peak option shell with 2x, 4x, and 8x ratios.
 - Inline detail view with Back navigation.
 - Per-app pop-up detail windows with independent always-on-top state.
+- Inline and pop-up detail panels can save/load their visualization layout/settings as JSON presets.
 - Pop-up detail windows do not inherit the global window's `Always on top` behavior.
 - Independent stereo image scale settings per pop-up and inline detail view.
 - Stereo image auto-scale controls for range, lower limit, manual top, speed, trace persistence, and reset.
@@ -44,7 +45,7 @@ The remaining roadmap work after this checkpoint should focus on deeper metering
 - Global and per-detail reset actions.
 - Detail/app rows retain once-seen process audio handles until the source process exits and keep existing graph history during temporary handle loss.
 - Per-source analysis preferences survive reconnect while the app is running when the source key is stable.
-- Hide-to-tray main window behavior with tray restore, pop-up-app, and exit menu actions.
+- Hide-to-tray main window behavior with tray restore, pop-up-app, and exit menu actions through the native tray context-menu flow.
 - Custom app/tray icon assets.
 - Custom styling for buttons, combo boxes, checkboxes, scrollbars, and selectable app themes.
 - Persisted selected theme under %APPDATA%\uMeter\settings.json.
@@ -68,9 +69,9 @@ The remaining roadmap work after this checkpoint should focus on deeper metering
 - Collision analyzer single-value sliders support double-click numeric entry.
 - Global Recent Events strip shows a bounded, filterable view of source lifecycle, true-peak max, and loudness-jump events.
 - Recent Events can include conservative `Possible overlap` entries from enabled detail collision analysis.
-- Global settings expose maximum retained event entries and an event output folder selector.
+- Global settings expose maximum retained event entries, an event output folder selector, and optional default detail-layout preset loading with validation and built-in fallback.
 - Spectrograph display range can be adjusted from `-200 to 0 dB` with a themed two-thumb dB slider, defaulting to `-96 to -6 dB`.
-- Optional loudness clock display with configurable range, warning level, cycle duration, fan fill, scan-line position, and over-maximum danger coloring.
+- Optional loudness clock display with configurable range, warning level, cycle duration, fan fill, scan-line position, time scale markers, hover readout, and over-maximum danger coloring.
 - Spectrum bitmap rendering tolerates transient WPF read/write lock conflicts without terminating the app.
 - Waveform and spectrum controls share a deferred render-update scheduler so property churn coalesces into one queued UI render callback per control.
 - Waveform, spectrum, and collision controls share static plot-background cache invalidation logic.
@@ -120,12 +121,12 @@ Latest verified status:
 
 - App build: clean.
 - Native build: Release passed after adding the true-peak RfRapid exports.
-- Tests: 258 passing.
+- Tests: 269 passing.
 - Benchmark: RfRapid true-peak 8x processed the local 30 s stereo benchmark at about `4.44 Mframes/s` versus about `1.95 Mframes/s` for managed reconstruction, with matching peak output.
 - JUCE VST3 native CTest: Debug passed.
 - JUCE VST3 Release build: passed through installer packaging.
 - Format: not rerun for this checkpoint.
-- Installer build: not rerun for this checkpoint; packaging defaults now target `artifacts\uMeter-Setup-2.3.2.exe`.
+- Installer build: not rerun for this checkpoint; packaging defaults now target `artifacts\uMeter-Setup-2.3.3.exe`.
 - Installer SHA256: not generated for this checkpoint.
 - Installer payload: desktop app, native DSP DLL, and bundled `uMeter Sender.vst3` generated by the packaging script.
 
@@ -134,7 +135,7 @@ Latest verified status:
 - Default app install folder: `%LOCALAPPDATA%\Programs\uMeter`.
 - Default VST3 install folder: `C:\Program Files\VSTPlugins`.
 - Standard VST3 mirror folder: `C:\Program Files\Common Files\VST3`.
-- Default artifacts: `artifacts\uMeter.Setup.exe` and `artifacts\uMeter-Setup-2.3.2.exe`.
+- Default artifacts: `artifacts\uMeter.Setup.exe` and `artifacts\uMeter-Setup-2.3.3.exe`.
 - Quiet install supports `--install-dir`, `--vst-dir`, `--no-vst`, `--no-desktop-shortcut`, `--no-start-menu-shortcut`, and `--no-shortcuts`.
 - Installing the VST3 sender into Program Files may trigger UAC elevation.
 - Uninstall cleanup relaunches elevated when protected app or VST3 locations need administrator permission.
@@ -149,7 +150,7 @@ Suggested release commit:
 cd D:\GitRepo\desktop-loudness-meter
 git status --short
 git add .
-git commit -m "Release uMeter v2.3.2"
+git commit -m "Release uMeter v2.3.3"
 git push
 ```
 
@@ -159,6 +160,7 @@ Before committing, review generated folders and build outputs are still ignored 
 
 - `README.md` - project overview, run commands, roadmap.
 - `CHANGELOG.md` - version history.
+- docs/v2.3.3-release.md - v2.3.3 release notes.
 - docs/v2.3.2-release.md - v2.3.2 release notes.
 - docs/v2.3.0-release.md - v2.3.0 release notes.
 - docs/v2.2.8-release.md - v2.2.8 release notes.

@@ -1,4 +1,5 @@
 using System.ComponentModel;
+using System.IO;
 using System.Windows.Input;
 using DesktopLoudnessMeter.App.Settings;
 
@@ -57,6 +58,7 @@ public sealed class DetailWindowViewModel : ObservableObject, IDisposable
     private bool _isCollisionVisible;
     private bool _isDisposed;
     private bool _isApplyingWorkspacePreferences;
+    private string _detailLayoutStatusText = string.Empty;
 
     public DetailWindowViewModel(
         AudioSessionMeterViewModel session,
@@ -102,6 +104,12 @@ public sealed class DetailWindowViewModel : ObservableObject, IDisposable
     }
 
     public StereoImageDisplaySettings StereoSettings { get; }
+
+    public string DetailLayoutStatusText
+    {
+        get => _detailLayoutStatusText;
+        private set => SetProperty(ref _detailLayoutStatusText, value);
+    }
 
     public IReadOnlyList<TruePeakOversampling> TruePeakOversamplingOptions { get; } =
     [
@@ -465,6 +473,31 @@ public sealed class DetailWindowViewModel : ObservableObject, IDisposable
         RefreshFrequencyCollisions();
     }
 
+    public bool SaveDetailLayout(string? path)
+    {
+        if (DetailLayoutPresetStore.Save(path, CreateDetailLayoutPreset(), out var error))
+        {
+            DetailLayoutStatusText = $"Saved detail layout: {Path.GetFileName(path)}";
+            return true;
+        }
+
+        DetailLayoutStatusText = $"Layout save failed: {error}";
+        return false;
+    }
+
+    public bool LoadDetailLayout(string? path)
+    {
+        if (!DetailLayoutPresetStore.TryLoad(path, out var preset, out var error))
+        {
+            DetailLayoutStatusText = $"Layout load failed: {error}";
+            return false;
+        }
+
+        ApplyDetailLayoutPreset(preset, persist: true);
+        DetailLayoutStatusText = $"Loaded detail layout: {Path.GetFileName(path)}";
+        return true;
+    }
+
     public void Dispose()
     {
         if (_isDisposed)
@@ -488,6 +521,13 @@ public sealed class DetailWindowViewModel : ObservableObject, IDisposable
         if (args.PropertyName is nameof(AudioSessionMeterViewModel.IsChannelWaveformVisible)
             or nameof(AudioSessionMeterViewModel.IsChannelSpectrumVisible))
         {
+            NotifyRollLayoutChanged();
+        }
+
+        if (args.PropertyName is nameof(AudioSessionMeterViewModel.WaveformDisplayMode)
+            or nameof(AudioSessionMeterViewModel.SpectrumDisplayMode))
+        {
+            SaveWorkspacePreferences();
             NotifyRollLayoutChanged();
         }
 
@@ -616,27 +656,134 @@ public sealed class DetailWindowViewModel : ObservableObject, IDisposable
             CollisionFrequencyScale));
     }
 
-    private void ApplyWorkspacePreferences()
+    private DetailLayoutPreset CreateDetailLayoutPreset()
     {
-        var sourceSettings = _workspaceSettings.GetSource(Session.SourceKey);
+        return new DetailLayoutPreset
+        {
+            WaveformDisplayMode = Session.WaveformDisplayMode,
+            SpectrumDisplayMode = Session.SpectrumDisplayMode,
+            WaveformVisible = IsWaveformVisible,
+            SpectrumVisible = IsSpectrumVisible,
+            LoudnessClockVisible = IsLoudnessClockVisible,
+            CollisionVisible = IsCollisionVisible,
+            CollisionSourceKey = SelectedFrequencyCollisionSourceKey == AllCollisionSourcesOption.SourceKey
+                ? null
+                : SelectedFrequencyCollisionSourceKey,
+            CollisionLevelFloorDb = CollisionLevelFloorDb,
+            CollisionProminenceThresholdDb = CollisionProminenceThresholdDb,
+            CollisionRelativeThreshold = CollisionRelativeThreshold,
+            CollisionFrequencyScale = CollisionFrequencyScale,
+            SpectrumDisplayFloorDb = SpectrumDisplayFloorDb,
+            SpectrumDisplayCeilingDb = SpectrumDisplayCeilingDb,
+            LoudnessClockMinimumDb = LoudnessClockMinimumDb,
+            LoudnessClockMaximumDb = LoudnessClockMaximumDb,
+            LoudnessClockWarningDb = LoudnessClockWarningDb,
+            LoudnessClockCycleSeconds = LoudnessClockCycleSeconds,
+            Stereo = StereoWorkspaceSettings.FromSettings(StereoSettings)
+        };
+    }
+
+    private void ApplyDetailLayoutPreset(DetailLayoutPreset preset, bool persist)
+    {
+        preset.Normalize();
         _isApplyingWorkspacePreferences = true;
         try
         {
-            IsWaveformVisible = sourceSettings?.PopupWaveformVisible ?? false;
-            IsSpectrumVisible = sourceSettings?.PopupSpectrumVisible ?? false;
-            IsLoudnessClockVisible = sourceSettings?.PopupLoudnessClockVisible ?? false;
-            IsCollisionVisible = sourceSettings?.PopupCollisionVisible ?? false;
-            CollisionLevelFloorDb = GetCollisionLevelFloorDb(sourceSettings) ?? DefaultCollisionLevelFloorDb;
-            CollisionProminenceThresholdDb = sourceSettings?.CollisionProminenceThresholdDb ?? DefaultCollisionProminenceThresholdDb;
-            CollisionRelativeThreshold = sourceSettings?.CollisionRelativeThreshold ?? DefaultCollisionRelativeThreshold;
-            CollisionFrequencyScale = sourceSettings?.CollisionFrequencyScale ?? CollisionFrequencyScale.Logarithmic;
-            SpectrumDisplayFloorDb = sourceSettings?.SpectrumDisplayFloorDb ?? SpectrumDisplayDefaultFloorDb;
-            SpectrumDisplayCeilingDb = sourceSettings?.SpectrumDisplayCeilingDb ?? SpectrumDisplayDefaultCeilingDb;
-            LoudnessClockMinimumDb = sourceSettings?.LoudnessClockMinimumDb ?? LoudnessClockDefaultMinimumDb;
-            LoudnessClockMaximumDb = sourceSettings?.LoudnessClockMaximumDb ?? LoudnessClockDefaultMaximumDb;
-            LoudnessClockWarningDb = sourceSettings?.LoudnessClockWarningDb ?? LoudnessClockDefaultWarningDb;
-            LoudnessClockCycleSeconds = sourceSettings?.LoudnessClockCycleSeconds ?? LoudnessClockDefaultCycleSeconds;
-            if (sourceSettings?.PopupStereo is not null)
+            Session.WaveformDisplayMode = preset.WaveformDisplayMode;
+            Session.SpectrumDisplayMode = preset.SpectrumDisplayMode;
+            IsWaveformVisible = preset.WaveformVisible;
+            IsSpectrumVisible = preset.SpectrumVisible;
+            IsLoudnessClockVisible = preset.LoudnessClockVisible;
+            IsCollisionVisible = preset.CollisionVisible;
+            CollisionLevelFloorDb = preset.CollisionLevelFloorDb;
+            CollisionProminenceThresholdDb = preset.CollisionProminenceThresholdDb;
+            CollisionRelativeThreshold = preset.CollisionRelativeThreshold;
+            CollisionFrequencyScale = preset.CollisionFrequencyScale;
+            SpectrumDisplayFloorDb = preset.SpectrumDisplayFloorDb;
+            SpectrumDisplayCeilingDb = preset.SpectrumDisplayCeilingDb;
+            LoudnessClockMinimumDb = preset.LoudnessClockMinimumDb;
+            LoudnessClockMaximumDb = preset.LoudnessClockMaximumDb;
+            LoudnessClockWarningDb = preset.LoudnessClockWarningDb;
+            LoudnessClockCycleSeconds = preset.LoudnessClockCycleSeconds;
+            preset.CloneStereo().ApplyTo(StereoSettings);
+            SelectedFrequencyCollisionSource = FindFrequencyCollisionSourceOption(
+                preset.CollisionSourceKey ?? AllCollisionSourcesOption.SourceKey);
+        }
+        finally
+        {
+            _isApplyingWorkspacePreferences = false;
+        }
+
+        if (persist)
+        {
+            SaveWorkspacePreferences();
+        }
+
+        RefreshFrequencyCollisionOptions();
+        RefreshFrequencyCollisions();
+        NotifyRollVisibilityChanged();
+        NotifyRollLayoutChanged();
+    }
+
+    private static bool HasPopupDetailLayout(SourceWorkspaceSettings? sourceSettings)
+    {
+        return sourceSettings is not null
+            && (sourceSettings.WaveformDisplayMode is not null
+                || sourceSettings.SpectrumDisplayMode is not null
+                || sourceSettings.PopupWaveformVisible is not null
+                || sourceSettings.PopupSpectrumVisible is not null
+                || sourceSettings.PopupLoudnessClockVisible is not null
+                || sourceSettings.PopupCollisionVisible is not null
+                || sourceSettings.PopupCollisionSourceKey is not null
+                || sourceSettings.CollisionLevelFloorDb is not null
+                || sourceSettings.CollisionAbsoluteThresholdDb is not null
+                || sourceSettings.CollisionProminenceThresholdDb is not null
+                || sourceSettings.CollisionRelativeThreshold is not null
+                || sourceSettings.CollisionFrequencyScale is not null
+                || sourceSettings.SpectrumDisplayFloorDb is not null
+                || sourceSettings.SpectrumDisplayCeilingDb is not null
+                || sourceSettings.LoudnessClockMinimumDb is not null
+                || sourceSettings.LoudnessClockMaximumDb is not null
+                || sourceSettings.LoudnessClockWarningDb is not null
+                || sourceSettings.LoudnessClockCycleSeconds is not null
+                || sourceSettings.PopupStereo is not null);
+    }
+
+    private void ApplyWorkspacePreferences()
+    {
+        var sourceSettings = _workspaceSettings.GetSource(Session.SourceKey);
+        var defaultLayout = !HasPopupDetailLayout(sourceSettings)
+            && DetailLayoutPresetStore.TryLoadDefault(_workspaceSettings, out var loadedDefaultLayout, out _)
+                ? loadedDefaultLayout
+                : null;
+        _isApplyingWorkspacePreferences = true;
+        try
+        {
+            Session.WaveformDisplayMode = defaultLayout?.WaveformDisplayMode
+                ?? sourceSettings?.WaveformDisplayMode
+                ?? Session.WaveformDisplayMode;
+            Session.SpectrumDisplayMode = defaultLayout?.SpectrumDisplayMode
+                ?? sourceSettings?.SpectrumDisplayMode
+                ?? Session.SpectrumDisplayMode;
+            IsWaveformVisible = defaultLayout?.WaveformVisible ?? sourceSettings?.PopupWaveformVisible ?? false;
+            IsSpectrumVisible = defaultLayout?.SpectrumVisible ?? sourceSettings?.PopupSpectrumVisible ?? false;
+            IsLoudnessClockVisible = defaultLayout?.LoudnessClockVisible ?? sourceSettings?.PopupLoudnessClockVisible ?? false;
+            IsCollisionVisible = defaultLayout?.CollisionVisible ?? sourceSettings?.PopupCollisionVisible ?? false;
+            CollisionLevelFloorDb = defaultLayout?.CollisionLevelFloorDb ?? GetCollisionLevelFloorDb(sourceSettings) ?? DefaultCollisionLevelFloorDb;
+            CollisionProminenceThresholdDb = defaultLayout?.CollisionProminenceThresholdDb ?? sourceSettings?.CollisionProminenceThresholdDb ?? DefaultCollisionProminenceThresholdDb;
+            CollisionRelativeThreshold = defaultLayout?.CollisionRelativeThreshold ?? sourceSettings?.CollisionRelativeThreshold ?? DefaultCollisionRelativeThreshold;
+            CollisionFrequencyScale = defaultLayout?.CollisionFrequencyScale ?? sourceSettings?.CollisionFrequencyScale ?? CollisionFrequencyScale.Logarithmic;
+            SpectrumDisplayFloorDb = defaultLayout?.SpectrumDisplayFloorDb ?? sourceSettings?.SpectrumDisplayFloorDb ?? SpectrumDisplayDefaultFloorDb;
+            SpectrumDisplayCeilingDb = defaultLayout?.SpectrumDisplayCeilingDb ?? sourceSettings?.SpectrumDisplayCeilingDb ?? SpectrumDisplayDefaultCeilingDb;
+            LoudnessClockMinimumDb = defaultLayout?.LoudnessClockMinimumDb ?? sourceSettings?.LoudnessClockMinimumDb ?? LoudnessClockDefaultMinimumDb;
+            LoudnessClockMaximumDb = defaultLayout?.LoudnessClockMaximumDb ?? sourceSettings?.LoudnessClockMaximumDb ?? LoudnessClockDefaultMaximumDb;
+            LoudnessClockWarningDb = defaultLayout?.LoudnessClockWarningDb ?? sourceSettings?.LoudnessClockWarningDb ?? LoudnessClockDefaultWarningDb;
+            LoudnessClockCycleSeconds = defaultLayout?.LoudnessClockCycleSeconds ?? sourceSettings?.LoudnessClockCycleSeconds ?? LoudnessClockDefaultCycleSeconds;
+            if (defaultLayout is not null)
+            {
+                defaultLayout.CloneStereo().ApplyTo(StereoSettings);
+            }
+            else if (sourceSettings?.PopupStereo is not null)
             {
                 sourceSettings.PopupStereo.ApplyTo(StereoSettings);
             }
@@ -645,7 +792,10 @@ public sealed class DetailWindowViewModel : ObservableObject, IDisposable
                 StereoSettings.Reset();
             }
 
-            SelectedFrequencyCollisionSourceKey = sourceSettings?.PopupCollisionSourceKey ?? AllCollisionSourcesOption.SourceKey;
+            SelectedFrequencyCollisionSource = FindFrequencyCollisionSourceOption(
+                defaultLayout?.CollisionSourceKey
+                ?? sourceSettings?.PopupCollisionSourceKey
+                ?? AllCollisionSourcesOption.SourceKey);
         }
         finally
         {
@@ -673,6 +823,8 @@ public sealed class DetailWindowViewModel : ObservableObject, IDisposable
         }
 
         var sourceSettings = _workspaceSettings.GetOrCreateSource(Session.SourceKey);
+        sourceSettings.WaveformDisplayMode = Session.WaveformDisplayMode;
+        sourceSettings.SpectrumDisplayMode = Session.SpectrumDisplayMode;
         sourceSettings.PopupWaveformVisible = IsWaveformVisible;
         sourceSettings.PopupSpectrumVisible = IsSpectrumVisible;
         sourceSettings.PopupLoudnessClockVisible = IsLoudnessClockVisible;

@@ -1,6 +1,7 @@
 using System.Globalization;
 using System.Diagnostics;
 using System.Windows;
+using System.Windows.Input;
 using System.Windows.Media;
 
 namespace DesktopLoudnessMeter.App.Controls;
@@ -12,6 +13,7 @@ public sealed class LoudnessClockView : FrameworkElement
     private const double DefaultCycleDurationSeconds = 30;
     private readonly List<LoudnessClockSample> _samples = [];
     private long? _startTimestamp;
+    private Point? _hoverPosition;
 
     public static readonly DependencyProperty CurrentLoudnessDbProperty = DependencyProperty.Register(
         nameof(CurrentLoudnessDb),
@@ -87,6 +89,7 @@ public sealed class LoudnessClockView : FrameworkElement
 
     public LoudnessClockView()
     {
+        Cursor = Cursors.Cross;
         SnapsToDevicePixels = true;
     }
 
@@ -108,12 +111,28 @@ public sealed class LoudnessClockView : FrameworkElement
             return;
         }
 
+        drawingContext.DrawRectangle(Brushes.Transparent, null, new Rect(0, 0, ActualWidth, ActualHeight));
         var center = new Point(ActualWidth / 2, ActualHeight / 2);
         var outerRadius = Math.Max(1, (side / 2) - 6);
         var innerRadius = outerRadius * InnerRadiusRatio;
         DrawGrid(drawingContext, center, innerRadius, outerRadius);
         DrawFan(drawingContext, center, innerRadius, outerRadius);
         DrawScanLine(drawingContext, center, innerRadius, outerRadius);
+        DrawHoverReadout(drawingContext, center, innerRadius, outerRadius);
+    }
+
+    protected override void OnMouseMove(MouseEventArgs e)
+    {
+        base.OnMouseMove(e);
+        _hoverPosition = e.GetPosition(this);
+        InvalidateVisual();
+    }
+
+    protected override void OnMouseLeave(MouseEventArgs e)
+    {
+        base.OnMouseLeave(e);
+        _hoverPosition = null;
+        InvalidateVisual();
     }
 
     private static void PlotTickChanged(DependencyObject dependencyObject, DependencyPropertyChangedEventArgs args)
@@ -185,6 +204,28 @@ public sealed class LoudnessClockView : FrameworkElement
         {
             var warningRadius = RadiusForLoudness(WarningLoudnessDb, innerRadius, outerRadius);
             drawingContext.DrawEllipse(null, warningPen, center, warningRadius, warningRadius);
+        }
+
+        DrawTimeScale(drawingContext, center, outerRadius, textBrush);
+    }
+
+    private void DrawTimeScale(DrawingContext drawingContext, Point center, double outerRadius, Brush textBrush)
+    {
+        var tickPen = ThemedDrawing.GetPen(this, PlotColorRole.Subtle, 96, 1);
+        var cycleDurationSeconds = EffectiveCycleDurationSeconds();
+        foreach (var marker in LoudnessClockTimeScalePlanner.Build(cycleDurationSeconds))
+        {
+            var angle = AngleForElapsed(marker.ElapsedSeconds, cycleDurationSeconds);
+            drawingContext.DrawLine(
+                tickPen,
+                ToInnerPoint(center, angle, outerRadius - 10),
+                ToInnerPoint(center, angle, outerRadius));
+
+            var label = Label(marker.Label, textBrush, 9);
+            var labelCenter = ToInnerPoint(center, angle, outerRadius - 24);
+            drawingContext.DrawText(
+                label,
+                new Point(labelCenter.X - (label.Width / 2), labelCenter.Y - (label.Height / 2)));
         }
     }
 
@@ -322,6 +363,52 @@ public sealed class LoudnessClockView : FrameworkElement
             currentPosition,
             current.IsOverMaximum ? 5.2 : 3.8,
             current.IsOverMaximum ? 5.2 : 3.8);
+    }
+
+    private void DrawHoverReadout(DrawingContext drawingContext, Point center, double innerRadius, double outerRadius)
+    {
+        if (_hoverPosition is not { } hoverPosition
+            || LoudnessClockHoverMapper.Map(
+                hoverPosition,
+                center,
+                innerRadius,
+                outerRadius,
+                MinimumLoudnessDb,
+                MaximumLoudnessDb,
+                EffectiveCycleDurationSeconds()) is not { } readout)
+        {
+            return;
+        }
+
+        var text = $"{FormatReadoutTime(readout.ElapsedSeconds)}  {readout.LoudnessDb:0} LUFS";
+        var formatted = Label(text, ThemedDrawing.GetBrush(this, PlotColorRole.Text), 11);
+        var padding = new Thickness(8, 4, 8, 5);
+        var width = formatted.Width + padding.Left + padding.Right;
+        var height = formatted.Height + padding.Top + padding.Bottom;
+        var left = hoverPosition.X + 12;
+        if (left + width > ActualWidth - 4)
+        {
+            left = hoverPosition.X - width - 12;
+        }
+
+        left = Math.Clamp(left, 4, Math.Max(4, ActualWidth - width - 4));
+        var top = Math.Clamp(hoverPosition.Y - (height / 2), 4, Math.Max(4, ActualHeight - height - 4));
+        var rect = new Rect(left, top, width, height);
+        drawingContext.DrawRoundedRectangle(
+            ThemedDrawing.GetBrush(this, PlotColorRole.ControlPressed, 238),
+            ThemedDrawing.GetPen(this, PlotColorRole.Signal, 144, 1),
+            rect,
+            7,
+            7);
+        drawingContext.DrawText(formatted, new Point(rect.Left + padding.Left, rect.Top + padding.Top));
+
+        var hoverPoint = ToInnerPoint(center, readout.AngleRadians, readout.Radius);
+        drawingContext.DrawEllipse(
+            ThemedDrawing.GetBrush(this, PlotColorRole.Signal, 92),
+            ThemedDrawing.GetPen(this, PlotColorRole.Signal, 210, 1),
+            hoverPoint,
+            4,
+            4);
     }
 
     private void TrimSamples(double elapsedSeconds, double cycleDurationSeconds)
@@ -477,14 +564,30 @@ public sealed class LoudnessClockView : FrameworkElement
 
     private FormattedText Label(string text, Brush brush)
     {
+        return Label(text, brush, 10);
+    }
+
+    private FormattedText Label(string text, Brush brush, double fontSize)
+    {
         return new FormattedText(
             text,
             CultureInfo.InvariantCulture,
             FlowDirection.LeftToRight,
             new Typeface("Segoe UI"),
-            10,
+            fontSize,
             brush,
             VisualTreeHelper.GetDpi(this).PixelsPerDip);
+    }
+
+    private static string FormatReadoutTime(double seconds)
+    {
+        var rounded = (int)Math.Round(seconds, 0, MidpointRounding.AwayFromZero);
+        if (rounded < 60)
+        {
+            return $"{rounded}s";
+        }
+
+        return $"{rounded / 60}:{rounded % 60:00}";
     }
 
     private static Point ToPoint(Point center, LoudnessClockPoint point)

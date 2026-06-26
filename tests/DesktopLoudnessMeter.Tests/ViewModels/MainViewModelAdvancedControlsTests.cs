@@ -3,6 +3,7 @@ using DesktopLoudnessMeter.App.Audio.Analysis;
 using DesktopLoudnessMeter.App.Settings;
 using DesktopLoudnessMeter.App.Themes;
 using DesktopLoudnessMeter.App.ViewModels;
+using System.IO;
 using System.Windows.Media;
 
 namespace DesktopLoudnessMeter.Tests.ViewModels;
@@ -577,6 +578,108 @@ public sealed class MainViewModelAdvancedControlsTests
     }
 
     [Fact]
+    public void InlineDetailLayoutCanSaveAndLoadPresetFile()
+    {
+        var path = TemporaryJsonPath();
+        try
+        {
+            var service = new StaticSignalSourceMeterService(
+                [Source("plugin:lead", "Lead", SignalSourceKind.Plugin, spectrumBuckets: [0.4])]);
+            var viewModel = new MainViewModel(service, startTimer: false);
+
+            viewModel.RefreshNow();
+            var row = Assert.Single(viewModel.Sessions);
+            row.OpenDetailCommand.Execute(null);
+            row.WaveformDisplayMode = WaveformDisplayMode.Channels;
+            row.SpectrumDisplayMode = SpectrumDisplayMode.Channels;
+            viewModel.IsInlineWaveformVisible = true;
+            viewModel.IsInlineSpectrumVisible = true;
+            viewModel.IsInlineLoudnessClockVisible = true;
+            viewModel.LoudnessClockMinimumDb = -48;
+            viewModel.LoudnessClockMaximumDb = -6;
+            viewModel.LoudnessClockWarningDb = -12;
+            viewModel.LoudnessClockCycleSeconds = 60;
+
+            Assert.True(viewModel.SaveInlineDetailLayout(path));
+
+            row.WaveformDisplayMode = WaveformDisplayMode.Overall;
+            row.SpectrumDisplayMode = SpectrumDisplayMode.Overall;
+            viewModel.IsInlineWaveformVisible = false;
+            viewModel.IsInlineSpectrumVisible = false;
+            viewModel.IsInlineLoudnessClockVisible = false;
+            viewModel.LoudnessClockMinimumDb = -32;
+            viewModel.LoudnessClockMaximumDb = -4;
+
+            Assert.True(viewModel.LoadInlineDetailLayout(path));
+
+            Assert.Equal(WaveformDisplayMode.Channels, row.WaveformDisplayMode);
+            Assert.Equal(SpectrumDisplayMode.Channels, row.SpectrumDisplayMode);
+            Assert.True(viewModel.IsInlineWaveformVisible);
+            Assert.True(viewModel.IsInlineSpectrumVisible);
+            Assert.True(viewModel.IsInlineLoudnessClockVisible);
+            Assert.Equal(-48, viewModel.LoudnessClockMinimumDb);
+            Assert.Equal(-6, viewModel.LoudnessClockMaximumDb);
+            Assert.Equal(60, viewModel.LoudnessClockCycleSeconds);
+        }
+        finally
+        {
+            File.Delete(path);
+        }
+    }
+
+    [Fact]
+    public void DefaultDetailLayoutFileAppliesToNewInlineDetailPreferences()
+    {
+        var path = TemporaryJsonPath();
+        try
+        {
+            Assert.True(DetailLayoutPresetStore.Save(
+                path,
+                new DetailLayoutPreset
+                {
+                    WaveformDisplayMode = WaveformDisplayMode.Channels,
+                    SpectrumDisplayMode = SpectrumDisplayMode.Channels,
+                    WaveformVisible = true,
+                    SpectrumVisible = true,
+                    LoudnessClockVisible = true,
+                    LoudnessClockMinimumDb = -50,
+                    LoudnessClockMaximumDb = -5,
+                    LoudnessClockWarningDb = -10,
+                    LoudnessClockCycleSeconds = 120
+                },
+                out var error),
+                error);
+            var workspace = new UserWorkspaceSettings
+            {
+                LoadDefaultDetailLayoutFromFile = true,
+                DefaultDetailLayoutFile = path
+            };
+            var service = new StaticSignalSourceMeterService(
+                [Source("plugin:lead", "Lead", SignalSourceKind.Plugin, spectrumBuckets: [0.4])]);
+            var viewModel = new MainViewModel(service, startTimer: false, workspaceSettings: workspace);
+
+            viewModel.RefreshNow();
+            var row = Assert.Single(viewModel.Sessions);
+            row.OpenDetailCommand.Execute(null);
+
+            Assert.Equal(WaveformDisplayMode.Channels, row.WaveformDisplayMode);
+            Assert.Equal(SpectrumDisplayMode.Channels, row.SpectrumDisplayMode);
+            Assert.True(viewModel.IsInlineWaveformVisible);
+            Assert.True(viewModel.IsInlineSpectrumVisible);
+            Assert.True(viewModel.IsInlineLoudnessClockVisible);
+            Assert.Equal(-50, viewModel.LoudnessClockMinimumDb);
+            Assert.Equal(-5, viewModel.LoudnessClockMaximumDb);
+            Assert.Equal(-10, viewModel.LoudnessClockWarningDb);
+            Assert.Equal(120, viewModel.LoudnessClockCycleSeconds);
+            Assert.Equal("Default detail layout file is valid.", viewModel.DefaultDetailLayoutStatusText);
+        }
+        finally
+        {
+            File.Delete(path);
+        }
+    }
+
+    [Fact]
     public void ForgetSelectedSourceClearsSavedWorkspaceAndResetsVisiblePreferences()
     {
         var workspace = new UserWorkspaceSettings();
@@ -1052,6 +1155,11 @@ public sealed class MainViewModelAdvancedControlsTests
     private static MainViewModel CreateViewModel(params AudioSessionSnapshot[] snapshots)
     {
         return new MainViewModel(new StaticAudioSessionMeterService(snapshots), startTimer: false);
+    }
+
+    private static string TemporaryJsonPath()
+    {
+        return Path.Combine(Path.GetTempPath(), $"umeter-detail-layout-{Guid.NewGuid():N}.json");
     }
 
     private static double ColorDistance(Color first, Color second)

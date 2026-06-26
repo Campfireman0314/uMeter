@@ -1,6 +1,7 @@
 using DesktopLoudnessMeter.App.Audio;
 using DesktopLoudnessMeter.App.Settings;
 using DesktopLoudnessMeter.App.ViewModels;
+using System.IO;
 
 namespace DesktopLoudnessMeter.Tests.ViewModels;
 
@@ -195,6 +196,82 @@ public sealed class DetailWindowViewModelTests
     }
 
     [Fact]
+    public void PopupDetailLayoutCanSaveAndLoadPresetFile()
+    {
+        var path = TemporaryJsonPath();
+        try
+        {
+            var session = new AudioSessionMeterViewModel(Snapshot("plugin:first", "First", spectrumBuckets: [0.0, 0.4]));
+            var viewModel = new DetailWindowViewModel(session);
+
+            session.WaveformDisplayMode = WaveformDisplayMode.Channels;
+            session.SpectrumDisplayMode = SpectrumDisplayMode.Channels;
+            viewModel.IsWaveformVisible = true;
+            viewModel.IsSpectrumVisible = true;
+            viewModel.IsLoudnessClockVisible = true;
+            viewModel.LoudnessClockMinimumDb = -44;
+            viewModel.LoudnessClockMaximumDb = -6;
+            viewModel.LoudnessClockWarningDb = -12;
+            viewModel.LoudnessClockCycleSeconds = 90;
+
+            Assert.True(viewModel.SaveDetailLayout(path));
+
+            session.WaveformDisplayMode = WaveformDisplayMode.Overall;
+            session.SpectrumDisplayMode = SpectrumDisplayMode.Overall;
+            viewModel.IsWaveformVisible = false;
+            viewModel.IsSpectrumVisible = false;
+            viewModel.IsLoudnessClockVisible = false;
+            viewModel.LoudnessClockMinimumDb = -32;
+            viewModel.LoudnessClockMaximumDb = -4;
+
+            Assert.True(viewModel.LoadDetailLayout(path));
+
+            Assert.Equal(WaveformDisplayMode.Channels, session.WaveformDisplayMode);
+            Assert.Equal(SpectrumDisplayMode.Channels, session.SpectrumDisplayMode);
+            Assert.True(viewModel.IsWaveformVisible);
+            Assert.True(viewModel.IsSpectrumVisible);
+            Assert.True(viewModel.IsLoudnessClockVisible);
+            Assert.Equal(-44, viewModel.LoudnessClockMinimumDb);
+            Assert.Equal(-6, viewModel.LoudnessClockMaximumDb);
+            Assert.Equal(90, viewModel.LoudnessClockCycleSeconds);
+        }
+        finally
+        {
+            File.Delete(path);
+        }
+    }
+
+    [Fact]
+    public void InvalidDefaultDetailLayoutFallsBackToBuiltInPopupLayout()
+    {
+        var path = TemporaryJsonPath();
+        try
+        {
+            File.WriteAllText(path, """{"Kind":"bad","SchemaVersion":1}""");
+            var workspace = new UserWorkspaceSettings
+            {
+                LoadDefaultDetailLayoutFromFile = true,
+                DefaultDetailLayoutFile = path
+            };
+            var session = new AudioSessionMeterViewModel(Snapshot("plugin:first", "First"));
+
+            var viewModel = new DetailWindowViewModel(session, workspaceSettings: workspace);
+
+            Assert.Equal(WaveformDisplayMode.Overall, session.WaveformDisplayMode);
+            Assert.Equal(SpectrumDisplayMode.Overall, session.SpectrumDisplayMode);
+            Assert.False(viewModel.IsWaveformVisible);
+            Assert.False(viewModel.IsSpectrumVisible);
+            Assert.False(viewModel.IsLoudnessClockVisible);
+            Assert.Equal(-32, viewModel.LoudnessClockMinimumDb);
+            Assert.Equal(-4, viewModel.LoudnessClockMaximumDb);
+        }
+        finally
+        {
+            File.Delete(path);
+        }
+    }
+
+    [Fact]
     public void DetailWindowLoudnessClockRangePreservesMinimumSpan()
     {
         var viewModel = new DetailWindowViewModel(new AudioSessionMeterViewModel(Snapshot()));
@@ -353,6 +430,11 @@ public sealed class DetailWindowViewModelTests
         Assert.Equal(StereoImageDisplaySettings.DefaultAutoScaleFloorDb, settings.AutoScaleFloorDb);
         Assert.Equal(StereoImageDisplaySettings.DefaultAutoScaleSpeedDbPerSecond, settings.AutoScaleSpeedDbPerSecond);
         Assert.Equal(StereoImageDisplaySettings.DefaultTracePersistenceSeconds, settings.TracePersistenceSeconds);
+    }
+
+    private static string TemporaryJsonPath()
+    {
+        return Path.Combine(Path.GetTempPath(), $"umeter-detail-layout-{Guid.NewGuid():N}.json");
     }
 
     private static AudioSessionSnapshot Snapshot(double? momentaryLufs = null)

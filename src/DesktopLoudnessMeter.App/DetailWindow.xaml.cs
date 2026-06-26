@@ -2,6 +2,7 @@ using System.Windows;
 using System.Windows.Controls;
 using System.Windows.Input;
 using DesktopLoudnessMeter.App.ViewModels;
+using Microsoft.Win32;
 
 namespace DesktopLoudnessMeter.App;
 
@@ -47,6 +48,48 @@ public partial class DetailWindow : Window
     private void DetailRollSettingsButton_OnClick(object sender, RoutedEventArgs e)
     {
         DetailRollSettingsPopup.IsOpen = !DetailRollSettingsPopup.IsOpen;
+    }
+
+    private void SaveDetailLayoutButton_OnClick(object sender, RoutedEventArgs e)
+    {
+        if (DataContext is not DetailWindowViewModel viewModel)
+        {
+            return;
+        }
+
+        var dialog = new SaveFileDialog
+        {
+            Title = "Save detail layout",
+            DefaultExt = ".json",
+            AddExtension = true,
+            FileName = "umeter-detail-layout.json",
+            Filter = "uMeter detail layout (*.json)|*.json|JSON files (*.json)|*.json|All files (*.*)|*.*"
+        };
+
+        if (dialog.ShowDialog(this) == true && !viewModel.SaveDetailLayout(dialog.FileName))
+        {
+            MessageBox.Show(this, viewModel.DetailLayoutStatusText, "uMeter", MessageBoxButton.OK, MessageBoxImage.Warning);
+        }
+    }
+
+    private void LoadDetailLayoutButton_OnClick(object sender, RoutedEventArgs e)
+    {
+        if (DataContext is not DetailWindowViewModel viewModel)
+        {
+            return;
+        }
+
+        var dialog = new OpenFileDialog
+        {
+            Title = "Load detail layout",
+            DefaultExt = ".json",
+            Filter = "uMeter detail layout (*.json)|*.json|JSON files (*.json)|*.json|All files (*.*)|*.*"
+        };
+
+        if (dialog.ShowDialog(this) == true && !viewModel.LoadDetailLayout(dialog.FileName))
+        {
+            MessageBox.Show(this, viewModel.DetailLayoutStatusText, "uMeter", MessageBoxButton.OK, MessageBoxImage.Warning);
+        }
     }
 
     private void DetailCollisionSettingsButton_OnClick(object sender, RoutedEventArgs e)

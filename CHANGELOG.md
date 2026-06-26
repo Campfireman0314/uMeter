@@ -4,6 +4,29 @@
 
 - Nothing yet.
 
+## v2.3.3 - 2026-06-27
+
+UI reliability, detail-layout preset, and loudness-clock interaction patch.
+
+### Added
+
+- Added JSON detail-layout presets with save/load icons for inline and pop-up detail panels.
+- Added a global setting that can load the default detail layout from a preset file, with validation and built-in fallback when the file is invalid.
+- Added loudness-clock time scale markers and a hover readout blob for time/value inspection.
+
+### Changed
+
+- Moved detail-layout preset save/load icons into the top detail header beside the detail controls.
+- Tray right-click handling now uses the native `NotifyIcon.ContextMenuStrip` open flow and rebuilds the menu on open.
+- Theme changes now refresh resource-backed controls across open windows and popups so slider colors update immediately.
+- App, setup, protocol, sender kit, sender probe, VST3 sender project, and AAX sender project metadata now report version `2.3.3`.
+- Default versioned installer artifact is now `uMeter-Setup-2.3.3.exe`.
+
+### Verified
+
+- `dotnet test .\desktop-loudness-meter.sln --no-restore` with 269 passing tests.
+- `dotnet build .\desktop-loudness-meter.sln --no-restore`.
+
 ## v2.3.2 - 2026-06-27
 
 Rendering and loudness-clock polish patch.

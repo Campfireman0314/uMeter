@@ -33,6 +33,10 @@ public sealed class UserWorkspaceSettings
 
     public string? EventOutputFolder { get; set; }
 
+    public bool LoadDefaultDetailLayoutFromFile { get; set; }
+
+    public string? DefaultDetailLayoutFile { get; set; }
+
     public Dictionary<string, SourceWorkspaceSettings> Sources { get; set; } = new(StringComparer.Ordinal);
 
     public static UserWorkspaceSettings Load()
@@ -109,6 +113,9 @@ public sealed class UserWorkspaceSettings
         settings.EventOutputFolder = string.IsNullOrWhiteSpace(settings.EventOutputFolder)
             ? null
             : settings.EventOutputFolder.Trim();
+        settings.DefaultDetailLayoutFile = string.IsNullOrWhiteSpace(settings.DefaultDetailLayoutFile)
+            ? null
+            : settings.DefaultDetailLayoutFile.Trim();
         settings.Sources = settings.Sources
             .Where(pair => !string.IsNullOrWhiteSpace(pair.Key))
             .ToDictionary(

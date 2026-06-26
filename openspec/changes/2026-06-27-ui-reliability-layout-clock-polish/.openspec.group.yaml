@@ -1,0 +1,6 @@
+kind: group
+created: 2026-06-27
+execution_mode: mixed
+suggested_focus: 01-ui-reliability-fixes
+active_subchange: 01-ui-reliability-fixes
+recommended_order: 01-ui-reliability-fixes,02-detail-layout-presets,03-loudness-clock-interaction

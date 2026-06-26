@@ -1,3 +1,4 @@
+using System.ComponentModel;
 using System.Windows;
 using DesktopLoudnessMeter.App.Audio;
 using DesktopLoudnessMeter.App.Diagnostics;
@@ -197,6 +198,7 @@ public partial class App : Application
     private void InitializeTrayIcon()
     {
         _trayMenu = new Forms.ContextMenuStrip();
+        _trayMenu.Opening += TrayMenu_OnOpening;
         RebuildTrayMenu();
 
         _trayIconImage = LoadTrayIcon();
@@ -204,32 +206,22 @@ public partial class App : Application
         {
             Icon = _trayIconImage,
             Text = "uMeter",
+            ContextMenuStrip = _trayMenu,
             Visible = true
         };
-        _trayIcon.MouseUp += TrayIcon_OnMouseUp;
         _trayIcon.DoubleClick += (_, _) => ShowMainWindow();
     }
 
-    private void TrayIcon_OnMouseUp(object? sender, Forms.MouseEventArgs e)
+    private void TrayMenu_OnOpening(object? sender, CancelEventArgs e)
     {
-        if (e.Button == Forms.MouseButtons.Right)
+        if (Dispatcher.CheckAccess())
         {
-            ShowTrayMenu();
-        }
-    }
-
-    private void ShowTrayMenu()
-    {
-        Dispatcher.Invoke(() =>
-        {
-            if (_trayMenu is null)
-            {
-                return;
-            }
-
             RebuildTrayMenu();
-            _trayMenu.Show(Forms.Cursor.Position);
-        });
+        }
+        else
+        {
+            Dispatcher.Invoke(RebuildTrayMenu);
+        }
     }
 
     private void RebuildTrayMenu()
@@ -327,12 +319,17 @@ public partial class App : Application
         if (_trayIcon is not null)
         {
             _trayIcon.Visible = false;
+            _trayIcon.ContextMenuStrip = null;
             _trayIcon.Dispose();
             _trayIcon = null;
         }
 
-        _trayMenu?.Dispose();
-        _trayMenu = null;
+        if (_trayMenu is not null)
+        {
+            _trayMenu.Opening -= TrayMenu_OnOpening;
+            _trayMenu.Dispose();
+            _trayMenu = null;
+        }
         _trayExitCoordinator = null;
         _trayIconImage?.Dispose();
         _trayIconImage = null;
