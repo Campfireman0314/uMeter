@@ -62,6 +62,42 @@ public sealed class LocalLoopbackSignalSourceServiceTests
     }
 
     [Fact]
+    public void RegisterWithChangedFormatReconfiguresSameHandleInPlace()
+    {
+        var service = CreateService();
+        var sourceKey = LocalLoopbackSignalSourceService.BuildSourceKey("plugin-a");
+        service.Ingest(Register("plugin-a", "Lead Vocal", LocalLoopbackSourceKind.Plugin));
+        service.SetChannelWaveformEnabled(sourceKey, SignalSourceKind.Plugin, null, true);
+        service.SetChannelSpectrumEnabled(sourceKey, SignalSourceKind.Plugin, null, true);
+        service.SetTruePeakOversampling(sourceKey, SignalSourceKind.Plugin, null, 8);
+
+        service.Ingest(Audio("plugin-a", StereoTone(4800, 0.5f, -0.5f)));
+        var before = Assert.Single(service.GetCurrentSources());
+        Assert.Equal(sourceKey, before.SourceKey);
+        Assert.NotNull(before.TruePeakDb);
+        Assert.NotNull(before.ChannelWaveformSamples);
+        Assert.NotNull(before.ChannelSpectrumBuckets);
+
+        service.Ingest(Register(
+            "plugin-a",
+            "Lead Vocal",
+            LocalLoopbackSourceKind.Plugin,
+            sampleRate: 44100,
+            channels: 1));
+        service.Ingest(Audio("plugin-a", MonoTone(4410, 0.25f)));
+
+        var after = Assert.Single(service.GetCurrentSources());
+        Assert.Equal(sourceKey, after.SourceKey);
+        Assert.Equal("Lead Vocal", after.DisplayName);
+        Assert.Equal(SignalSourceKind.Plugin, after.SourceKind);
+        Assert.NotNull(after.TruePeakDb);
+        Assert.NotNull(after.ChannelWaveformSamples);
+        Assert.NotNull(after.ChannelSpectrumBuckets);
+        Assert.NotEmpty(after.WaveformSamples!);
+        Assert.NotEmpty(after.SpectrumBuckets!);
+    }
+
+    [Fact]
     public void HeartbeatTimeoutCloseAndReregisterControlVisibility()
     {
         var service = CreateService(timeout: TimeSpan.FromSeconds(1));
@@ -90,15 +126,20 @@ public sealed class LocalLoopbackSignalSourceServiceTests
         return new LocalLoopbackSignalSourceService(() => _now, timeout);
     }
 
-    private static LocalLoopbackPacket Register(string handle, string name, LocalLoopbackSourceKind kind)
+    private static LocalLoopbackPacket Register(
+        string handle,
+        string name,
+        LocalLoopbackSourceKind kind,
+        int sampleRate = 48000,
+        int channels = 2)
     {
         return new LocalLoopbackPacket(
             LocalLoopbackPacketType.Register,
             handle,
             name,
             kind,
-            SampleRate: 48000,
-            Channels: 2);
+            SampleRate: sampleRate,
+            Channels: channels);
     }
 
     private static LocalLoopbackPacket Audio(string handle, IReadOnlyList<float> samples)
@@ -119,6 +160,13 @@ public sealed class LocalLoopbackSignalSourceServiceTests
             samples[(frame * 2) + 1] = right;
         }
 
+        return samples;
+    }
+
+    private static float[] MonoTone(int frames, float value)
+    {
+        var samples = new float[frames];
+        Array.Fill(samples, value);
         return samples;
     }
 }

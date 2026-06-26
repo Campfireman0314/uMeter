@@ -9,6 +9,7 @@ namespace DesktopLoudnessMeter.App;
 public partial class MainWindow : Window
 {
     private GlobalSettingsWindow? _globalSettingsWindow;
+    private Point _sourceDragStartPoint;
 
     public MainWindow()
     {
@@ -104,6 +105,166 @@ public partial class MainWindow : Window
         {
             textBox.SelectAll();
         }
+    }
+
+    private void SourceTitle_OnMouseLeftButtonDown(object sender, MouseButtonEventArgs e)
+    {
+        if (e.ClickCount < 2 || sender is not FrameworkElement { DataContext: AudioSessionMeterViewModel row } element)
+        {
+            return;
+        }
+
+        row.StartAliasEditCommand.Execute(null);
+        e.Handled = true;
+        element.Dispatcher.BeginInvoke((Action)(() =>
+        {
+            if (FindVisualChild<TextBox>(element) is { } textBox)
+            {
+                textBox.Focus();
+                textBox.SelectAll();
+            }
+        }));
+    }
+
+    private void AliasEditTextBox_OnKeyDown(object sender, System.Windows.Input.KeyEventArgs e)
+    {
+        if (sender is not TextBox { DataContext: AudioSessionMeterViewModel row } textBox)
+        {
+            return;
+        }
+
+        if (e.Key == Key.Enter)
+        {
+            row.CommitAliasEditCommand.Execute(null);
+            Keyboard.ClearFocus();
+            e.Handled = true;
+        }
+        else if (e.Key == Key.Escape)
+        {
+            row.CancelAliasEditCommand.Execute(null);
+            Keyboard.ClearFocus();
+            e.Handled = true;
+        }
+    }
+
+    private void AliasEditTextBox_OnLostKeyboardFocus(object sender, KeyboardFocusChangedEventArgs e)
+    {
+        if (sender is TextBox { DataContext: AudioSessionMeterViewModel { IsAliasEditing: true } row })
+        {
+            row.CommitAliasEditCommand.Execute(null);
+        }
+    }
+
+    private void SourceDragHandle_OnMouseMove(object sender, MouseEventArgs e)
+    {
+        if (sender is not FrameworkElement { DataContext: AudioSessionMeterViewModel row } element)
+        {
+            return;
+        }
+
+        if (e.LeftButton != MouseButtonState.Pressed)
+        {
+            _sourceDragStartPoint = e.GetPosition(this);
+            return;
+        }
+
+        var position = e.GetPosition(this);
+        if (Math.Abs(position.X - _sourceDragStartPoint.X) < SystemParameters.MinimumHorizontalDragDistance
+            && Math.Abs(position.Y - _sourceDragStartPoint.Y) < SystemParameters.MinimumVerticalDragDistance)
+        {
+            return;
+        }
+
+        DragDrop.DoDragDrop(element, row, DragDropEffects.Move);
+        ClearSourceDropHints();
+    }
+
+    private void SourceRow_OnDragOver(object sender, DragEventArgs e)
+    {
+        if (DataContext is not MainViewModel viewModel
+            || sender is not FrameworkElement { DataContext: AudioSessionMeterViewModel target }
+            || e.Data.GetData(typeof(AudioSessionMeterViewModel)) is not AudioSessionMeterViewModel source
+            || ReferenceEquals(source, target))
+        {
+            ClearSourceDropHints();
+            e.Effects = DragDropEffects.None;
+            e.Handled = true;
+            return;
+        }
+
+        var insertAfter = ShouldInsertAfter(e, sender);
+        foreach (var row in viewModel.Sessions)
+        {
+            row.SetReorderDropHint(ReferenceEquals(row, target) && !insertAfter, ReferenceEquals(row, target) && insertAfter);
+        }
+
+        e.Effects = DragDropEffects.Move;
+        e.Handled = true;
+    }
+
+    private void SourceRow_OnDrop(object sender, DragEventArgs e)
+    {
+        if (DataContext is not MainViewModel viewModel
+            || sender is not FrameworkElement { DataContext: AudioSessionMeterViewModel target }
+            || e.Data.GetData(typeof(AudioSessionMeterViewModel)) is not AudioSessionMeterViewModel source)
+        {
+            return;
+        }
+
+        viewModel.MoveSourceTo(source, target, ShouldInsertAfter(e, sender));
+        ClearSourceDropHints();
+        e.Handled = true;
+    }
+
+    private void SourceRow_OnGiveFeedback(object sender, GiveFeedbackEventArgs e)
+    {
+        if (e.Effects == DragDropEffects.None)
+        {
+            ClearSourceDropHints();
+        }
+    }
+
+    private static bool ShouldInsertAfter(DragEventArgs e, object sender)
+    {
+        if (sender is not FrameworkElement element)
+        {
+            return false;
+        }
+
+        return e.GetPosition(element).Y >= element.ActualHeight / 2;
+    }
+
+    private void ClearSourceDropHints()
+    {
+        if (DataContext is not MainViewModel viewModel)
+        {
+            return;
+        }
+
+        foreach (var row in viewModel.Sessions)
+        {
+            row.SetReorderDropHint(before: false, after: false);
+        }
+    }
+
+    private static T? FindVisualChild<T>(DependencyObject root)
+        where T : DependencyObject
+    {
+        for (var index = 0; index < System.Windows.Media.VisualTreeHelper.GetChildrenCount(root); index++)
+        {
+            var child = System.Windows.Media.VisualTreeHelper.GetChild(root, index);
+            if (child is T match)
+            {
+                return match;
+            }
+
+            if (FindVisualChild<T>(child) is { } descendant)
+            {
+                return descendant;
+            }
+        }
+
+        return null;
     }
 
     private static void OpenButtonContextMenu(object sender)

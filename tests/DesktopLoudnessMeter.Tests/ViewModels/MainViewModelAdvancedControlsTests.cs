@@ -135,6 +135,128 @@ public sealed class MainViewModelAdvancedControlsTests
     }
 
     [Fact]
+    public void HiddenSourcesAreFilteredUntilShowHiddenIsEnabled()
+    {
+        var workspace = new UserWorkspaceSettings();
+        workspace.GetOrCreateSource("plugin:lead").IsHidden = true;
+        var service = new StaticSignalSourceMeterService(
+            [
+                Source("plugin:lead", "Lead", SignalSourceKind.Plugin),
+                Source("plugin:keys", "Keys", SignalSourceKind.Plugin)
+            ]);
+        var viewModel = new MainViewModel(service, startTimer: false, workspaceSettings: workspace);
+
+        viewModel.RefreshNow();
+
+        Assert.Equal(["plugin:keys"], viewModel.Sessions.Select(row => row.SourceKey).ToArray());
+        Assert.True(viewModel.HasHiddenSources);
+
+        viewModel.ShowHiddenSources = true;
+
+        Assert.Equal(["plugin:keys", "plugin:lead"], viewModel.Sessions.Select(row => row.SourceKey).ToArray());
+        Assert.True(viewModel.Sessions.Single(row => row.SourceKey == "plugin:lead").IsHidden);
+
+        viewModel.Sessions.Single(row => row.SourceKey == "plugin:lead").RestoreSourceCommand.Execute(null);
+
+        Assert.False(workspace.GetSource("plugin:lead")!.IsHidden);
+        Assert.False(viewModel.Sessions.Single(row => row.SourceKey == "plugin:lead").IsHidden);
+    }
+
+    [Fact]
+    public void MoveCommandsPersistSourceOrderAcrossRefreshAndReconnect()
+    {
+        var workspace = new UserWorkspaceSettings();
+        var service = new SequenceSignalSourceMeterService(
+            [
+                Source("wasapi:lead", "Lead", SignalSourceKind.WasapiSession, processId: 11),
+                Source("wasapi:keys", "Keys", SignalSourceKind.WasapiSession, processId: 12),
+                Source("wasapi:drums", "Drums", SignalSourceKind.WasapiSession, processId: 13)
+            ],
+            [],
+            [
+                Source("wasapi:lead", "Lead", SignalSourceKind.WasapiSession, processId: 11),
+                Source("wasapi:keys", "Keys", SignalSourceKind.WasapiSession, processId: 12),
+                Source("wasapi:drums", "Drums", SignalSourceKind.WasapiSession, processId: 13)
+            ]);
+        var viewModel = new MainViewModel(
+            service,
+            startTimer: false,
+            missingRowRetentionTicks: 1,
+            workspaceSettings: workspace,
+            isProcessAlive: _ => true);
+
+        viewModel.RefreshNow();
+        viewModel.MoveSourceDownCommand.Execute(viewModel.Sessions.Single(row => row.SourceKey == "wasapi:drums"));
+
+        Assert.Equal(
+            ["wasapi:keys", "wasapi:drums", "wasapi:lead"],
+            viewModel.Sessions.Select(row => row.SourceKey).ToArray());
+        Assert.Equal(0, workspace.GetSource("wasapi:keys")!.OrderIndex);
+        Assert.Equal(1, workspace.GetSource("wasapi:drums")!.OrderIndex);
+        Assert.Equal(2, workspace.GetSource("wasapi:lead")!.OrderIndex);
+
+        viewModel.RefreshNow();
+        Assert.Equal(
+            ["wasapi:keys", "wasapi:drums", "wasapi:lead"],
+            viewModel.Sessions.Select(row => row.SourceKey).ToArray());
+
+        viewModel.RefreshNow();
+        Assert.Equal(
+            ["wasapi:keys", "wasapi:drums", "wasapi:lead"],
+            viewModel.Sessions.Select(row => row.SourceKey).ToArray());
+    }
+
+    [Fact]
+    public void DragReorderHelperMovesSourceToDroppedTarget()
+    {
+        var workspace = new UserWorkspaceSettings();
+        var service = new StaticSignalSourceMeterService(
+            [
+                Source("plugin:lead", "Lead", SignalSourceKind.Plugin),
+                Source("plugin:keys", "Keys", SignalSourceKind.Plugin),
+                Source("plugin:drums", "Drums", SignalSourceKind.Plugin)
+            ]);
+        var viewModel = new MainViewModel(service, startTimer: false, workspaceSettings: workspace);
+
+        viewModel.RefreshNow();
+        var lead = viewModel.Sessions.Single(row => row.SourceKey == "plugin:lead");
+        var drums = viewModel.Sessions.Single(row => row.SourceKey == "plugin:drums");
+
+        viewModel.MoveSourceTo(lead, drums);
+
+        Assert.Equal(
+            ["plugin:lead", "plugin:drums", "plugin:keys"],
+            viewModel.Sessions.Select(row => row.SourceKey).ToArray());
+        Assert.Equal(0, workspace.GetSource("plugin:lead")!.OrderIndex);
+        Assert.Equal(1, workspace.GetSource("plugin:drums")!.OrderIndex);
+        Assert.Equal(2, workspace.GetSource("plugin:keys")!.OrderIndex);
+    }
+
+    [Fact]
+    public void DragReorderHelperCanMoveFirstSourceAfterLastSource()
+    {
+        var workspace = new UserWorkspaceSettings();
+        var service = new StaticSignalSourceMeterService(
+            [
+                Source("plugin:lead", "Lead", SignalSourceKind.Plugin),
+                Source("plugin:drums", "Drums", SignalSourceKind.Plugin)
+            ]);
+        var viewModel = new MainViewModel(service, startTimer: false, workspaceSettings: workspace);
+
+        viewModel.RefreshNow();
+        var first = viewModel.Sessions[0];
+        var last = viewModel.Sessions[^1];
+
+        viewModel.MoveSourceTo(first, last, insertAfter: true);
+
+        Assert.Equal(
+            [last.SourceKey, first.SourceKey],
+            viewModel.Sessions.Select(row => row.SourceKey).ToArray());
+        Assert.Equal(0, workspace.GetSource(last.SourceKey)!.OrderIndex);
+        Assert.Equal(1, workspace.GetSource(first.SourceKey)!.OrderIndex);
+    }
+
+    [Fact]
     public void GlobalTruePeakOversamplingRemainsDefaultForNewSourcesWithoutPreferences()
     {
         var service = new SequenceSignalSourceMeterService(
@@ -403,6 +525,7 @@ public sealed class MainViewModelAdvancedControlsTests
         viewModel.CollisionLevelFloorDb = -84;
         viewModel.CollisionProminenceThresholdDb = 9;
         viewModel.CollisionRelativeThreshold = 0.25;
+        viewModel.CollisionFrequencyScale = CollisionFrequencyScale.Logarithmic;
         viewModel.SpectrumDisplayFloorDb = -150;
         viewModel.SpectrumDisplayCeilingDb = -12;
         viewModel.InlineStereoSettings.ScaleRangeDb = 48;
@@ -416,6 +539,7 @@ public sealed class MainViewModelAdvancedControlsTests
         Assert.Equal(-84, stored.CollisionLevelFloorDb);
         Assert.Equal(9, stored.CollisionProminenceThresholdDb);
         Assert.Equal(0.25, stored.CollisionRelativeThreshold);
+        Assert.Equal(CollisionFrequencyScale.Logarithmic, stored.CollisionFrequencyScale);
         Assert.Equal(-150, stored.SpectrumDisplayFloorDb);
         Assert.Equal(-12, stored.SpectrumDisplayCeilingDb);
         Assert.Equal(48, stored.InlineStereo?.ScaleRangeDb);
@@ -431,6 +555,7 @@ public sealed class MainViewModelAdvancedControlsTests
         Assert.Equal(-84, restored.CollisionLevelFloorDb);
         Assert.Equal(9, restored.CollisionProminenceThresholdDb);
         Assert.Equal(0.25, restored.CollisionRelativeThreshold);
+        Assert.Equal(CollisionFrequencyScale.Logarithmic, restored.CollisionFrequencyScale);
         Assert.Equal(-150, restored.SpectrumDisplayFloorDb);
         Assert.Equal(-12, restored.SpectrumDisplayCeilingDb);
         Assert.Equal(48, restored.InlineStereoSettings.ScaleRangeDb);
@@ -495,9 +620,10 @@ public sealed class MainViewModelAdvancedControlsTests
     {
         var viewModel = CreateViewModel();
 
-        Assert.Equal(-120, viewModel.SpectrumDisplayFloorDb);
-        Assert.Equal(0, viewModel.SpectrumDisplayCeilingDb);
-        Assert.Equal("-120 to 0 dB", viewModel.SpectrumDisplayRangeText);
+        Assert.Equal(CollisionFrequencyScale.Logarithmic, viewModel.CollisionFrequencyScale);
+        Assert.Equal(-96, viewModel.SpectrumDisplayFloorDb);
+        Assert.Equal(-6, viewModel.SpectrumDisplayCeilingDb);
+        Assert.Equal("-96 to -6 dB", viewModel.SpectrumDisplayRangeText);
 
         viewModel.SpectrumDisplayFloorDb = -54.2;
         viewModel.SpectrumDisplayCeilingDb = -56;
@@ -586,11 +712,36 @@ public sealed class MainViewModelAdvancedControlsTests
 
         viewModel.RefreshNow();
         viewModel.Sessions.Single(session => session.SourceKey == "plugin:lead").OpenDetailCommand.Execute(null);
+        viewModel.CollisionFrequencyScale = CollisionFrequencyScale.Mel;
         viewModel.IsInlineCollisionVisible = true;
 
         Assert.True(viewModel.HasFrequencyCollisionSources);
         Assert.Equal("Global", viewModel.SelectedFrequencyCollisionSource.DisplayName);
         Assert.Contains(viewModel.FrequencyCollisionBands, band => band.StartRatio <= 2.0 / 6.0 && band.EndRatio >= 3.0 / 6.0);
+    }
+
+    [Fact]
+    public void FrequencyCollisionScaleReprojectsDetectedBands()
+    {
+        var service = new StaticSignalSourceMeterService(
+            [
+                Source("plugin:lead", "Lead", SignalSourceKind.Plugin, spectrumBuckets: [0.0, 0.18, 0.42, 0.18, 0.72, 0.08]),
+                Source("plugin:keys", "Keys", SignalSourceKind.Plugin, spectrumBuckets: [0.0, 0.17, 0.43, 0.16, 0.18, 0.09])
+            ]);
+        var viewModel = new MainViewModel(service, startTimer: false);
+
+        viewModel.RefreshNow();
+        viewModel.Sessions.Single(session => session.SourceKey == "plugin:lead").OpenDetailCommand.Execute(null);
+        viewModel.CollisionFrequencyScale = CollisionFrequencyScale.Mel;
+        viewModel.IsInlineCollisionVisible = true;
+        var melBand = Assert.Single(viewModel.FrequencyCollisionBands);
+
+        viewModel.CollisionFrequencyScale = CollisionFrequencyScale.Logarithmic;
+        var logarithmicBand = Assert.Single(viewModel.FrequencyCollisionBands);
+
+        Assert.Equal(CollisionFrequencyScale.Logarithmic, viewModel.CollisionFrequencyScale);
+        Assert.NotEqual(melBand.StartRatio, logarithmicBand.StartRatio);
+        Assert.NotEqual(melBand.EndRatio, logarithmicBand.EndRatio);
     }
 
     [Fact]
@@ -605,6 +756,7 @@ public sealed class MainViewModelAdvancedControlsTests
 
         viewModel.RefreshNow();
         viewModel.Sessions.Single(session => session.SourceKey == "plugin:lead").OpenDetailCommand.Execute(null);
+        viewModel.CollisionFrequencyScale = CollisionFrequencyScale.Mel;
         viewModel.IsInlineCollisionVisible = true;
 
         var overlapEvent = Assert.Single(viewModel.RecentEvents.Where(item => item.Kind == RecentEventKind.Collision));
@@ -712,10 +864,11 @@ public sealed class MainViewModelAdvancedControlsTests
 
         viewModel.RefreshNow();
         viewModel.Sessions.Single(session => session.SourceKey == "plugin:lead").OpenDetailCommand.Execute(null);
+        viewModel.CollisionFrequencyScale = CollisionFrequencyScale.Mel;
         viewModel.IsInlineCollisionVisible = true;
 
-        Assert.Contains(viewModel.FrequencyCollisionBands, band => band.StartRatio <= 0 && band.EndRatio >= 0.25);
-        Assert.DoesNotContain(viewModel.FrequencyCollisionBands, band => band.StartRatio < 1 && band.EndRatio > 0.25);
+        Assert.Contains(viewModel.FrequencyCollisionBands, band => band.StartRatio <= 0 && band.EndRatio >= 0.25 - 0.000001);
+        Assert.DoesNotContain(viewModel.FrequencyCollisionBands, band => band.StartRatio < 1 && band.EndRatio > 0.25 + 0.000001);
 
         viewModel.CollisionLevelFloorDb = -150;
 
@@ -868,12 +1021,13 @@ public sealed class MainViewModelAdvancedControlsTests
         string name,
         SignalSourceKind kind,
         IReadOnlyList<double>? spectrumBuckets = null,
-        long plotFrameVersion = 0)
+        long plotFrameVersion = 0,
+        int? processId = null)
     {
         return new SignalSourceSnapshot(
             key,
             kind,
-            null,
+            processId,
             name,
             0.5f,
             -6.0,

@@ -50,11 +50,22 @@ LoopbackSender::~LoopbackSender()
 
 void LoopbackSender::start (const LoopbackSenderConfig& config)
 {
-    stop();
+    juce::String currentHandle;
+    {
+        const juce::ScopedLock lock (stateLock);
+        currentHandle = currentConfig.handle;
+    }
+
+    const auto nextHandle = LoopbackProtocol::isValidHandle (config.handle) ? config.handle : juce::String();
+    const auto isSameHandleRestart = active.load (std::memory_order_acquire)
+        && nextHandle.isNotEmpty()
+        && currentHandle == nextHandle;
+
+    stopInternal (! isSameHandleRestart);
 
     const juce::ScopedLock lock (stateLock);
     currentConfig = config;
-    currentConfig.handle = LoopbackProtocol::isValidHandle (config.handle) ? config.handle : LoopbackProtocol::createHandle();
+    currentConfig.handle = nextHandle.isNotEmpty() ? nextHandle : LoopbackProtocol::createHandle();
     currentConfig.displayName = normalizeDisplayName (config.displayName);
     currentConfig.sampleRate = sanitizeSampleRate (config.sampleRate);
     currentConfig.channels = sanitizeChannelCount (config.channels);
@@ -81,14 +92,22 @@ void LoopbackSender::start (const LoopbackSenderConfig& config)
 
 void LoopbackSender::stop()
 {
+    stopInternal (true);
+}
+
+void LoopbackSender::stopInternal (bool sendClose)
+{
+    sendCloseOnStop.store (sendClose, std::memory_order_release);
     if (! active.exchange (false, std::memory_order_acq_rel))
     {
+        sendCloseOnStop.store (true, std::memory_order_release);
         return;
     }
 
     signalThreadShouldExit();
     notify();
     stopThread (1000);
+    sendCloseOnStop.store (true, std::memory_order_release);
 }
 
 void LoopbackSender::rename (const juce::String& displayName)
@@ -238,7 +257,11 @@ void LoopbackSender::run()
         wait (5);
     }
 
-    sendPacket (socket, LoopbackProtocol::encodeClose (configSnapshot.handle), configSnapshot.port);
+    if (sendCloseOnStop.load (std::memory_order_acquire))
+    {
+        sendPacket (socket, LoopbackProtocol::encodeClose (configSnapshot.handle), configSnapshot.port);
+    }
+
     socket.shutdown();
 }
 

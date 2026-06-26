@@ -396,6 +396,88 @@ public sealed class AudioSessionMeterViewModelTests
         Assert.Contains(nameof(AudioSessionMeterViewModel.SpectrumPlotTick), changedProperties);
     }
 
+    [Fact]
+    public void HandleMissingPreservesRollBuffersAndPlotTicks()
+    {
+        double[] waveform = [0.1, -0.2];
+        double[] spectrum = [0.25, 0.75];
+        var row = new AudioSessionMeterViewModel(Snapshot(
+            waveformSamples: waveform,
+            spectrumBuckets: spectrum,
+            plotFrameVersion: 4096));
+        var waveformTick = row.WaveformPlotTick;
+        var spectrumTick = row.SpectrumPlotTick;
+
+        row.MarkAudioHandleMissing();
+
+        Assert.Equal(waveform, row.WaveformSamples);
+        Assert.Equal(spectrum, row.SpectrumBuckets);
+        Assert.Equal(waveformTick, row.WaveformPlotTick);
+        Assert.Equal(spectrumTick, row.SpectrumPlotTick);
+        Assert.Equal("Source handle missing", row.SourceStatusText);
+        Assert.Equal("handle n/a", row.PeakDbText);
+    }
+
+    [Fact]
+    public void AliasEditCommandsCommitTrimmedAliasOrCancel()
+    {
+        var row = new AudioSessionMeterViewModel(Snapshot());
+
+        row.StartAliasEditCommand.Execute(null);
+        Assert.True(row.IsAliasEditing);
+        Assert.Equal("Test App", row.AliasEditText);
+
+        row.AliasEditText = "  Lead Bus  ";
+        row.CommitAliasEditCommand.Execute(null);
+
+        Assert.False(row.IsAliasEditing);
+        Assert.Equal("Lead Bus", row.Alias);
+        Assert.Equal("Lead Bus", row.DisplayTitle);
+
+        row.StartAliasEditCommand.Execute(null);
+        row.AliasEditText = "Will Cancel";
+        row.CancelAliasEditCommand.Execute(null);
+
+        Assert.False(row.IsAliasEditing);
+        Assert.Equal("Lead Bus", row.Alias);
+        Assert.Equal("Lead Bus", row.AliasEditText);
+    }
+
+    [Fact]
+    public void EmptyAnalyzerWarmupFramesPreserveExistingRollBuffers()
+    {
+        double[] waveform = [0.1, -0.2];
+        double[] spectrum = [0.25, 0.75];
+        double[] nextWaveform = [0.3, -0.4];
+        double[] nextSpectrum = [0.9, 0.1];
+        var row = new AudioSessionMeterViewModel(Snapshot(
+            waveformSamples: waveform,
+            spectrumBuckets: spectrum,
+            plotFrameVersion: 4096));
+        var waveformTick = row.WaveformPlotTick;
+        var spectrumTick = row.SpectrumPlotTick;
+
+        row.Update(Snapshot(
+            waveformSamples: null,
+            spectrumBuckets: null,
+            plotFrameVersion: 8192));
+
+        Assert.Equal(waveform, row.WaveformSamples);
+        Assert.Equal(spectrum, row.SpectrumBuckets);
+        Assert.Equal(waveformTick, row.WaveformPlotTick);
+        Assert.Equal(spectrumTick, row.SpectrumPlotTick);
+
+        row.Update(Snapshot(
+            waveformSamples: nextWaveform,
+            spectrumBuckets: nextSpectrum,
+            plotFrameVersion: 12288));
+
+        Assert.Equal(nextWaveform, row.WaveformSamples);
+        Assert.Equal(nextSpectrum, row.SpectrumBuckets);
+        Assert.True(row.WaveformPlotTick > waveformTick);
+        Assert.True(row.SpectrumPlotTick > spectrumTick);
+    }
+
     private static AudioSessionSnapshot Snapshot(
         string peakDbText = "-12.0 dB",
         float peak = 0.25f,

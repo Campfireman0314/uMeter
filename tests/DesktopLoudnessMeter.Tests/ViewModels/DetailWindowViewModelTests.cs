@@ -117,6 +117,7 @@ public sealed class DetailWindowViewModelTests
         settings.CollisionLevelFloorDb = -84;
         settings.CollisionProminenceThresholdDb = 9;
         settings.CollisionRelativeThreshold = 0.3;
+        settings.CollisionFrequencyScale = CollisionFrequencyScale.Logarithmic;
         settings.SpectrumDisplayFloorDb = -160;
         settings.SpectrumDisplayCeilingDb = -18;
         settings.PopupStereo = new StereoWorkspaceSettings { ScaleRangeDb = 48 };
@@ -132,6 +133,7 @@ public sealed class DetailWindowViewModelTests
         Assert.Equal(-84, viewModel.CollisionLevelFloorDb);
         Assert.Equal(9, viewModel.CollisionProminenceThresholdDb);
         Assert.Equal(0.3, viewModel.CollisionRelativeThreshold);
+        Assert.Equal(CollisionFrequencyScale.Logarithmic, viewModel.CollisionFrequencyScale);
         Assert.Equal(-160, viewModel.SpectrumDisplayFloorDb);
         Assert.Equal(-18, viewModel.SpectrumDisplayCeilingDb);
         Assert.Equal(48, viewModel.StereoSettings.ScaleRangeDb);
@@ -152,6 +154,7 @@ public sealed class DetailWindowViewModelTests
         viewModel.CollisionLevelFloorDb = -90;
         viewModel.CollisionProminenceThresholdDb = 10;
         viewModel.CollisionRelativeThreshold = 0.22;
+        viewModel.CollisionFrequencyScale = CollisionFrequencyScale.Logarithmic;
         viewModel.SpectrumDisplayFloorDb = -140;
         viewModel.SpectrumDisplayCeilingDb = -10;
         viewModel.StereoSettings.TracePersistenceSeconds = 0.2;
@@ -165,6 +168,7 @@ public sealed class DetailWindowViewModelTests
         Assert.Equal(-90, stored.CollisionLevelFloorDb);
         Assert.Equal(10, stored.CollisionProminenceThresholdDb);
         Assert.Equal(0.22, stored.CollisionRelativeThreshold);
+        Assert.Equal(CollisionFrequencyScale.Logarithmic, stored.CollisionFrequencyScale);
         Assert.Equal(-140, stored.SpectrumDisplayFloorDb);
         Assert.Equal(-10, stored.SpectrumDisplayCeilingDb);
         Assert.Equal(0.2, stored.PopupStereo?.TracePersistenceSeconds);
@@ -176,7 +180,8 @@ public sealed class DetailWindowViewModelTests
         var session = new AudioSessionMeterViewModel(Snapshot());
         var viewModel = new DetailWindowViewModel(session);
 
-        Assert.Equal("-120 to 0 dB", viewModel.SpectrumDisplayRangeText);
+        Assert.Equal(CollisionFrequencyScale.Logarithmic, viewModel.CollisionFrequencyScale);
+        Assert.Equal("-96 to -6 dB", viewModel.SpectrumDisplayRangeText);
 
         viewModel.SpectrumDisplayFloorDb = -37.6;
         viewModel.SpectrumDisplayCeilingDb = -40;

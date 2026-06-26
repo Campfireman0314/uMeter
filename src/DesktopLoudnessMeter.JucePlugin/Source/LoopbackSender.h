@@ -48,6 +48,7 @@ public:
 
 private:
     void run() override;
+    void stopInternal (bool sendClose);
     void sendPacket (juce::DatagramSocket& socket, const juce::MemoryBlock& packet, int port) const;
     void pollForAck (juce::DatagramSocket& socket, const juce::String& handle) noexcept;
 
@@ -57,6 +58,7 @@ private:
     std::unique_ptr<RealtimeAudioQueue> audioQueue;
     std::atomic<bool> active { false };
     std::atomic<bool> renamePending { false };
+    std::atomic<bool> sendCloseOnStop { true };
     std::atomic<double> lastAckReceivedMs { 0.0 };
 };
 }

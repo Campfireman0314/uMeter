@@ -65,16 +65,16 @@ public sealed class PcmMetricAnalyzerContractTests
         var normalFft = new CountingSpectrumFft();
         var normalWindow = new RecentSampleWindow(2, 48000, 4, 4800, normalFft);
 
-        ProcessFramesWithSpectrumReads(normalWindow, 2300);
+        ProcessFramesWithSpectrumReads(normalWindow, 4600);
 
         var ecoFft = new CountingSpectrumFft();
         var ecoWindow = new RecentSampleWindow(2, 48000, 4, 4800, ecoFft);
         ecoWindow.SetPerformanceMode(PcmAnalysisPerformanceMode.Eco);
 
-        ProcessFramesWithSpectrumReads(ecoWindow, 2300);
+        ProcessFramesWithSpectrumReads(ecoWindow, 4600);
 
         Assert.True(normalFft.ComputeCount > ecoFft.ComputeCount);
-        Assert.Equal(3, normalFft.ComputeCount);
+        Assert.Equal(4, normalFft.ComputeCount);
         Assert.Equal(1, ecoFft.ComputeCount);
     }
 
@@ -87,7 +87,7 @@ public sealed class PcmMetricAnalyzerContractTests
 
         ProcessFramesWithSpectrumReads(window, 4800);
 
-        Assert.Equal(8192, fft.LastFftSize);
+        Assert.Equal(4096, fft.LastFftSize);
     }
 
     private static float[] Sine(double seconds, double amplitude, double frequency = 1000)

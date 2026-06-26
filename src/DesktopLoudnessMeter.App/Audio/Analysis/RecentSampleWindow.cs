@@ -10,9 +10,12 @@ internal sealed class RecentSampleWindow
     private const double SpectrumDisplayRangeDb = 200;
     private static readonly double RootTwo = Math.Sqrt(2);
     private readonly int _channels;
+    private readonly int _sampleRate;
     private readonly int _displaySampleRate;
     private readonly int _capacityFrames;
     private readonly Queue<FrameMetrics> _frames;
+    private readonly double[] _spectrumSamples;
+    private readonly double[][] _channelSpectrumSamples;
     private readonly double[] _displaySamples;
     private readonly double[][] _channelDisplaySamples;
     private readonly SampleBuffer[] _waveformBuffers = [new(MaximumWaveformPoints), new(MaximumWaveformPoints)];
@@ -20,6 +23,8 @@ internal sealed class RecentSampleWindow
     private readonly SampleBuffer[] _spectrumBuffers = [new(SpectrumScale.BucketCount), new(SpectrumScale.BucketCount)];
     private readonly SampleBuffer[][] _channelSpectrumBuffers;
     private readonly ISpectrumFft _spectrumFft;
+    private int _spectrumStartIndex;
+    private int _spectrumSampleCount;
     private int _displayStartIndex;
     private int _displaySampleCount;
     private long _displayVersion;
@@ -83,10 +88,15 @@ internal sealed class RecentSampleWindow
         }
 
         _channels = channels;
+        _sampleRate = sampleRate;
         _displaySampleRate = sampleRate * oversampling;
         _capacityFrames = capacityFrames;
         _spectrumFft = spectrumFft;
         _frames = new Queue<FrameMetrics>(capacityFrames);
+        _spectrumSamples = new double[capacityFrames];
+        _channelSpectrumSamples = Enumerable.Range(0, channels)
+            .Select(_ => new double[capacityFrames])
+            .ToArray();
         _displaySamples = new double[capacityFrames * oversampling];
         _channelDisplaySamples = Enumerable.Range(0, channels)
             .Select(_ => new double[capacityFrames * oversampling])
@@ -340,6 +350,7 @@ internal sealed class RecentSampleWindow
             ? 0
             : Math.Clamp((rightMagnitude - leftMagnitude) / magnitudeSum, -1, 1);
         var polarRadius = Math.Clamp(Math.Sqrt(((left * left) + (right * right)) / 2), 0, 1);
+        EnqueueSpectrumSamples(samples);
         EnqueueDisplaySamples(oversampledMonoSamples, oversampledInterleavedSamples);
         _displayFrameVersion++;
 
@@ -371,12 +382,20 @@ internal sealed class RecentSampleWindow
         _crossSum = 0;
         _midSquareSum = 0;
         _sideSquareSum = 0;
+        Array.Clear(_spectrumSamples);
+        foreach (var samples in _channelSpectrumSamples)
+        {
+            Array.Clear(samples);
+        }
+
         Array.Clear(_displaySamples);
         foreach (var samples in _channelDisplaySamples)
         {
             Array.Clear(samples);
         }
 
+        _spectrumStartIndex = 0;
+        _spectrumSampleCount = 0;
         _displayStartIndex = 0;
         _displaySampleCount = 0;
         _displayVersion++;
@@ -458,6 +477,39 @@ internal sealed class RecentSampleWindow
         }
     }
 
+    private void EnqueueSpectrumSamples(ReadOnlySpan<double> samples)
+    {
+        var slot = ReserveSpectrumSampleSlot();
+        var mono = 0d;
+        for (var channel = 0; channel < _channels; channel++)
+        {
+            var sample = SanitizeSample(samples[channel]);
+            _channelSpectrumSamples[channel][slot] = sample;
+            mono += sample;
+        }
+
+        _spectrumSamples[slot] = mono / _channels;
+    }
+
+    private int ReserveSpectrumSampleSlot()
+    {
+        if (_spectrumSamples.Length == 0)
+        {
+            return 0;
+        }
+
+        if (_spectrumSampleCount < _spectrumSamples.Length)
+        {
+            var slot = (_spectrumStartIndex + _spectrumSampleCount) % _spectrumSamples.Length;
+            _spectrumSampleCount++;
+            return slot;
+        }
+
+        var overwriteSlot = _spectrumStartIndex;
+        _spectrumStartIndex = (_spectrumStartIndex + 1) % _spectrumSamples.Length;
+        return overwriteSlot;
+    }
+
     private int ReserveDisplaySampleSlot()
     {
         if (_displaySamples.Length == 0)
@@ -485,6 +537,16 @@ internal sealed class RecentSampleWindow
     private double GetChannelDisplaySample(int channel, int offset)
     {
         return _channelDisplaySamples[channel][(_displayStartIndex + offset) % _displaySamples.Length];
+    }
+
+    private double GetSpectrumSample(int offset)
+    {
+        return _spectrumSamples[(_spectrumStartIndex + offset) % _spectrumSamples.Length];
+    }
+
+    private double GetChannelSpectrumSample(int channel, int offset)
+    {
+        return _channelSpectrumSamples[channel][(_spectrumStartIndex + offset) % _spectrumSamples.Length];
     }
 
     private void FillWaveformBuffer(SampleBuffer target)
@@ -560,7 +622,7 @@ internal sealed class RecentSampleWindow
 
     private void FillSpectrumBuffer(SampleBuffer target, int? sourceChannel)
     {
-        var fftSize = PreviousPowerOfTwo(Math.Min(_displaySampleCount, _performanceSettings.SpectrumAnalysisSamples));
+        var fftSize = PreviousPowerOfTwo(Math.Min(_spectrumSampleCount, _performanceSettings.SpectrumAnalysisSamples));
         if (fftSize < 128)
         {
             target.SetCount(0);
@@ -569,23 +631,23 @@ internal sealed class RecentSampleWindow
 
         EnsureFftWorkspace(fftSize);
 
-        var start = _displaySampleCount - fftSize;
+        var start = _spectrumSampleCount - fftSize;
         for (var index = 0; index < fftSize; index++)
         {
             _fftInput[index] = sourceChannel is int channel
-                ? GetChannelDisplaySample(channel, start + index)
-                : GetDisplaySample(start + index);
+                ? GetChannelSpectrumSample(channel, start + index)
+                : GetSpectrumSample(start + index);
         }
 
         _spectrumFft.ComputeMagnitudes(_fftInput, _fftWindow, fftSize, _fftWindowSum, _fftMagnitudes);
         var magnitudeCount = (fftSize / 2) + 1;
         var minimumMel = SpectrumScale.HertzToMel(SpectrumScale.MinimumFrequencyHz);
-        var maximumMel = SpectrumScale.HertzToMel(Math.Min(SpectrumScale.MaximumFrequencyHz, _displaySampleRate * 0.49));
+        var maximumMel = SpectrumScale.HertzToMel(Math.Min(SpectrumScale.MaximumFrequencyHz, _sampleRate * 0.49));
         for (var bucket = 0; bucket < SpectrumScale.BucketCount; bucket++)
         {
             var ratio = SpectrumScale.BucketCount == 1 ? 0 : (double)bucket / (SpectrumScale.BucketCount - 1);
             var frequency = SpectrumScale.MelToHertz(minimumMel + ((maximumMel - minimumMel) * ratio));
-            var binPosition = frequency * fftSize / _displaySampleRate;
+            var binPosition = frequency * fftSize / _sampleRate;
             target.Values[bucket] = MagnitudeToDisplayLevel(InterpolateMagnitude(_fftMagnitudes, magnitudeCount, binPosition));
         }
 

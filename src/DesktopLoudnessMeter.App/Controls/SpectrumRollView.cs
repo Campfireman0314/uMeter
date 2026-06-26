@@ -13,14 +13,6 @@ public sealed class SpectrumRollView : FrameworkElement
 {
     private const int MaximumHistoryColumns = 240;
     private const double PreferredPlotHeight = 140;
-    private const double AnalyzerFloorDb = -200;
-    private const double AnalyzerCeilingDb = 0;
-    private const double AnalyzerRangeDb = AnalyzerCeilingDb - AnalyzerFloorDb;
-    private const double DefaultDisplayFloorDb = -120;
-    private const double MinimumDisplayRangeDb = 1;
-    private const double SoftFloorKneeDb = 9;
-    private const double SoftFloorMaximumDisplayValue = 0.16;
-    private const double VerticalSmoothingWeight = 0.18;
     private const int PendingBitmapLockHResult = unchecked((int)0x88982F0D);
     private static readonly double MinimumMel = SpectrumScale.HertzToMel(SpectrumScale.MinimumFrequencyHz);
     private static readonly double MaximumMel = SpectrumScale.HertzToMel(SpectrumScale.MaximumFrequencyHz);
@@ -40,8 +32,8 @@ public sealed class SpectrumRollView : FrameworkElement
     private readonly PlotBackgroundCache _backgroundCache = new();
     private Color _bitmapAccent;
     private Color _bitmapWarm;
-    private double _bitmapDisplayFloorDb = DefaultDisplayFloorDb;
-    private double _bitmapDisplayCeilingDb = AnalyzerCeilingDb;
+    private double _bitmapDisplayFloorDb = SpectrumRollColumnRasterizer.DefaultDisplayFloorDb;
+    private double _bitmapDisplayCeilingDb = SpectrumRollColumnRasterizer.DefaultDisplayCeilingDb;
     private bool _isPanning;
     private Point _panStart;
     private double _panStartCenterMel;
@@ -53,7 +45,7 @@ public sealed class SpectrumRollView : FrameworkElement
     {
         _spectrumUpdate = new DeferredRenderUpdate(this, CanApplySpectrumUpdate, ApplyPendingSpectrumUpdate);
         Cursor = Cursors.SizeNS;
-        RenderOptions.SetBitmapScalingMode(this, BitmapScalingMode.Linear);
+        RenderOptions.SetBitmapScalingMode(this, BitmapScalingMode.NearestNeighbor);
         SnapsToDevicePixels = true;
         Loaded += (_, _) =>
         {
@@ -101,7 +93,7 @@ public sealed class SpectrumRollView : FrameworkElement
         nameof(DisplayFloorDb),
         typeof(double),
         typeof(SpectrumRollView),
-        new FrameworkPropertyMetadata(DefaultDisplayFloorDb, DisplayRangeChanged));
+        new FrameworkPropertyMetadata(SpectrumRollColumnRasterizer.DefaultDisplayFloorDb, DisplayRangeChanged));
 
     public double DisplayFloorDb
     {
@@ -113,7 +105,7 @@ public sealed class SpectrumRollView : FrameworkElement
         nameof(DisplayCeilingDb),
         typeof(double),
         typeof(SpectrumRollView),
-        new FrameworkPropertyMetadata(AnalyzerCeilingDb, DisplayRangeChanged));
+        new FrameworkPropertyMetadata(SpectrumRollColumnRasterizer.DefaultDisplayCeilingDb, DisplayRangeChanged));
 
     public double DisplayCeilingDb
     {
@@ -361,57 +353,19 @@ public sealed class SpectrumRollView : FrameworkElement
             destination);
     }
 
-    private static double DisplayValue(double normalizedLevel, DisplayTransform transform)
-    {
-        if (normalizedLevel <= 0)
-        {
-            return 0;
-        }
-
-        var level = Math.Clamp(normalizedLevel, 0, 1);
-        if (level <= transform.FloorLevel)
-        {
-            if (level <= transform.SoftFloorLevel)
-            {
-                return 0;
-            }
-
-            var softRatio = (level - transform.SoftFloorLevel) / (transform.FloorLevel - transform.SoftFloorLevel);
-            return Math.Clamp(softRatio * softRatio * SoftFloorMaximumDisplayValue, 0, SoftFloorMaximumDisplayValue);
-        }
-
-        var visibleRatio = Math.Clamp((level - transform.FloorLevel) / transform.LevelRange, 0, 1);
-        return Math.Clamp(SoftFloorMaximumDisplayValue + ((1 - SoftFloorMaximumDisplayValue) * visibleRatio), 0, 1);
-    }
-
-    private static int LevelPixel(double value, DisplayTransform transform, Color accent, Color warm)
-    {
-        var displayValue = DisplayValue(value, transform);
-        return displayValue > 0
-            ? ColorToBgra(ThemedDrawing.SpectrumPixel(accent, warm, displayValue))
-            : 0;
-    }
-
     private (double FloorDb, double CeilingDb) DisplayRange()
     {
-        var floorDb = double.IsFinite(DisplayFloorDb) ? DisplayFloorDb : AnalyzerFloorDb;
-        var ceilingDb = double.IsFinite(DisplayCeilingDb) ? DisplayCeilingDb : AnalyzerCeilingDb;
-        floorDb = Math.Clamp(floorDb, AnalyzerFloorDb, AnalyzerCeilingDb - MinimumDisplayRangeDb);
-        ceilingDb = Math.Clamp(ceilingDb, floorDb + MinimumDisplayRangeDb, AnalyzerCeilingDb);
+        var floorDb = double.IsFinite(DisplayFloorDb) ? DisplayFloorDb : SpectrumRollColumnRasterizer.AnalyzerFloorDb;
+        var ceilingDb = double.IsFinite(DisplayCeilingDb) ? DisplayCeilingDb : SpectrumRollColumnRasterizer.AnalyzerCeilingDb;
+        floorDb = Math.Clamp(
+            floorDb,
+            SpectrumRollColumnRasterizer.AnalyzerFloorDb,
+            SpectrumRollColumnRasterizer.AnalyzerCeilingDb - SpectrumRollColumnRasterizer.MinimumDisplayRangeDb);
+        ceilingDb = Math.Clamp(
+            ceilingDb,
+            floorDb + SpectrumRollColumnRasterizer.MinimumDisplayRangeDb,
+            SpectrumRollColumnRasterizer.AnalyzerCeilingDb);
         return (floorDb, ceilingDb);
-    }
-
-    private static DisplayTransform CreateDisplayTransform(double floorDb, double ceilingDb)
-    {
-        var floorLevel = Math.Clamp((floorDb - AnalyzerFloorDb) / AnalyzerRangeDb, 0, 1);
-        var ceilingLevel = Math.Clamp((ceilingDb - AnalyzerFloorDb) / AnalyzerRangeDb, floorLevel + double.Epsilon, 1);
-        var softFloorLevel = Math.Clamp(((floorDb - SoftFloorKneeDb) - AnalyzerFloorDb) / AnalyzerRangeDb, 0, floorLevel);
-        return new DisplayTransform(softFloorLevel, floorLevel, ceilingLevel - floorLevel);
-    }
-
-    private static int ColorToBgra(Color color)
-    {
-        return color.B | (color.G << 8) | (color.R << 16) | (color.A << 24);
     }
 
     private static string FormatFrequency(double frequency)
@@ -619,7 +573,7 @@ public sealed class SpectrumRollView : FrameworkElement
     private void WriteColumn(int x, IReadOnlyList<double> buckets)
     {
         var (floorDb, ceilingDb) = DisplayRange();
-        var transform = CreateDisplayTransform(floorDb, ceilingDb);
+        var transform = SpectrumRollColumnRasterizer.CreateDisplayTransform(floorDb, ceilingDb);
         var accent = CurrentAccent();
         var warm = CurrentWarm();
 
@@ -627,7 +581,6 @@ public sealed class SpectrumRollView : FrameworkElement
         {
             _pixels[(row * MaximumHistoryColumns) + x] = 0;
             _levels[(row * MaximumHistoryColumns) + x] = 0;
-            _columnPixels[row] = 0;
         }
 
         for (var bucket = 0; bucket < buckets.Count; bucket++)
@@ -635,53 +588,14 @@ public sealed class SpectrumRollView : FrameworkElement
             var value = Math.Clamp(buckets[bucket], 0, 1);
             var row = _bitmapBucketCount - 1 - bucket;
             var index = (row * MaximumHistoryColumns) + x;
-            var pixel = LevelPixel(SmoothedColumnValue(buckets, bucket), transform, accent, warm);
             _levels[index] = value;
-            _pixels[index] = pixel;
-            _columnPixels[row] = pixel;
         }
 
-        FillIsolatedColumnGaps(x);
-    }
-
-    private static double SmoothedColumnValue(IReadOnlyList<double> buckets, int bucket)
-    {
-        var value = Math.Clamp(buckets[bucket], 0, 1);
-        var previous = bucket > 0 ? Math.Clamp(buckets[bucket - 1], 0, 1) : value;
-        var next = bucket < buckets.Count - 1 ? Math.Clamp(buckets[bucket + 1], 0, 1) : value;
-        var neighborAverage = (previous + next) * 0.5;
-        return Math.Clamp((value * (1 - VerticalSmoothingWeight)) + (neighborAverage * VerticalSmoothingWeight), 0, 1);
-    }
-
-    private void FillIsolatedColumnGaps(int x)
-    {
-        for (var row = 1; row < _bitmapBucketCount - 1; row++)
+        SpectrumRollColumnRasterizer.WriteColumn(buckets, _columnPixels, transform, accent, warm);
+        for (var row = 0; row < _bitmapBucketCount; row++)
         {
-            if (_columnPixels[row] != 0)
-            {
-                continue;
-            }
-
-            var upper = _columnPixels[row - 1];
-            var lower = _columnPixels[row + 1];
-            if (upper == 0 || lower == 0)
-            {
-                continue;
-            }
-
-            var fill = BlendBgra(upper, lower);
-            _columnPixels[row] = fill;
-            _pixels[(row * MaximumHistoryColumns) + x] = fill;
+            _pixels[(row * MaximumHistoryColumns) + x] = _columnPixels[row];
         }
-    }
-
-    private static int BlendBgra(int first, int second)
-    {
-        var blue = (((first & 0xFF) + (second & 0xFF)) / 2) & 0xFF;
-        var green = (((first >> 8 & 0xFF) + (second >> 8 & 0xFF)) / 2) & 0xFF;
-        var red = (((first >> 16 & 0xFF) + (second >> 16 & 0xFF)) / 2) & 0xFF;
-        var alpha = (((first >> 24 & 0xFF) + (second >> 24 & 0xFF)) / 2) & 0xFF;
-        return blue | (green << 8) | (red << 16) | (alpha << 24);
     }
 
     private void ClearSpectrum()
@@ -768,14 +682,13 @@ public sealed class SpectrumRollView : FrameworkElement
         _bitmapWarm = warm;
         _bitmapDisplayFloorDb = floorDb;
         _bitmapDisplayCeilingDb = ceilingDb;
-        var transform = CreateDisplayTransform(floorDb, ceilingDb);
+        var transform = SpectrumRollColumnRasterizer.CreateDisplayTransform(floorDb, ceilingDb);
         for (var row = 0; row < _bitmapBucketCount; row++)
         {
             for (var column = 0; column < MaximumHistoryColumns; column++)
             {
                 var index = (row * MaximumHistoryColumns) + column;
-                var value = SmoothedStoredValue(row, column);
-                _pixels[index] = LevelPixel(value, transform, accent, warm);
+                _pixels[index] = SpectrumRollColumnRasterizer.LevelPixel(_levels[index], transform, accent, warm);
             }
         }
 
@@ -783,16 +696,6 @@ public sealed class SpectrumRollView : FrameworkElement
         {
             MarkBitmapWritePending();
         }
-    }
-
-    private double SmoothedStoredValue(int row, int column)
-    {
-        var index = (row * MaximumHistoryColumns) + column;
-        var value = _levels[index];
-        var previous = row > 0 ? _levels[((row - 1) * MaximumHistoryColumns) + column] : value;
-        var next = row < _bitmapBucketCount - 1 ? _levels[((row + 1) * MaximumHistoryColumns) + column] : value;
-        var neighborAverage = (previous + next) * 0.5;
-        return Math.Clamp((value * (1 - VerticalSmoothingWeight)) + (neighborAverage * VerticalSmoothingWeight), 0, 1);
     }
 
     private bool TryWriteFullBitmap()

@@ -17,7 +17,8 @@ public sealed class DetailWindowViewModel : ObservableObject, IDisposable
     private const double DefaultCollisionRelativeThreshold = 0.18;
     private const double SpectrumDisplayMinimumDb = -200;
     private const double SpectrumDisplayMaximumDb = 0;
-    private const double SpectrumDisplayDefaultFloorDb = -120;
+    private const double SpectrumDisplayDefaultFloorDb = -96;
+    private const double SpectrumDisplayDefaultCeilingDb = -6;
     private const double SpectrumDisplayMinimumSpanDb = 6;
     private static readonly FrequencyCollisionSourceOption AllCollisionSourcesOption = new("__global__", "Global", isAllSources: true);
     private readonly Func<IReadOnlyList<AudioSessionMeterViewModel>> _getActiveSessions;
@@ -33,8 +34,9 @@ public sealed class DetailWindowViewModel : ObservableObject, IDisposable
     private double _collisionLevelFloorDb = DefaultCollisionLevelFloorDb;
     private double _collisionProminenceThresholdDb = DefaultCollisionProminenceThresholdDb;
     private double _collisionRelativeThreshold = DefaultCollisionRelativeThreshold;
+    private CollisionFrequencyScale _collisionFrequencyScale = CollisionFrequencyScale.Logarithmic;
     private double _spectrumDisplayFloorDb = SpectrumDisplayDefaultFloorDb;
-    private double _spectrumDisplayCeilingDb = SpectrumDisplayMaximumDb;
+    private double _spectrumDisplayCeilingDb = SpectrumDisplayDefaultCeilingDb;
     private bool _isAlwaysOnTop = true;
     private bool _isWaveformVisible;
     private bool _isSpectrumVisible;
@@ -104,6 +106,12 @@ public sealed class DetailWindowViewModel : ObservableObject, IDisposable
     [
         WaveformDisplayMode.Overall,
         WaveformDisplayMode.Channels
+    ];
+
+    public IReadOnlyList<CollisionFrequencyScale> CollisionFrequencyScaleOptions { get; } =
+    [
+        CollisionFrequencyScale.Logarithmic,
+        CollisionFrequencyScale.Mel
     ];
 
     public bool IsAlwaysOnTop
@@ -236,6 +244,22 @@ public sealed class DetailWindowViewModel : ObservableObject, IDisposable
     }
 
     public string CollisionRelativeThresholdText => $"{CollisionRelativeThreshold:P0}";
+
+    public CollisionFrequencyScale CollisionFrequencyScale
+    {
+        get => _collisionFrequencyScale;
+        set
+        {
+            if (SetProperty(ref _collisionFrequencyScale, value))
+            {
+                OnPropertyChanged(nameof(CollisionFrequencyScaleText));
+                SaveWorkspacePreferences();
+                RefreshFrequencyCollisions();
+            }
+        }
+    }
+
+    public string CollisionFrequencyScaleText => CollisionFrequencyScale.ToDisplayLabel();
 
     public double SpectrumDisplayFloorDb
     {
@@ -486,7 +510,8 @@ public sealed class DetailWindowViewModel : ObservableObject, IDisposable
             selectedComparison.IsAllSources,
             CollisionLevelFloorDb,
             CollisionProminenceThresholdDb,
-            CollisionRelativeThreshold));
+            CollisionRelativeThreshold,
+            CollisionFrequencyScale));
     }
 
     private void ApplyWorkspacePreferences()
@@ -501,8 +526,9 @@ public sealed class DetailWindowViewModel : ObservableObject, IDisposable
             CollisionLevelFloorDb = GetCollisionLevelFloorDb(sourceSettings) ?? DefaultCollisionLevelFloorDb;
             CollisionProminenceThresholdDb = sourceSettings?.CollisionProminenceThresholdDb ?? DefaultCollisionProminenceThresholdDb;
             CollisionRelativeThreshold = sourceSettings?.CollisionRelativeThreshold ?? DefaultCollisionRelativeThreshold;
+            CollisionFrequencyScale = sourceSettings?.CollisionFrequencyScale ?? CollisionFrequencyScale.Logarithmic;
             SpectrumDisplayFloorDb = sourceSettings?.SpectrumDisplayFloorDb ?? SpectrumDisplayDefaultFloorDb;
-            SpectrumDisplayCeilingDb = sourceSettings?.SpectrumDisplayCeilingDb ?? SpectrumDisplayMaximumDb;
+            SpectrumDisplayCeilingDb = sourceSettings?.SpectrumDisplayCeilingDb ?? SpectrumDisplayDefaultCeilingDb;
             if (sourceSettings?.PopupStereo is not null)
             {
                 sourceSettings.PopupStereo.ApplyTo(StereoSettings);
@@ -549,6 +575,7 @@ public sealed class DetailWindowViewModel : ObservableObject, IDisposable
         sourceSettings.CollisionLevelFloorDb = CollisionLevelFloorDb;
         sourceSettings.CollisionProminenceThresholdDb = CollisionProminenceThresholdDb;
         sourceSettings.CollisionRelativeThreshold = CollisionRelativeThreshold;
+        sourceSettings.CollisionFrequencyScale = CollisionFrequencyScale;
         sourceSettings.SpectrumDisplayFloorDb = SpectrumDisplayFloorDb;
         sourceSettings.SpectrumDisplayCeilingDb = SpectrumDisplayCeilingDb;
         sourceSettings.PopupStereo = StereoWorkspaceSettings.FromSettings(StereoSettings);

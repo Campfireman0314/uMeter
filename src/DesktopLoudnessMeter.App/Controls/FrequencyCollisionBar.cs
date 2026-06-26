@@ -9,8 +9,6 @@ namespace DesktopLoudnessMeter.App.Controls;
 
 public sealed class FrequencyCollisionBar : FrameworkElement
 {
-    private static readonly double MinimumMel = SpectrumScale.HertzToMel(SpectrumScale.MinimumFrequencyHz);
-    private static readonly double MaximumMel = SpectrumScale.HertzToMel(SpectrumScale.MaximumFrequencyHz);
     private static readonly double[] MajorFrequencies = [20d, 100d, 1000d, 4000d, 12000d, 22000d];
     private readonly PlotBackgroundCache _backgroundCache = new();
     private Point? _hoverPoint;
@@ -31,6 +29,21 @@ public sealed class FrequencyCollisionBar : FrameworkElement
     {
         get => (IReadOnlyList<FrequencyCollisionBand>?)GetValue(CollisionBandsProperty);
         set => SetValue(CollisionBandsProperty, value);
+    }
+
+    public static readonly DependencyProperty FrequencyScaleProperty = DependencyProperty.Register(
+        nameof(FrequencyScale),
+        typeof(CollisionFrequencyScale),
+        typeof(FrequencyCollisionBar),
+        new FrameworkPropertyMetadata(
+            CollisionFrequencyScale.Logarithmic,
+            FrameworkPropertyMetadataOptions.AffectsRender,
+            OnFrequencyScaleChanged));
+
+    public CollisionFrequencyScale FrequencyScale
+    {
+        get => (CollisionFrequencyScale)GetValue(FrequencyScaleProperty);
+        set => SetValue(FrequencyScaleProperty, value);
     }
 
     protected override Size MeasureOverride(Size availableSize)
@@ -70,7 +83,7 @@ public sealed class FrequencyCollisionBar : FrameworkElement
             () => CreateBackgroundDrawing(track, trackColor, outlineColor, subtleColor, pixelsPerDip)));
     }
 
-    private static DrawingGroup CreateBackgroundDrawing(
+    private DrawingGroup CreateBackgroundDrawing(
         Rect track,
         Color trackColor,
         Color outlineColor,
@@ -143,7 +156,7 @@ public sealed class FrequencyCollisionBar : FrameworkElement
         }
     }
 
-    private static void DrawTicks(
+    private void DrawTicks(
         DrawingContext drawingContext,
         Rect track,
         double labelTop,
@@ -231,21 +244,16 @@ public sealed class FrequencyCollisionBar : FrameworkElement
         drawingContext.DrawText(formatted, new Point(bubble.Left + paddingX, bubble.Top + 2));
     }
 
-    private static double FrequencyToX(Rect track, double frequency)
+    private double FrequencyToX(Rect track, double frequency)
     {
-        var mel = SpectrumScale.HertzToMel(Math.Clamp(
-            frequency,
-            SpectrumScale.MinimumFrequencyHz,
-            SpectrumScale.MaximumFrequencyHz));
-        var ratio = (mel - MinimumMel) / (MaximumMel - MinimumMel);
+        var ratio = CollisionFrequencyScaleMapper.FrequencyToScaleRatio(frequency, FrequencyScale);
         return track.Left + (track.Width * Math.Clamp(ratio, 0, 1));
     }
 
-    private static double XToFrequency(Rect track, double x)
+    private double XToFrequency(Rect track, double x)
     {
         var ratio = Math.Clamp((x - track.Left) / track.Width, 0, 1);
-        var mel = MinimumMel + ((MaximumMel - MinimumMel) * ratio);
-        return SpectrumScale.MelToHertz(mel);
+        return CollisionFrequencyScaleMapper.ScaleRatioToFrequency(ratio, FrequencyScale);
     }
 
     private static string FormatFrequency(double frequency)
@@ -303,5 +311,16 @@ public sealed class FrequencyCollisionBar : FrameworkElement
 
         _hoverPoint = null;
         InvalidateVisual();
+    }
+
+    private static void OnFrequencyScaleChanged(DependencyObject dependencyObject, DependencyPropertyChangedEventArgs args)
+    {
+        if (dependencyObject is not FrequencyCollisionBar bar)
+        {
+            return;
+        }
+
+        bar._backgroundCache.Invalidate();
+        bar.InvalidateVisual();
     }
 }

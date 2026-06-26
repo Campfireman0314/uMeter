@@ -137,6 +137,10 @@ public sealed class SourceWorkspaceSettings
 {
     public string? Alias { get; set; }
 
+    public bool IsHidden { get; set; }
+
+    public int? OrderIndex { get; set; }
+
     public TruePeakOversampling? TruePeakOversampling { get; set; }
 
     public WaveformDisplayMode? WaveformDisplayMode { get; set; }
@@ -167,6 +171,8 @@ public sealed class SourceWorkspaceSettings
 
     public double? CollisionRelativeThreshold { get; set; }
 
+    public CollisionFrequencyScale? CollisionFrequencyScale { get; set; }
+
     public double? SpectrumDisplayFloorDb { get; set; }
 
     public double? SpectrumDisplayCeilingDb { get; set; }
@@ -178,6 +184,7 @@ public sealed class SourceWorkspaceSettings
     public void Normalize()
     {
         Alias = string.IsNullOrWhiteSpace(Alias) ? null : Alias.Trim();
+        OrderIndex = OrderIndex is int orderIndex && orderIndex >= 0 ? orderIndex : null;
         InlineCollisionSourceKey = string.IsNullOrWhiteSpace(InlineCollisionSourceKey) ? null : InlineCollisionSourceKey.Trim();
         PopupCollisionSourceKey = string.IsNullOrWhiteSpace(PopupCollisionSourceKey) ? null : PopupCollisionSourceKey.Trim();
         if (CollisionLevelFloorDb is null

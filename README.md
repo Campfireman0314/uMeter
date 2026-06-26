@@ -4,22 +4,24 @@ Fast floating Windows desktop meter for seeing which app, DAW, or plugin sender 
 
 ## Current Version
 
-`v2.2.8` is the current public release. This patch adds optional RfRapid acceleration for true-peak reconstruction after benchmarking it against the managed estimator.
+`v2.3.0` is the current public release. This release stabilizes source continuity during device/sample-rate changes, sharpens the spectrograph, prevents duplicate desktop instances, and adds inline source-list workspace controls.
 
 ## Usable Baseline
 
 - WPF/.NET 8 Windows desktop app.
 - Always-on-top compact overlay window with hide-to-tray, restore, pop-up detail, and exit tray actions.
 - Mixed source rows for WASAPI app/session audio, localhost loopback probes, and plugin sender instances.
+- Only one desktop app instance is allowed per user session; repeated launches activate the existing app.
 - JUCE `uMeter Sender` VST3 audio-effect plugin with pass-through audio, stable source identity, host-based default names, live source rename, temporary mute, and late desktop-app discovery.
 - Plugin sources disappear from the main list on unload, while open detail views show an `Instance not found` overlay and can switch to another active source.
-- Stable source ordering, duplicate-name disambiguation, source identity text, and process-lifetime handle retention.
+- User-reorderable source rows, duplicate-name disambiguation, source identity text, and process-lifetime handle retention.
+- Row-title alias editing, hidden-source filtering, and a global `Show hidden` toggle.
 - Peak/LUFS global display mode, true-peak options, topmost behavior, resets, and per-session details.
 - DSP engine for momentary/short-term/integrated loudness, recent-window true peak, 100 ms RMS, polar stereo image, and correlation.
 - Optional pop-up detail windows with independent topmost state, stereo scale settings, and true-peak oversampling ratio.
 - Optional waveform and spectrum panels with overall/channel display modes, vertical pan, mouse-wheel zoom, double-click reset, and stretchable panel height.
 - Oversampled waveform display with dBFS scale markings.
-- Horizontally rolling Mel-scaled FFT spectrum display from 20 Hz to 22 kHz.
+- Horizontally rolling Mel-scaled FFT spectrum display from 20 Hz to 22 kHz with sharp bucket rendering and raw-PCM spectrum analysis.
 - Frequency collision analyzer for comparing prominent spectrum overlap between sources, with source selection, level floor, prominence, match tolerance, cursor marker, and double-click numeric slider entry.
 - Recent Events strip for source lifecycle, true-peak max, and loudness-jump events, with type filtering and configurable retained entry count.
 - Global settings window for event history limit and future event output folder selection.
@@ -71,7 +73,7 @@ The generated installers are written to:
 
 ```text
 artifacts\uMeter.Setup.exe
-artifacts\uMeter-Setup-2.2.8.exe
+artifacts\uMeter-Setup-2.3.0.exe
 ```
 
 The installer contains the desktop app and `uMeter Sender.vst3`. The VST3 install path defaults to:
@@ -116,6 +118,7 @@ For mixed-source behavior, duplicate names, and reconnect preference memory, see
 - `docs/current-status.md` - current release status and remaining known limits.
 - `docs/product-roadmap/` - post-v2.2.4 product roadmap and planning notes.
 - `docs/rendering-architecture.md` - graph rendering cleanup notes.
+- `docs/v2.3.0-release.md` - v2.3.0 release notes.
 - `docs/v2.2.8-release.md` - v2.2.8 release notes.
 - `docs/v2.2.7-release.md` - v2.2.7 release notes.
 - `docs/v2.2.6-release.md` - v2.2.6 release notes.
@@ -146,3 +149,4 @@ For mixed-source behavior, duplicate names, and reconnect preference memory, see
 13. Done: v2.2.6 Cycle 5 rendering architecture cleanup slices and Cycle 6 platform strategy notes.
 14. Done: v2.2.7 detail-window topmost isolation and Milk White graph contrast polish.
 15. Done: v2.2.8 RfRapid true-peak acceleration with benchmark coverage and managed fallback.
+16. Done: v2.3.0 source continuity, spectrograph fidelity, single-instance launch, and source-list workspace controls.

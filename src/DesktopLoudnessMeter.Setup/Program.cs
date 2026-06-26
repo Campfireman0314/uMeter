@@ -428,7 +428,7 @@ internal static class Installer
     private const string AppProcessName = "uMeter";
     private const string PayloadResourceName = "uMeter.Payload.zip";
     private const string Publisher = "Campfireman Studio";
-    private const string Version = "2.2.8";
+    private const string Version = "2.3.0";
     private const string InstallMarkerName = ".umeter-install";
     private const string LegacyInstallMarkerName = ".desktop-loudness-meter-install";
     private const string UninstallKeyPath = @"Software\Microsoft\Windows\CurrentVersion\Uninstall\uMeter";

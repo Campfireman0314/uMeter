@@ -331,7 +331,8 @@
                                 </Grid>
 
                                 <controls:FrequencyCollisionBar Grid.Row="2"
-                                                                CollisionBands="{Binding FrequencyCollisionBands, Mode=OneWay}">
+                                                                CollisionBands="{Binding FrequencyCollisionBands, Mode=OneWay}"
+                                                                FrequencyScale="{Binding CollisionFrequencyScale, Mode=OneWay}">
                                     <controls:FrequencyCollisionBar.Style>
                                         <Style TargetType="controls:FrequencyCollisionBar">
                                             <Setter Property="Visibility" Value="Collapsed" />
@@ -358,6 +359,24 @@
                                             BorderThickness="1"
                                             CornerRadius="6">
                                         <StackPanel>
+                                            <Grid>
+                                                <Grid.ColumnDefinitions>
+                                                    <ColumnDefinition Width="*" />
+                                                    <ColumnDefinition Width="Auto" />
+                                                </Grid.ColumnDefinitions>
+                                                <TextBlock Foreground="{DynamicResource SubtleTextBrush}"
+                                                           FontSize="11"
+                                                           Text="Scale" />
+                                                <TextBlock Grid.Column="1"
+                                                           Foreground="{DynamicResource TextBrush}"
+                                                           FontSize="11"
+                                                           Text="{Binding CollisionFrequencyScaleText}" />
+                                            </Grid>
+                                            <ComboBox Margin="0,3,0,10"
+                                                      Height="26"
+                                                      ItemsSource="{Binding CollisionFrequencyScaleOptions}"
+                                                      SelectedItem="{Binding CollisionFrequencyScale, Mode=TwoWay}" />
+
                                             <Grid>
                                                 <Grid.ColumnDefinitions>
                                                     <ColumnDefinition Width="*" />

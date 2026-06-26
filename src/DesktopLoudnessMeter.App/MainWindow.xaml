@@ -232,10 +232,17 @@
                                 <ColumnDefinition Width="Auto" />
                             </Grid.ColumnDefinitions>
 
-                            <CheckBox VerticalAlignment="Center"
-                                      Content="Always on top"
-                                      Foreground="{DynamicResource TextBrush}"
-                                      IsChecked="{Binding IsAlwaysOnTop, Mode=TwoWay}" />
+                            <StackPanel Orientation="Horizontal">
+                                <CheckBox VerticalAlignment="Center"
+                                          Content="Always on top"
+                                          Foreground="{DynamicResource TextBrush}"
+                                          IsChecked="{Binding IsAlwaysOnTop, Mode=TwoWay}" />
+                                <CheckBox Margin="14,0,0,0"
+                                          VerticalAlignment="Center"
+                                          Content="Show hidden"
+                                          Foreground="{DynamicResource TextBrush}"
+                                          IsChecked="{Binding ShowHiddenSources, Mode=TwoWay}" />
+                            </StackPanel>
 
                             <Button Grid.Column="2"
                                     MinWidth="82"
@@ -392,10 +399,64 @@
                     <ItemsControl ItemsSource="{Binding Sessions}">
                         <ItemsControl.ItemTemplate>
                             <DataTemplate>
-                                <Border Margin="0,0,0,8"
-                                        Padding="10"
-                                        Background="{DynamicResource PanelBrush}"
-                                        CornerRadius="6">
+                                <Grid Margin="0,0,0,8">
+                                    <Grid.RowDefinitions>
+                                        <RowDefinition Height="Auto" />
+                                        <RowDefinition Height="Auto" />
+                                        <RowDefinition Height="Auto" />
+                                    </Grid.RowDefinitions>
+
+                                    <Border Grid.Row="0"
+                                            Height="0"
+                                            Opacity="0"
+                                            IsHitTestVisible="False">
+                                        <Border.Style>
+                                            <Style TargetType="Border">
+                                                <Setter Property="Background" Value="Transparent" />
+                                                <Style.Triggers>
+                                                    <DataTrigger Binding="{Binding IsReorderDropBefore}" Value="True">
+                                                        <DataTrigger.EnterActions>
+                                                            <BeginStoryboard>
+                                                                <Storyboard>
+                                                                    <DoubleAnimation Storyboard.TargetProperty="Height"
+                                                                                     To="18"
+                                                                                     Duration="0:0:0.10" />
+                                                                    <DoubleAnimation Storyboard.TargetProperty="Opacity"
+                                                                                     To="1"
+                                                                                     Duration="0:0:0.08" />
+                                                                </Storyboard>
+                                                            </BeginStoryboard>
+                                                        </DataTrigger.EnterActions>
+                                                        <DataTrigger.ExitActions>
+                                                            <BeginStoryboard>
+                                                                <Storyboard>
+                                                                    <DoubleAnimation Storyboard.TargetProperty="Height"
+                                                                                     To="0"
+                                                                                     Duration="0:0:0.10" />
+                                                                    <DoubleAnimation Storyboard.TargetProperty="Opacity"
+                                                                                     To="0"
+                                                                                     Duration="0:0:0.08" />
+                                                                </Storyboard>
+                                                            </BeginStoryboard>
+                                                        </DataTrigger.ExitActions>
+                                                    </DataTrigger>
+                                                </Style.Triggers>
+                                            </Style>
+                                        </Border.Style>
+                                        <Border Height="2"
+                                                Margin="8,8"
+                                                VerticalAlignment="Center"
+                                                Background="{DynamicResource AccentBrush}"
+                                                CornerRadius="1" />
+                                    </Border>
+
+                                    <Border Grid.Row="1"
+                                            Padding="10"
+                                            Background="{DynamicResource PanelBrush}"
+                                            CornerRadius="6"
+                                            AllowDrop="True"
+                                            DragOver="SourceRow_OnDragOver"
+                                            Drop="SourceRow_OnDrop">
                                     <Grid>
                                         <Grid.RowDefinitions>
                                             <RowDefinition Height="Auto" />
@@ -407,11 +468,23 @@
                                         <Grid>
                                             <Grid.ColumnDefinitions>
                                                 <ColumnDefinition Width="Auto" />
+                                                <ColumnDefinition Width="6" />
+                                                <ColumnDefinition Width="Auto" />
                                                 <ColumnDefinition Width="8" />
                                                 <ColumnDefinition Width="*" />
+                                                <ColumnDefinition Width="8" />
                                                 <ColumnDefinition Width="Auto" />
                                             </Grid.ColumnDefinitions>
-                                            <Border Padding="6,2"
+                                            <TextBlock Width="14"
+                                                       VerticalAlignment="Center"
+                                                       Cursor="SizeAll"
+                                                       FontSize="13"
+                                                       Foreground="{DynamicResource DisabledTextBrush}"
+                                                       MouseMove="SourceDragHandle_OnMouseMove"
+                                                       Text="::"
+                                                       ToolTip="Drag to reorder" />
+                                            <Border Grid.Column="2"
+                                                    Padding="6,2"
                                                     VerticalAlignment="Center"
                                                     Background="{DynamicResource PanelAltBrush}"
                                                     BorderBrush="{DynamicResource ControlBorderBrush}"
@@ -422,13 +495,42 @@
                                                            FontWeight="SemiBold"
                                                            Text="{Binding SourceKindLabel}" />
                                             </Border>
-                                            <TextBlock Grid.Column="2"
-                                                       Foreground="{DynamicResource TextBrush}"
-                                                       FontSize="13"
-                                                       FontWeight="SemiBold"
-                                                       Text="{Binding DisplayTitle}"
-                                                       TextTrimming="CharacterEllipsis" />
-                                            <Border Grid.Column="3"
+                                            <Grid Grid.Column="4"
+                                                  VerticalAlignment="Center"
+                                                  MouseLeftButtonDown="SourceTitle_OnMouseLeftButtonDown">
+                                                <TextBlock Foreground="{DynamicResource TextBrush}"
+                                                           FontSize="13"
+                                                           FontWeight="SemiBold"
+                                                           Text="{Binding DisplayTitle}"
+                                                           TextTrimming="CharacterEllipsis">
+                                                    <TextBlock.Style>
+                                                        <Style TargetType="TextBlock">
+                                                            <Setter Property="Visibility" Value="Visible" />
+                                                            <Style.Triggers>
+                                                                <DataTrigger Binding="{Binding IsAliasEditing}" Value="True">
+                                                                    <Setter Property="Visibility" Value="Collapsed" />
+                                                                </DataTrigger>
+                                                            </Style.Triggers>
+                                                        </Style>
+                                                    </TextBlock.Style>
+                                                </TextBlock>
+                                                <TextBox GotKeyboardFocus="NamingTextBox_OnGotKeyboardFocus"
+                                                         KeyDown="AliasEditTextBox_OnKeyDown"
+                                                         LostKeyboardFocus="AliasEditTextBox_OnLostKeyboardFocus"
+                                                         Text="{Binding AliasEditText, Mode=TwoWay, UpdateSourceTrigger=PropertyChanged}">
+                                                    <TextBox.Style>
+                                                        <Style TargetType="TextBox" BasedOn="{StaticResource NamingTextEditor}">
+                                                            <Setter Property="Visibility" Value="Collapsed" />
+                                                            <Style.Triggers>
+                                                                <DataTrigger Binding="{Binding IsAliasEditing}" Value="True">
+                                                                    <Setter Property="Visibility" Value="Visible" />
+                                                                </DataTrigger>
+                                                            </Style.Triggers>
+                                                        </Style>
+                                                    </TextBox.Style>
+                                                </TextBox>
+                                            </Grid>
+                                            <Border Grid.Column="6"
                                                     Margin="10,0,0,0"
                                                     MinWidth="74"
                                                     Padding="8,3"
@@ -498,24 +600,7 @@
                                             </Border>
                                         </Grid>
 
-                                        <Grid Grid.Row="1" Margin="0,4,0,0">
-                                            <Grid.ColumnDefinitions>
-                                                <ColumnDefinition Width="Auto" />
-                                                <ColumnDefinition Width="8" />
-                                                <ColumnDefinition Width="*" />
-                                            </Grid.ColumnDefinitions>
-                                            <TextBlock VerticalAlignment="Center"
-                                                       Foreground="{DynamicResource SubtleTextBrush}"
-                                                       FontSize="10"
-                                                       Text="Alias" />
-                                            <TextBox Grid.Column="2"
-                                                     Style="{StaticResource NamingTextEditor}"
-                                                     GotKeyboardFocus="NamingTextBox_OnGotKeyboardFocus"
-                                                     Text="{Binding Alias, Mode=TwoWay, UpdateSourceTrigger=LostFocus}"
-                                                     ToolTip="Optional display name for this source." />
-                                        </Grid>
-
-                                        <Grid Grid.Row="2"
+                                        <Grid Grid.Row="1"
                                               Height="8"
                                               Margin="0,4,0,0">
                                             <Border Background="{DynamicResource MeterTrackBrush}"
@@ -527,11 +612,63 @@
                                                          Foreground="{DynamicResource AccentBrush}" />
                                         </Grid>
 
-                                        <StackPanel Grid.Row="3"
+                                        <StackPanel Grid.Row="2"
                                                     Margin="0,9,0,0"
                                                     Orientation="Horizontal"
                                                     HorizontalAlignment="Right">
+                                            <Button Width="28"
+                                                    Height="24"
+                                                    Padding="0"
+                                                    Command="{Binding DataContext.MoveSourceUpCommand, RelativeSource={RelativeSource AncestorType={x:Type ItemsControl}}}"
+                                                    CommandParameter="{Binding}"
+                                                    FontFamily="Segoe MDL2 Assets"
+                                                    FontSize="10"
+                                                    Content="&#xE70E;"
+                                                    ToolTip="Move up" />
+                                            <Button Margin="4,0,0,0"
+                                                    Width="28"
+                                                    Height="24"
+                                                    Padding="0"
+                                                    Command="{Binding DataContext.MoveSourceDownCommand, RelativeSource={RelativeSource AncestorType={x:Type ItemsControl}}}"
+                                                    CommandParameter="{Binding}"
+                                                    FontFamily="Segoe MDL2 Assets"
+                                                    FontSize="10"
+                                                    Content="&#xE70D;"
+                                                    ToolTip="Move down" />
+                                            <Button Margin="8,0,0,0"
+                                                    MinWidth="54"
+                                                    Height="24"
+                                                    Command="{Binding HideSourceCommand}"
+                                                    Content="Hide">
+                                                <Button.Style>
+                                                    <Style TargetType="Button" BasedOn="{StaticResource {x:Type Button}}">
+                                                        <Setter Property="Visibility" Value="Visible" />
+                                                        <Style.Triggers>
+                                                            <DataTrigger Binding="{Binding IsHidden}" Value="True">
+                                                                <Setter Property="Visibility" Value="Collapsed" />
+                                                            </DataTrigger>
+                                                        </Style.Triggers>
+                                                    </Style>
+                                                </Button.Style>
+                                            </Button>
+                                            <Button Margin="8,0,0,0"
+                                                    MinWidth="64"
+                                                    Height="24"
+                                                    Command="{Binding RestoreSourceCommand}"
+                                                    Content="Restore">
+                                                <Button.Style>
+                                                    <Style TargetType="Button" BasedOn="{StaticResource {x:Type Button}}">
+                                                        <Setter Property="Visibility" Value="Collapsed" />
+                                                        <Style.Triggers>
+                                                            <DataTrigger Binding="{Binding IsHidden}" Value="True">
+                                                                <Setter Property="Visibility" Value="Visible" />
+                                                            </DataTrigger>
+                                                        </Style.Triggers>
+                                                    </Style>
+                                                </Button.Style>
+                                            </Button>
                                             <Button MinWidth="64"
+                                                    Margin="8,0,0,0"
                                                     Height="24"
                                                     Command="{Binding OpenDetailCommand}"
                                                     Content="Details" />
@@ -548,6 +685,50 @@
                                         </StackPanel>
                                     </Grid>
                                 </Border>
+                                    <Border Grid.Row="2"
+                                            Height="0"
+                                            Opacity="0"
+                                            IsHitTestVisible="False">
+                                        <Border.Style>
+                                            <Style TargetType="Border">
+                                                <Setter Property="Background" Value="Transparent" />
+                                                <Style.Triggers>
+                                                    <DataTrigger Binding="{Binding IsReorderDropAfter}" Value="True">
+                                                        <DataTrigger.EnterActions>
+                                                            <BeginStoryboard>
+                                                                <Storyboard>
+                                                                    <DoubleAnimation Storyboard.TargetProperty="Height"
+                                                                                     To="18"
+                                                                                     Duration="0:0:0.10" />
+                                                                    <DoubleAnimation Storyboard.TargetProperty="Opacity"
+                                                                                     To="1"
+                                                                                     Duration="0:0:0.08" />
+                                                                </Storyboard>
+                                                            </BeginStoryboard>
+                                                        </DataTrigger.EnterActions>
+                                                        <DataTrigger.ExitActions>
+                                                            <BeginStoryboard>
+                                                                <Storyboard>
+                                                                    <DoubleAnimation Storyboard.TargetProperty="Height"
+                                                                                     To="0"
+                                                                                     Duration="0:0:0.10" />
+                                                                    <DoubleAnimation Storyboard.TargetProperty="Opacity"
+                                                                                     To="0"
+                                                                                     Duration="0:0:0.08" />
+                                                                </Storyboard>
+                                                            </BeginStoryboard>
+                                                        </DataTrigger.ExitActions>
+                                                    </DataTrigger>
+                                                </Style.Triggers>
+                                            </Style>
+                                        </Border.Style>
+                                        <Border Height="2"
+                                                Margin="8,8"
+                                                VerticalAlignment="Center"
+                                                Background="{DynamicResource AccentBrush}"
+                                                CornerRadius="1" />
+                                    </Border>
+                                </Grid>
                             </DataTemplate>
                         </ItemsControl.ItemTemplate>
                     </ItemsControl>
@@ -850,7 +1031,8 @@
                         </Grid>
 
                         <controls:FrequencyCollisionBar Grid.Row="2"
-                                                        CollisionBands="{Binding FrequencyCollisionBands, Mode=OneWay}">
+                                                        CollisionBands="{Binding FrequencyCollisionBands, Mode=OneWay}"
+                                                        FrequencyScale="{Binding CollisionFrequencyScale, Mode=OneWay}">
                             <controls:FrequencyCollisionBar.Style>
                                 <Style TargetType="controls:FrequencyCollisionBar">
                                     <Setter Property="Visibility" Value="Collapsed" />
@@ -877,6 +1059,24 @@
                                     BorderThickness="1"
                                     CornerRadius="6">
                                 <StackPanel>
+                                    <Grid>
+                                        <Grid.ColumnDefinitions>
+                                            <ColumnDefinition Width="*" />
+                                            <ColumnDefinition Width="Auto" />
+                                        </Grid.ColumnDefinitions>
+                                        <TextBlock Foreground="{DynamicResource SubtleTextBrush}"
+                                                   FontSize="11"
+                                                   Text="Scale" />
+                                        <TextBlock Grid.Column="1"
+                                                   Foreground="{DynamicResource TextBrush}"
+                                                   FontSize="11"
+                                                   Text="{Binding CollisionFrequencyScaleText}" />
+                                    </Grid>
+                                    <ComboBox Margin="0,3,0,10"
+                                              Height="26"
+                                              ItemsSource="{Binding CollisionFrequencyScaleOptions}"
+                                              SelectedItem="{Binding CollisionFrequencyScale, Mode=TwoWay}" />
+
                                     <Grid>
                                         <Grid.ColumnDefinitions>
                                             <ColumnDefinition Width="*" />

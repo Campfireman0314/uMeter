@@ -4,6 +4,34 @@
 
 - Nothing yet.
 
+## v2.3.0 - 2026-06-26
+
+Source continuity and workspace-control release.
+
+### Added
+
+- Added single-instance desktop launch coordination; secondary launches request activation of the existing app and exit before creating receivers, tray icons, settings writers, or windows.
+- Added inline row-title alias editing from the global source list.
+- Added per-source hide/restore controls plus a global `Show hidden` toggle.
+- Added persistent source ordering controls that survive refreshes and WASAPI hibernation/reconnect when source keys remain stable.
+- Added spectrograph diagnostics around tone localization, oversampling invariance, and sharp renderer bucket mapping.
+
+### Changed
+
+- Same-handle loopback re-registration now reconfigures an existing source instead of closing/recreating it.
+- JUCE sender same-handle restarts no longer emit an intervening `close` packet during sample-rate/channel reconfiguration.
+- Temporary handle loss and analyzer warmup no longer blank existing waveform/spectrum roll buffers.
+- Spectrograph rendering now uses direct bucket-to-row mapping and nearest-neighbor bitmap scaling instead of hidden vertical smoothing/gap filling.
+- Spectrum FFT input now uses raw PCM history instead of the true-peak oversampled waveform buffer, keeping dominant bucket placement stable across true-peak oversampling ratios.
+- App, setup, protocol, sender kit, sender probe, VST3 sender project, and AAX sender project metadata now report version `2.3.0`.
+
+### Verified
+
+- `dotnet test .\tests\DesktopLoudnessMeter.Tests\DesktopLoudnessMeter.Tests.csproj` with 231 passing tests.
+- `dotnet build .\desktop-loudness-meter.sln`.
+- `.\scripts\build-juce-sender.ps1 -Format VST3 -Configuration Debug -RunTests`.
+- `.\build-installer.ps1 -Configuration Release` produced `artifacts\uMeter-Setup-2.3.0.exe` with SHA256 `5C960D7F41969773738928B3B6145B8CED35F9278D838246B64D9995FE977263`.
+
 ## v2.2.8 - 2026-06-21
 
 RfRapid true-peak acceleration release.
