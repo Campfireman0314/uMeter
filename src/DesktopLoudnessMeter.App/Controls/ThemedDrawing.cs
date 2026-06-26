@@ -109,6 +109,7 @@ internal static class ThemedDrawing
             PlotColorRole.Subtle => ("SubtleTextBrush", Color.FromRgb(174, 183, 194)),
             PlotColorRole.Signal => ("SignalBrush", Color.FromRgb(46, 196, 182)),
             PlotColorRole.SpectrumWarm => ("SpectrumWarmBrush", Color.FromRgb(255, 176, 0)),
+            PlotColorRole.Danger => ("DangerBrush", Color.FromRgb(255, 70, 92)),
             PlotColorRole.Text => ("TextBrush", Color.FromRgb(244, 247, 250)),
             PlotColorRole.ControlPressed => ("ControlPressedBrush", Color.FromRgb(53, 65, 77)),
             _ => ("SignalBrush", Color.FromRgb(46, 196, 182))
@@ -132,6 +133,7 @@ internal enum PlotColorRole
     Subtle,
     Signal,
     SpectrumWarm,
+    Danger,
     Text,
     ControlPressed
 }

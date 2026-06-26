@@ -135,6 +135,12 @@ public sealed class UserWorkspaceSettings
 
 public sealed class SourceWorkspaceSettings
 {
+    private const double LoudnessClockSettingsMinimumDb = -120;
+    private const double LoudnessClockSettingsMaximumDb = 0;
+    private const double LoudnessClockSettingsMinimumSpanDb = 6;
+    private const double LoudnessClockSettingsMinimumCycleSeconds = 10;
+    private const double LoudnessClockSettingsMaximumCycleSeconds = 600;
+
     public string? Alias { get; set; }
 
     public bool IsHidden { get; set; }
@@ -151,11 +157,15 @@ public sealed class SourceWorkspaceSettings
 
     public bool? InlineSpectrumVisible { get; set; }
 
+    public bool? InlineLoudnessClockVisible { get; set; }
+
     public bool? InlineCollisionVisible { get; set; }
 
     public bool? PopupWaveformVisible { get; set; }
 
     public bool? PopupSpectrumVisible { get; set; }
+
+    public bool? PopupLoudnessClockVisible { get; set; }
 
     public bool? PopupCollisionVisible { get; set; }
 
@@ -177,6 +187,14 @@ public sealed class SourceWorkspaceSettings
 
     public double? SpectrumDisplayCeilingDb { get; set; }
 
+    public double? LoudnessClockMinimumDb { get; set; }
+
+    public double? LoudnessClockMaximumDb { get; set; }
+
+    public double? LoudnessClockWarningDb { get; set; }
+
+    public double? LoudnessClockCycleSeconds { get; set; }
+
     public StereoWorkspaceSettings? InlineStereo { get; set; }
 
     public StereoWorkspaceSettings? PopupStereo { get; set; }
@@ -195,8 +213,85 @@ public sealed class SourceWorkspaceSettings
         }
 
         CollisionAbsoluteThresholdDb = null;
+        NormalizeLoudnessClockRange();
+        NormalizeLoudnessClockWarning();
+        LoudnessClockCycleSeconds = NormalizeLoudnessClockCycleSeconds(LoudnessClockCycleSeconds);
         InlineStereo?.Normalize();
         PopupStereo?.Normalize();
+    }
+
+    private void NormalizeLoudnessClockRange()
+    {
+        var minimum = NormalizeLoudnessClockDb(LoudnessClockMinimumDb);
+        var maximum = NormalizeLoudnessClockDb(LoudnessClockMaximumDb);
+        if (minimum is double minimumDb && maximum is double maximumDb)
+        {
+            minimumDb = Math.Clamp(
+                minimumDb,
+                LoudnessClockSettingsMinimumDb,
+                LoudnessClockSettingsMaximumDb - LoudnessClockSettingsMinimumSpanDb);
+            maximumDb = Math.Clamp(
+                maximumDb,
+                minimumDb + LoudnessClockSettingsMinimumSpanDb,
+                LoudnessClockSettingsMaximumDb);
+            LoudnessClockMinimumDb = minimumDb;
+            LoudnessClockMaximumDb = maximumDb;
+            return;
+        }
+
+        if (minimum is double onlyMinimumDb)
+        {
+            LoudnessClockMinimumDb = Math.Clamp(
+                onlyMinimumDb,
+                LoudnessClockSettingsMinimumDb,
+                LoudnessClockSettingsMaximumDb - LoudnessClockSettingsMinimumSpanDb);
+        }
+        else
+        {
+            LoudnessClockMinimumDb = null;
+        }
+
+        LoudnessClockMaximumDb = maximum is double onlyMaximumDb
+            ? Math.Clamp(
+                onlyMaximumDb,
+                LoudnessClockSettingsMinimumDb + LoudnessClockSettingsMinimumSpanDb,
+                LoudnessClockSettingsMaximumDb)
+            : null;
+    }
+
+    private static double? NormalizeLoudnessClockDb(double? value)
+    {
+        return value is double db && double.IsFinite(db)
+            ? Math.Round(db, 0, MidpointRounding.AwayFromZero)
+            : null;
+    }
+
+    private void NormalizeLoudnessClockWarning()
+    {
+        if (NormalizeLoudnessClockDb(LoudnessClockWarningDb) is not double warningDb)
+        {
+            LoudnessClockWarningDb = null;
+            return;
+        }
+
+        var lower = LoudnessClockMinimumDb ?? LoudnessClockSettingsMinimumDb;
+        var upper = LoudnessClockMaximumDb ?? LoudnessClockSettingsMaximumDb;
+        if (upper <= lower)
+        {
+            upper = lower + LoudnessClockSettingsMinimumSpanDb;
+        }
+
+        LoudnessClockWarningDb = Math.Clamp(warningDb, lower, upper);
+    }
+
+    private static double? NormalizeLoudnessClockCycleSeconds(double? value)
+    {
+        return value is double seconds && double.IsFinite(seconds)
+            ? Math.Clamp(
+                Math.Round(seconds, 0, MidpointRounding.AwayFromZero),
+                LoudnessClockSettingsMinimumCycleSeconds,
+                LoudnessClockSettingsMaximumCycleSeconds)
+            : null;
     }
 }
 

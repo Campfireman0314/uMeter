@@ -11,7 +11,6 @@ namespace DesktopLoudnessMeter.App.Controls;
 
 public sealed class SpectrumRollView : FrameworkElement
 {
-    private const int MaximumHistoryColumns = 240;
     private const double PreferredPlotHeight = 140;
     private const int PendingBitmapLockHResult = unchecked((int)0x88982F0D);
     private static readonly double MinimumMel = SpectrumScale.HertzToMel(SpectrumScale.MinimumFrequencyHz);
@@ -21,8 +20,11 @@ public sealed class SpectrumRollView : FrameworkElement
     private WriteableBitmap? _bitmap;
     private int[] _pixels = [];
     private int[] _columnPixels = [];
+    private double[] _columnLevels = [];
     private double[] _levels = [];
+    private int _historyColumnCount;
     private int _bitmapBucketCount;
+    private int _sourceBucketCount;
     private int _filledColumns;
     private int _nextColumnIndex;
     private IReadOnlyList<double>? _pendingSpectrumBuckets;
@@ -309,9 +311,9 @@ public sealed class SpectrumRollView : FrameworkElement
         var bottom = MelToY(plot, MinimumMel);
         drawingContext.PushClip(new RectangleGeometry(plot));
         var destination = new Rect(plot.Left, top, plot.Width, bottom - top);
-        if (_filledColumns < MaximumHistoryColumns)
+        if (_filledColumns < _historyColumnCount)
         {
-            var width = destination.Width * _filledColumns / MaximumHistoryColumns;
+            var width = destination.Width * _filledColumns / _historyColumnCount;
             DrawBitmapSegment(
                 drawingContext,
                 0,
@@ -324,18 +326,22 @@ public sealed class SpectrumRollView : FrameworkElement
         }
         else
         {
-            var firstWidth = MaximumHistoryColumns - _nextColumnIndex;
-            var firstDestinationWidth = destination.Width * firstWidth / MaximumHistoryColumns;
+            var firstWidth = _historyColumnCount - _nextColumnIndex;
+            var (firstDestination, secondDestination) = SpectrumRollBitmapSegmentPlan.SplitWrappedDestination(
+                destination,
+                firstWidth,
+                _nextColumnIndex,
+                VisualTreeHelper.GetDpi(this).DpiScaleX);
             DrawBitmapSegment(
                 drawingContext,
                 _nextColumnIndex,
                 firstWidth,
-                new Rect(destination.Left, destination.Top, firstDestinationWidth, destination.Height));
+                firstDestination);
             DrawBitmapSegment(
                 drawingContext,
                 0,
                 _nextColumnIndex,
-                new Rect(destination.Left + firstDestinationWidth, destination.Top, destination.Width - firstDestinationWidth, destination.Height));
+                secondDestination);
         }
 
         drawingContext.Pop();
@@ -348,9 +354,14 @@ public sealed class SpectrumRollView : FrameworkElement
             return;
         }
 
-        drawingContext.DrawImage(
-            new CroppedBitmap(_bitmap, new Int32Rect(sourceX, 0, sourceWidth, _bitmapBucketCount)),
+        var plan = SpectrumRollBitmapSegmentPlan.ForSegment(
+            sourceX,
+            sourceWidth,
+            _historyColumnCount,
             destination);
+        drawingContext.PushClip(new RectangleGeometry(plan.Clip));
+        drawingContext.DrawImage(_bitmap, plan.ImageDestination);
+        drawingContext.Pop();
     }
 
     private (double FloorDb, double CeilingDb) DisplayRange()
@@ -522,11 +533,11 @@ public sealed class SpectrumRollView : FrameworkElement
 
     private void AppendSpectrumColumn(IReadOnlyList<double> buckets)
     {
-        EnsureBitmap(buckets.Count);
+        EnsureBitmap(buckets);
         var column = _nextColumnIndex;
         WriteColumn(column, buckets);
-        _filledColumns = Math.Min(MaximumHistoryColumns, _filledColumns + 1);
-        _nextColumnIndex = (_nextColumnIndex + 1) % MaximumHistoryColumns;
+        _filledColumns = Math.Min(_historyColumnCount, _filledColumns + 1);
+        _nextColumnIndex = (_nextColumnIndex + 1) % _historyColumnCount;
 
         if (_bitmapNeedsFullWrite)
         {
@@ -544,22 +555,30 @@ public sealed class SpectrumRollView : FrameworkElement
         InvalidateVisual();
     }
 
-    private void EnsureBitmap(int bucketCount)
+    private void EnsureBitmap(IReadOnlyList<double> buckets)
     {
-        if (_bitmap is not null && _bitmapBucketCount == bucketCount)
+        var plot = GetPlotRect();
+        var resolution = SpectrumRollResolution.ForPlotSize(plot.Width, plot.Height, buckets.Count);
+        if (_bitmap is not null
+            && _sourceBucketCount == buckets.Count
+            && _historyColumnCount == resolution.HistoryColumns
+            && _bitmapBucketCount == resolution.FrequencyRows)
         {
             return;
         }
 
-        _bitmapBucketCount = bucketCount;
+        _sourceBucketCount = buckets.Count;
+        _historyColumnCount = resolution.HistoryColumns;
+        _bitmapBucketCount = resolution.FrequencyRows;
         _filledColumns = 0;
         _nextColumnIndex = 0;
-        _pixels = new int[MaximumHistoryColumns * bucketCount];
-        _columnPixels = new int[bucketCount];
-        _levels = new double[MaximumHistoryColumns * bucketCount];
+        _pixels = new int[_historyColumnCount * _bitmapBucketCount];
+        _columnPixels = new int[_bitmapBucketCount];
+        _columnLevels = new double[_bitmapBucketCount];
+        _levels = new double[_historyColumnCount * _bitmapBucketCount];
         _bitmap = new WriteableBitmap(
-            MaximumHistoryColumns,
-            bucketCount,
+            _historyColumnCount,
+            _bitmapBucketCount,
             96,
             96,
             PixelFormats.Bgra32,
@@ -579,22 +598,17 @@ public sealed class SpectrumRollView : FrameworkElement
 
         for (var row = 0; row < _bitmapBucketCount; row++)
         {
-            _pixels[(row * MaximumHistoryColumns) + x] = 0;
-            _levels[(row * MaximumHistoryColumns) + x] = 0;
+            _pixels[(row * _historyColumnCount) + x] = 0;
+            _levels[(row * _historyColumnCount) + x] = 0;
         }
 
-        for (var bucket = 0; bucket < buckets.Count; bucket++)
-        {
-            var value = Math.Clamp(buckets[bucket], 0, 1);
-            var row = _bitmapBucketCount - 1 - bucket;
-            var index = (row * MaximumHistoryColumns) + x;
-            _levels[index] = value;
-        }
-
+        SpectrumRollColumnRasterizer.WriteLevels(buckets, _columnLevels);
         SpectrumRollColumnRasterizer.WriteColumn(buckets, _columnPixels, transform, accent, warm);
         for (var row = 0; row < _bitmapBucketCount; row++)
         {
-            _pixels[(row * MaximumHistoryColumns) + x] = _columnPixels[row];
+            var index = (row * _historyColumnCount) + x;
+            _levels[index] = _columnLevels[row];
+            _pixels[index] = _columnPixels[row];
         }
     }
 
@@ -685,9 +699,9 @@ public sealed class SpectrumRollView : FrameworkElement
         var transform = SpectrumRollColumnRasterizer.CreateDisplayTransform(floorDb, ceilingDb);
         for (var row = 0; row < _bitmapBucketCount; row++)
         {
-            for (var column = 0; column < MaximumHistoryColumns; column++)
+            for (var column = 0; column < _historyColumnCount; column++)
             {
-                var index = (row * MaximumHistoryColumns) + column;
+                var index = (row * _historyColumnCount) + column;
                 _pixels[index] = SpectrumRollColumnRasterizer.LevelPixel(_levels[index], transform, accent, warm);
             }
         }
@@ -707,9 +721,9 @@ public sealed class SpectrumRollView : FrameworkElement
         }
 
         if (!TryWriteBitmap(
-            new Int32Rect(0, 0, MaximumHistoryColumns, _bitmapBucketCount),
+            new Int32Rect(0, 0, _historyColumnCount, _bitmapBucketCount),
             _pixels,
-            MaximumHistoryColumns * sizeof(int),
+            _historyColumnCount * sizeof(int),
             0))
         {
             return false;

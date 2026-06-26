@@ -34,6 +34,15 @@ public sealed class MainViewModel : ObservableObject, IDisposable
     private const double SpectrumDisplayDefaultFloorDb = -96;
     private const double SpectrumDisplayDefaultCeilingDb = -6;
     private const double SpectrumDisplayMinimumSpanDb = 6;
+    private const double LoudnessClockMinimumLimitDb = -120;
+    private const double LoudnessClockMaximumLimitDb = 0;
+    private const double LoudnessClockDefaultMinimumDb = -32;
+    private const double LoudnessClockDefaultMaximumDb = -4;
+    private const double LoudnessClockDefaultWarningDb = -12;
+    private const double LoudnessClockMinimumSpanDb = 6;
+    private const double LoudnessClockMinimumCycleSeconds = 10;
+    private const double LoudnessClockMaximumCycleSeconds = 600;
+    private const double LoudnessClockDefaultCycleSeconds = 30;
     private static readonly FrequencyCollisionSourceOption AllCollisionSourcesOption = new("__global__", "Global", isAllSources: true);
     private static readonly TimeSpan NormalRefreshInterval = TimeSpan.FromMilliseconds(33);
     private static readonly TimeSpan EcoRefreshInterval = TimeSpan.FromMilliseconds(100);
@@ -71,11 +80,16 @@ public sealed class MainViewModel : ObservableObject, IDisposable
     private CollisionFrequencyScale _collisionFrequencyScale = CollisionFrequencyScale.Logarithmic;
     private double _spectrumDisplayFloorDb = SpectrumDisplayDefaultFloorDb;
     private double _spectrumDisplayCeilingDb = SpectrumDisplayDefaultCeilingDb;
+    private double _loudnessClockMinimumDb = LoudnessClockDefaultMinimumDb;
+    private double _loudnessClockMaximumDb = LoudnessClockDefaultMaximumDb;
+    private double _loudnessClockWarningDb = LoudnessClockDefaultWarningDb;
+    private double _loudnessClockCycleSeconds = LoudnessClockDefaultCycleSeconds;
     private IReadOnlyList<FrequencyCollisionSourceOption> _frequencyCollisionSourceOptions = [AllCollisionSourcesOption];
     private IReadOnlyList<FrequencyCollisionBand> _frequencyCollisionBands = Array.Empty<FrequencyCollisionBand>();
     private bool _isAlwaysOnTop = true;
     private bool _isInlineWaveformVisible;
     private bool _isInlineSpectrumVisible;
+    private bool _isInlineLoudnessClockVisible;
     private bool _isInlineCollisionVisible;
     private bool _showHiddenSources;
     private AudioSessionMeterViewModel? _selectedDetailSession;
@@ -445,6 +459,82 @@ public sealed class MainViewModel : ObservableObject, IDisposable
 
     public string SpectrumDisplayRangeText => $"{SpectrumDisplayFloorDb:0} to {SpectrumDisplayCeilingDb:0} dB";
 
+    public double LoudnessClockMinimumDb
+    {
+        get => _loudnessClockMinimumDb;
+        set
+        {
+            var next = Math.Clamp(
+                RoundLoudnessClockDb(value),
+                LoudnessClockMinimumLimitDb,
+                LoudnessClockMaximumDb - LoudnessClockMinimumSpanDb);
+            if (SetProperty(ref _loudnessClockMinimumDb, next))
+            {
+                CoerceLoudnessClockWarningToRange();
+                OnPropertyChanged(nameof(LoudnessClockRangeText));
+                SaveSelectedDetailPreferences();
+            }
+        }
+    }
+
+    public double LoudnessClockMaximumDb
+    {
+        get => _loudnessClockMaximumDb;
+        set
+        {
+            var next = Math.Clamp(
+                RoundLoudnessClockDb(value),
+                LoudnessClockMinimumDb + LoudnessClockMinimumSpanDb,
+                LoudnessClockMaximumLimitDb);
+            if (SetProperty(ref _loudnessClockMaximumDb, next))
+            {
+                CoerceLoudnessClockWarningToRange();
+                OnPropertyChanged(nameof(LoudnessClockRangeText));
+                SaveSelectedDetailPreferences();
+            }
+        }
+    }
+
+    public string LoudnessClockRangeText => $"{LoudnessClockMinimumDb:0} to {LoudnessClockMaximumDb:0} LUFS";
+
+    public double LoudnessClockWarningDb
+    {
+        get => _loudnessClockWarningDb;
+        set
+        {
+            var next = Math.Clamp(
+                RoundLoudnessClockDb(value),
+                LoudnessClockMinimumDb,
+                LoudnessClockMaximumDb);
+            if (SetProperty(ref _loudnessClockWarningDb, next))
+            {
+                OnPropertyChanged(nameof(LoudnessClockWarningText));
+                SaveSelectedDetailPreferences();
+            }
+        }
+    }
+
+    public string LoudnessClockWarningText => $"{LoudnessClockWarningDb:0} LUFS";
+
+    public double LoudnessClockCycleSeconds
+    {
+        get => _loudnessClockCycleSeconds;
+        set
+        {
+            var next = Math.Clamp(
+                RoundLoudnessClockCycleSeconds(value),
+                LoudnessClockMinimumCycleSeconds,
+                LoudnessClockMaximumCycleSeconds);
+            if (SetProperty(ref _loudnessClockCycleSeconds, next))
+            {
+                OnPropertyChanged(nameof(LoudnessClockCycleText));
+                SaveSelectedDetailPreferences();
+            }
+        }
+    }
+
+    public string LoudnessClockCycleText => $"{LoudnessClockCycleSeconds:0} s";
+
     public string SelectedFrequencyCollisionSourceDisplayName => SelectedFrequencyCollisionSource.DisplayName;
 
     public IReadOnlyList<FrequencyCollisionBand> FrequencyCollisionBands
@@ -503,6 +593,18 @@ public sealed class MainViewModel : ObservableObject, IDisposable
             if (SetProperty(ref _isInlineSpectrumVisible, value))
             {
                 NotifyInlineRollVisibilityChanged();
+                SaveSelectedDetailPreferences();
+            }
+        }
+    }
+
+    public bool IsInlineLoudnessClockVisible
+    {
+        get => _isInlineLoudnessClockVisible;
+        set
+        {
+            if (SetProperty(ref _isInlineLoudnessClockVisible, value))
+            {
                 SaveSelectedDetailPreferences();
             }
         }
@@ -1600,6 +1702,29 @@ public sealed class MainViewModel : ObservableObject, IDisposable
             : SpectrumDisplayDefaultFloorDb;
     }
 
+    private static double RoundLoudnessClockDb(double value)
+    {
+        return double.IsFinite(value)
+            ? Math.Round(value, 0, MidpointRounding.AwayFromZero)
+            : LoudnessClockDefaultMinimumDb;
+    }
+
+    private static double RoundLoudnessClockCycleSeconds(double value)
+    {
+        return double.IsFinite(value)
+            ? Math.Round(value, 0, MidpointRounding.AwayFromZero)
+            : LoudnessClockDefaultCycleSeconds;
+    }
+
+    private void CoerceLoudnessClockWarningToRange()
+    {
+        var next = Math.Clamp(LoudnessClockWarningDb, LoudnessClockMinimumDb, LoudnessClockMaximumDb);
+        if (SetProperty(ref _loudnessClockWarningDb, next, nameof(LoudnessClockWarningDb)))
+        {
+            OnPropertyChanged(nameof(LoudnessClockWarningText));
+        }
+    }
+
     private static bool FrequencyCollisionBandsEqual(
         IReadOnlyList<FrequencyCollisionBand> current,
         IReadOnlyList<FrequencyCollisionBand> next)
@@ -1709,6 +1834,7 @@ public sealed class MainViewModel : ObservableObject, IDisposable
         var preferences = GetOrCreatePreferences(SelectedDetailSession.SourceKey);
         preferences.InlineWaveformVisible = IsInlineWaveformVisible;
         preferences.InlineSpectrumVisible = IsInlineSpectrumVisible;
+        preferences.InlineLoudnessClockVisible = IsInlineLoudnessClockVisible;
         preferences.InlineCollisionVisible = IsInlineCollisionVisible;
         preferences.InlineCollisionSourceKey = SelectedFrequencyCollisionSourceKey == AllCollisionSourcesOption.SourceKey
             ? null
@@ -1719,6 +1845,10 @@ public sealed class MainViewModel : ObservableObject, IDisposable
         preferences.CollisionFrequencyScale = CollisionFrequencyScale;
         preferences.SpectrumDisplayFloorDb = SpectrumDisplayFloorDb;
         preferences.SpectrumDisplayCeilingDb = SpectrumDisplayCeilingDb;
+        preferences.LoudnessClockMinimumDb = LoudnessClockMinimumDb;
+        preferences.LoudnessClockMaximumDb = LoudnessClockMaximumDb;
+        preferences.LoudnessClockWarningDb = LoudnessClockWarningDb;
+        preferences.LoudnessClockCycleSeconds = LoudnessClockCycleSeconds;
         preferences.InlineStereo = StereoWorkspaceSettings.FromSettings(InlineStereoSettings);
         SaveSourcePreferences(SelectedDetailSession.SourceKey);
     }
@@ -1736,6 +1866,7 @@ public sealed class MainViewModel : ObservableObject, IDisposable
         {
             IsInlineWaveformVisible = preferences.InlineWaveformVisible ?? false;
             IsInlineSpectrumVisible = preferences.InlineSpectrumVisible ?? false;
+            IsInlineLoudnessClockVisible = preferences.InlineLoudnessClockVisible ?? false;
             IsInlineCollisionVisible = preferences.InlineCollisionVisible ?? false;
             CollisionLevelFloorDb = preferences.CollisionLevelFloorDb ?? DefaultCollisionLevelFloorDb;
             CollisionProminenceThresholdDb = preferences.CollisionProminenceThresholdDb ?? DefaultCollisionProminenceThresholdDb;
@@ -1743,6 +1874,10 @@ public sealed class MainViewModel : ObservableObject, IDisposable
             CollisionFrequencyScale = preferences.CollisionFrequencyScale ?? CollisionFrequencyScale.Logarithmic;
             SpectrumDisplayFloorDb = preferences.SpectrumDisplayFloorDb ?? SpectrumDisplayDefaultFloorDb;
             SpectrumDisplayCeilingDb = preferences.SpectrumDisplayCeilingDb ?? SpectrumDisplayDefaultCeilingDb;
+            LoudnessClockMinimumDb = preferences.LoudnessClockMinimumDb ?? LoudnessClockDefaultMinimumDb;
+            LoudnessClockMaximumDb = preferences.LoudnessClockMaximumDb ?? LoudnessClockDefaultMaximumDb;
+            LoudnessClockWarningDb = preferences.LoudnessClockWarningDb ?? LoudnessClockDefaultWarningDb;
+            LoudnessClockCycleSeconds = preferences.LoudnessClockCycleSeconds ?? LoudnessClockDefaultCycleSeconds;
             if (preferences.InlineStereo is not null)
             {
                 preferences.InlineStereo.ApplyTo(InlineStereoSettings);
@@ -1802,6 +1937,7 @@ public sealed class MainViewModel : ObservableObject, IDisposable
         {
             IsInlineWaveformVisible = false;
             IsInlineSpectrumVisible = false;
+            IsInlineLoudnessClockVisible = false;
             IsInlineCollisionVisible = false;
             SelectedFrequencyCollisionSourceKey = AllCollisionSourcesOption.SourceKey;
             CollisionLevelFloorDb = DefaultCollisionLevelFloorDb;
@@ -1810,6 +1946,10 @@ public sealed class MainViewModel : ObservableObject, IDisposable
             CollisionFrequencyScale = CollisionFrequencyScale.Logarithmic;
             SpectrumDisplayFloorDb = SpectrumDisplayDefaultFloorDb;
             SpectrumDisplayCeilingDb = SpectrumDisplayDefaultCeilingDb;
+            LoudnessClockMinimumDb = LoudnessClockDefaultMinimumDb;
+            LoudnessClockMaximumDb = LoudnessClockDefaultMaximumDb;
+            LoudnessClockWarningDb = LoudnessClockDefaultWarningDb;
+            LoudnessClockCycleSeconds = LoudnessClockDefaultCycleSeconds;
             InlineStereoSettings.Reset();
         }
         finally
@@ -1872,6 +2012,8 @@ public sealed class MainViewModel : ObservableObject, IDisposable
 
         public bool? InlineSpectrumVisible { get; set; }
 
+        public bool? InlineLoudnessClockVisible { get; set; }
+
         public bool? InlineCollisionVisible { get; set; }
 
         public string? InlineCollisionSourceKey { get; set; }
@@ -1888,6 +2030,14 @@ public sealed class MainViewModel : ObservableObject, IDisposable
 
         public double? SpectrumDisplayCeilingDb { get; set; }
 
+        public double? LoudnessClockMinimumDb { get; set; }
+
+        public double? LoudnessClockMaximumDb { get; set; }
+
+        public double? LoudnessClockWarningDb { get; set; }
+
+        public double? LoudnessClockCycleSeconds { get; set; }
+
         public StereoWorkspaceSettings? InlineStereo { get; set; }
 
         public static SourceRowPreferences FromWorkspace(SourceWorkspaceSettings? workspace)
@@ -1902,6 +2052,7 @@ public sealed class MainViewModel : ObservableObject, IDisposable
                 SpectrumDisplayMode = workspace?.SpectrumDisplayMode ?? SpectrumDisplayMode.Overall,
                 InlineWaveformVisible = workspace?.InlineWaveformVisible,
                 InlineSpectrumVisible = workspace?.InlineSpectrumVisible,
+                InlineLoudnessClockVisible = workspace?.InlineLoudnessClockVisible,
                 InlineCollisionVisible = workspace?.InlineCollisionVisible,
                 InlineCollisionSourceKey = workspace?.InlineCollisionSourceKey,
                 CollisionLevelFloorDb = GetCollisionLevelFloorDb(workspace),
@@ -1910,6 +2061,10 @@ public sealed class MainViewModel : ObservableObject, IDisposable
                 CollisionFrequencyScale = workspace?.CollisionFrequencyScale,
                 SpectrumDisplayFloorDb = workspace?.SpectrumDisplayFloorDb,
                 SpectrumDisplayCeilingDb = workspace?.SpectrumDisplayCeilingDb,
+                LoudnessClockMinimumDb = workspace?.LoudnessClockMinimumDb,
+                LoudnessClockMaximumDb = workspace?.LoudnessClockMaximumDb,
+                LoudnessClockWarningDb = workspace?.LoudnessClockWarningDb,
+                LoudnessClockCycleSeconds = workspace?.LoudnessClockCycleSeconds,
                 InlineStereo = workspace?.InlineStereo
             };
         }
@@ -1936,6 +2091,7 @@ public sealed class MainViewModel : ObservableObject, IDisposable
             workspace.SpectrumDisplayMode = SpectrumDisplayMode;
             workspace.InlineWaveformVisible = InlineWaveformVisible;
             workspace.InlineSpectrumVisible = InlineSpectrumVisible;
+            workspace.InlineLoudnessClockVisible = InlineLoudnessClockVisible;
             workspace.InlineCollisionVisible = InlineCollisionVisible;
             workspace.InlineCollisionSourceKey = InlineCollisionSourceKey;
             workspace.CollisionLevelFloorDb = CollisionLevelFloorDb;
@@ -1944,6 +2100,10 @@ public sealed class MainViewModel : ObservableObject, IDisposable
             workspace.CollisionFrequencyScale = CollisionFrequencyScale;
             workspace.SpectrumDisplayFloorDb = SpectrumDisplayFloorDb;
             workspace.SpectrumDisplayCeilingDb = SpectrumDisplayCeilingDb;
+            workspace.LoudnessClockMinimumDb = LoudnessClockMinimumDb;
+            workspace.LoudnessClockMaximumDb = LoudnessClockMaximumDb;
+            workspace.LoudnessClockWarningDb = LoudnessClockWarningDb;
+            workspace.LoudnessClockCycleSeconds = LoudnessClockCycleSeconds;
             workspace.InlineStereo = InlineStereo;
         }
     }

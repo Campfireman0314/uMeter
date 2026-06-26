@@ -33,6 +33,8 @@ internal sealed class RecentSampleWindow
     private long _channelWaveformVersion = -1;
     private long _spectrumVersion = -1;
     private long _channelSpectrumVersion = -1;
+    private long _waveformEligibleFrameVersion = -1;
+    private long _channelWaveformEligibleFrameVersion = -1;
     private long _spectrumEligibleFrameVersion = -1;
     private long _channelSpectrumEligibleFrameVersion = -1;
     private int _waveformBufferIndex;
@@ -206,6 +208,12 @@ internal sealed class RecentSampleWindow
                 return _waveformCache;
             }
 
+            if (!ShouldRefreshWaveform(ref _waveformEligibleFrameVersion, _waveformCache is not null))
+            {
+                _waveformVersion = _displayVersion;
+                return _waveformCache;
+            }
+
             _waveformBufferIndex ^= 1;
             var buffer = _waveformBuffers[_waveformBufferIndex];
             FillWaveformBuffer(buffer);
@@ -226,6 +234,12 @@ internal sealed class RecentSampleWindow
 
             if (_channelWaveformVersion == _displayVersion)
             {
+                return _channelWaveformCache;
+            }
+
+            if (!ShouldRefreshWaveform(ref _channelWaveformEligibleFrameVersion, _channelWaveformCache is not null))
+            {
+                _channelWaveformVersion = _displayVersion;
                 return _channelWaveformCache;
             }
 
@@ -318,8 +332,12 @@ internal sealed class RecentSampleWindow
         }
 
         _performanceSettings = settings;
+        _waveformVersion = -1;
+        _channelWaveformVersion = -1;
         _spectrumVersion = -1;
         _channelSpectrumVersion = -1;
+        _waveformEligibleFrameVersion = -1;
+        _channelWaveformEligibleFrameVersion = -1;
         _spectrumEligibleFrameVersion = -1;
         _channelSpectrumEligibleFrameVersion = -1;
     }
@@ -404,6 +422,8 @@ internal sealed class RecentSampleWindow
         _channelWaveformVersion = -1;
         _spectrumVersion = -1;
         _channelSpectrumVersion = -1;
+        _waveformEligibleFrameVersion = -1;
+        _channelWaveformEligibleFrameVersion = -1;
         _spectrumEligibleFrameVersion = -1;
         _channelSpectrumEligibleFrameVersion = -1;
         _waveformCache = null;
@@ -656,13 +676,30 @@ internal sealed class RecentSampleWindow
 
     private bool ShouldRefreshSpectrum(ref long eligibleFrameVersion, bool hasCache)
     {
-        if (!hasCache)
+        if (!hasCache || eligibleFrameVersion < 0)
         {
             eligibleFrameVersion = _displayFrameVersion;
             return true;
         }
 
         if (_displayFrameVersion - eligibleFrameVersion < _performanceSettings.SpectrumRefreshIntervalFrames)
+        {
+            return false;
+        }
+
+        eligibleFrameVersion = _displayFrameVersion;
+        return true;
+    }
+
+    private bool ShouldRefreshWaveform(ref long eligibleFrameVersion, bool hasCache)
+    {
+        if (!hasCache || eligibleFrameVersion < 0)
+        {
+            eligibleFrameVersion = _displayFrameVersion;
+            return true;
+        }
+
+        if (_displayFrameVersion - eligibleFrameVersion < _performanceSettings.WaveformRefreshIntervalFrames)
         {
             return false;
         }

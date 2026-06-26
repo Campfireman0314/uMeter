@@ -77,33 +77,48 @@
                         <ColumnDefinition Width="Auto" />
                     </Grid.ColumnDefinitions>
                     <StackPanel>
-                        <TextBlock FontSize="18"
-                                   FontWeight="SemiBold"
-                                   Foreground="{DynamicResource TextBrush}"
-                                   Text="{Binding Session.DisplayTitle}"
-                                   TextTrimming="CharacterEllipsis" />
+                        <Grid DataContext="{Binding Session}"
+                              MouseLeftButtonDown="SourceTitle_OnMouseLeftButtonDown">
+                            <TextBlock FontSize="18"
+                                       FontWeight="SemiBold"
+                                       Foreground="{DynamicResource TextBrush}"
+                                       Text="{Binding DisplayTitle}"
+                                       TextTrimming="CharacterEllipsis">
+                                <TextBlock.Style>
+                                    <Style TargetType="TextBlock">
+                                        <Setter Property="Visibility" Value="Visible" />
+                                        <Style.Triggers>
+                                            <DataTrigger Binding="{Binding IsAliasEditing}" Value="True">
+                                                <Setter Property="Visibility" Value="Collapsed" />
+                                            </DataTrigger>
+                                        </Style.Triggers>
+                                    </Style>
+                                </TextBlock.Style>
+                            </TextBlock>
+                            <TextBox FontSize="16"
+                                     FontWeight="SemiBold"
+                                     GotKeyboardFocus="NamingTextBox_OnGotKeyboardFocus"
+                                     KeyDown="AliasEditTextBox_OnKeyDown"
+                                     LostKeyboardFocus="AliasEditTextBox_OnLostKeyboardFocus"
+                                     Text="{Binding AliasEditText, Mode=TwoWay, UpdateSourceTrigger=PropertyChanged}">
+                                <TextBox.Style>
+                                    <Style TargetType="TextBox" BasedOn="{StaticResource NamingTextEditor}">
+                                        <Setter Property="Visibility" Value="Collapsed" />
+                                        <Style.Triggers>
+                                            <DataTrigger Binding="{Binding IsAliasEditing}" Value="True">
+                                                <Setter Property="Visibility" Value="Visible" />
+                                            </DataTrigger>
+                                        </Style.Triggers>
+                                    </Style>
+                                </TextBox.Style>
+                            </TextBox>
+                        </Grid>
                         <TextBlock FontSize="11"
                                    Foreground="{DynamicResource SubtleTextBrush}"
                                    Text="{Binding Session.SourceIdentityText}" />
                         <TextBlock FontSize="10"
                                    Foreground="{DynamicResource SubtleTextBrush}"
                                    Text="{Binding Session.SourceStatusText}" />
-                        <Grid Margin="0,6,0,0">
-                            <Grid.ColumnDefinitions>
-                                <ColumnDefinition Width="Auto" />
-                                <ColumnDefinition Width="8" />
-                                <ColumnDefinition Width="*" />
-                            </Grid.ColumnDefinitions>
-                            <TextBlock VerticalAlignment="Center"
-                                       Foreground="{DynamicResource SubtleTextBrush}"
-                                       FontSize="11"
-                                       Text="Alias" />
-                            <TextBox Grid.Column="2"
-                                     Style="{StaticResource NamingTextEditor}"
-                                     GotKeyboardFocus="NamingTextBox_OnGotKeyboardFocus"
-                                     Text="{Binding Session.Alias, Mode=TwoWay, UpdateSourceTrigger=LostFocus}"
-                                     ToolTip="Optional display name for this source." />
-                        </Grid>
                     </StackPanel>
 
                     <StackPanel Grid.Column="1"
@@ -451,7 +466,10 @@
 
                         <WrapPanel Margin="0,10,0,6"
                                    VerticalAlignment="Center">
-                            <CheckBox Content="Waveform"
+                            <CheckBox Content="Clock"
+                                      IsChecked="{Binding IsLoudnessClockVisible, Mode=TwoWay}" />
+                            <CheckBox Margin="14,0,0,0"
+                                      Content="Waveform"
                                       IsChecked="{Binding IsWaveformVisible, Mode=TwoWay}" />
                             <CheckBox Margin="14,0,0,0"
                                       Content="Spectrum"
@@ -529,10 +547,93 @@
                                                                 Step="1"
                                                                 LowerValue="{Binding SpectrumDisplayFloorDb, Mode=TwoWay, UpdateSourceTrigger=PropertyChanged}"
                                                                 UpperValue="{Binding SpectrumDisplayCeilingDb, Mode=TwoWay, UpdateSourceTrigger=PropertyChanged}" />
+                                        <Grid Margin="0,12,0,0">
+                                            <Grid.ColumnDefinitions>
+                                                <ColumnDefinition Width="*" />
+                                                <ColumnDefinition Width="Auto" />
+                                            </Grid.ColumnDefinitions>
+                                            <TextBlock Foreground="{DynamicResource SubtleTextBrush}"
+                                                       FontSize="11"
+                                                       Text="Clock range" />
+                                            <TextBlock Grid.Column="1"
+                                                       Foreground="{DynamicResource TextBrush}"
+                                                       FontSize="11"
+                                                       Text="{Binding LoudnessClockRangeText}" />
+                                        </Grid>
+                                        <controls:DbRangeSlider Margin="0,2,0,0"
+                                                                Minimum="-120"
+                                                                Maximum="0"
+                                                                Step="1"
+                                                                LowerValue="{Binding LoudnessClockMinimumDb, Mode=TwoWay, UpdateSourceTrigger=PropertyChanged}"
+                                                                UpperValue="{Binding LoudnessClockMaximumDb, Mode=TwoWay, UpdateSourceTrigger=PropertyChanged}" />
+                                        <Grid Margin="0,10,0,0">
+                                            <Grid.ColumnDefinitions>
+                                                <ColumnDefinition Width="*" />
+                                                <ColumnDefinition Width="Auto" />
+                                            </Grid.ColumnDefinitions>
+                                            <TextBlock Foreground="{DynamicResource SubtleTextBrush}"
+                                                       FontSize="11"
+                                                       Text="Warning" />
+                                            <TextBlock Grid.Column="1"
+                                                       Foreground="{DynamicResource TextBrush}"
+                                                       FontSize="11"
+                                                       Text="{Binding LoudnessClockWarningText}" />
+                                        </Grid>
+                                        <controls:EditableValueSlider Minimum="-120"
+                                                                      Maximum="0"
+                                                                      Step="1"
+                                                                      DisplayFormat="0"
+                                                                      DisplaySuffix=" LUFS"
+                                                                      Value="{Binding LoudnessClockWarningDb, Mode=TwoWay, UpdateSourceTrigger=PropertyChanged}" />
+                                        <Grid Margin="0,10,0,0">
+                                            <Grid.ColumnDefinitions>
+                                                <ColumnDefinition Width="*" />
+                                                <ColumnDefinition Width="Auto" />
+                                            </Grid.ColumnDefinitions>
+                                            <TextBlock Foreground="{DynamicResource SubtleTextBrush}"
+                                                       FontSize="11"
+                                                       Text="Cycle" />
+                                            <TextBlock Grid.Column="1"
+                                                       Foreground="{DynamicResource TextBrush}"
+                                                       FontSize="11"
+                                                       Text="{Binding LoudnessClockCycleText}" />
+                                        </Grid>
+                                        <controls:EditableValueSlider Minimum="10"
+                                                                      Maximum="600"
+                                                                      Step="5"
+                                                                      DisplayFormat="0"
+                                                                      DisplaySuffix=" s"
+                                                                      Value="{Binding LoudnessClockCycleSeconds, Mode=TwoWay, UpdateSourceTrigger=PropertyChanged}" />
                                     </StackPanel>
                                 </Border>
                             </Popup>
                         </WrapPanel>
+
+                        <Border x:Name="DetailLoudnessClockPanel"
+                                Height="260"
+                                MinHeight="220"
+                                MaxHeight="520"
+                                Margin="0,0,0,8"
+                                Padding="6"
+                                Background="{DynamicResource PanelBrush}"
+                                CornerRadius="6">
+                            <Border.Style>
+                                <Style TargetType="Border">
+                                    <Setter Property="Visibility" Value="Collapsed" />
+                                    <Style.Triggers>
+                                        <DataTrigger Binding="{Binding IsLoudnessClockVisible}" Value="True">
+                                            <Setter Property="Visibility" Value="Visible" />
+                                        </DataTrigger>
+                                    </Style.Triggers>
+                                </Style>
+                            </Border.Style>
+                            <controls:LoudnessClockView CurrentLoudnessDb="{Binding Session.LoudnessClockMomentaryDb, Mode=OneWay}"
+                                                        PlotTick="{Binding Session.LoudnessClockPlotTick, Mode=OneWay}"
+                                                        MinimumLoudnessDb="{Binding LoudnessClockMinimumDb, Mode=OneWay}"
+                                                        MaximumLoudnessDb="{Binding LoudnessClockMaximumDb, Mode=OneWay}"
+                                                        WarningLoudnessDb="{Binding LoudnessClockWarningDb, Mode=OneWay}"
+                                                        CycleDurationSeconds="{Binding LoudnessClockCycleSeconds, Mode=OneWay}" />
+                        </Border>
 
                         <StackPanel>
                             <StackPanel.Style>

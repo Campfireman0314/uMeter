@@ -4,7 +4,7 @@ Fast floating Windows desktop meter for seeing which app, DAW, or plugin sender 
 
 ## Current Version
 
-`v2.3.0` is the current public release. This release stabilizes source continuity during device/sample-rate changes, sharpens the spectrograph, prevents duplicate desktop instances, and adds inline source-list workspace controls.
+`v2.3.2` is the current public release. This patch completes the 2.3.x rendering polish with responsive waveform/spectrograph drawing, unified source-title editing, and a warning-aware loudness clock.
 
 ## Usable Baseline
 
@@ -20,6 +20,7 @@ Fast floating Windows desktop meter for seeing which app, DAW, or plugin sender 
 - DSP engine for momentary/short-term/integrated loudness, recent-window true peak, 100 ms RMS, polar stereo image, and correlation.
 - Optional pop-up detail windows with independent topmost state, stereo scale settings, and true-peak oversampling ratio.
 - Optional waveform and spectrum panels with overall/channel display modes, vertical pan, mouse-wheel zoom, double-click reset, and stretchable panel height.
+- Optional loudness clock panel with configurable cycle length, loudness range, warning level, fan fill, scan line, and over-range danger coloring.
 - Oversampled waveform display with dBFS scale markings.
 - Horizontally rolling Mel-scaled FFT spectrum display from 20 Hz to 22 kHz with sharp bucket rendering and raw-PCM spectrum analysis.
 - Frequency collision analyzer for comparing prominent spectrum overlap between sources, with source selection, level floor, prominence, match tolerance, cursor marker, and double-click numeric slider entry.
@@ -73,7 +74,7 @@ The generated installers are written to:
 
 ```text
 artifacts\uMeter.Setup.exe
-artifacts\uMeter-Setup-2.3.0.exe
+artifacts\uMeter-Setup-2.3.2.exe
 ```
 
 The installer contains the desktop app and `uMeter Sender.vst3`. The VST3 install path defaults to:
@@ -118,6 +119,7 @@ For mixed-source behavior, duplicate names, and reconnect preference memory, see
 - `docs/current-status.md` - current release status and remaining known limits.
 - `docs/product-roadmap/` - post-v2.2.4 product roadmap and planning notes.
 - `docs/rendering-architecture.md` - graph rendering cleanup notes.
+- `docs/v2.3.2-release.md` - v2.3.2 release notes.
 - `docs/v2.3.0-release.md` - v2.3.0 release notes.
 - `docs/v2.2.8-release.md` - v2.2.8 release notes.
 - `docs/v2.2.7-release.md` - v2.2.7 release notes.
@@ -150,3 +152,4 @@ For mixed-source behavior, duplicate names, and reconnect preference memory, see
 14. Done: v2.2.7 detail-window topmost isolation and Milk White graph contrast polish.
 15. Done: v2.2.8 RfRapid true-peak acceleration with benchmark coverage and managed fallback.
 16. Done: v2.3.0 source continuity, spectrograph fidelity, single-instance launch, and source-list workspace controls.
+17. Done: v2.3.2 rendering responsiveness, unified detail title editing, and loudness clock polish.

@@ -20,6 +20,15 @@ public sealed class DetailWindowViewModel : ObservableObject, IDisposable
     private const double SpectrumDisplayDefaultFloorDb = -96;
     private const double SpectrumDisplayDefaultCeilingDb = -6;
     private const double SpectrumDisplayMinimumSpanDb = 6;
+    private const double LoudnessClockMinimumLimitDb = -120;
+    private const double LoudnessClockMaximumLimitDb = 0;
+    private const double LoudnessClockDefaultMinimumDb = -32;
+    private const double LoudnessClockDefaultMaximumDb = -4;
+    private const double LoudnessClockDefaultWarningDb = -12;
+    private const double LoudnessClockMinimumSpanDb = 6;
+    private const double LoudnessClockMinimumCycleSeconds = 10;
+    private const double LoudnessClockMaximumCycleSeconds = 600;
+    private const double LoudnessClockDefaultCycleSeconds = 30;
     private static readonly FrequencyCollisionSourceOption AllCollisionSourcesOption = new("__global__", "Global", isAllSources: true);
     private readonly Func<IReadOnlyList<AudioSessionMeterViewModel>> _getActiveSessions;
     private readonly UserWorkspaceSettings _workspaceSettings;
@@ -37,9 +46,14 @@ public sealed class DetailWindowViewModel : ObservableObject, IDisposable
     private CollisionFrequencyScale _collisionFrequencyScale = CollisionFrequencyScale.Logarithmic;
     private double _spectrumDisplayFloorDb = SpectrumDisplayDefaultFloorDb;
     private double _spectrumDisplayCeilingDb = SpectrumDisplayDefaultCeilingDb;
+    private double _loudnessClockMinimumDb = LoudnessClockDefaultMinimumDb;
+    private double _loudnessClockMaximumDb = LoudnessClockDefaultMaximumDb;
+    private double _loudnessClockWarningDb = LoudnessClockDefaultWarningDb;
+    private double _loudnessClockCycleSeconds = LoudnessClockDefaultCycleSeconds;
     private bool _isAlwaysOnTop = true;
     private bool _isWaveformVisible;
     private bool _isSpectrumVisible;
+    private bool _isLoudnessClockVisible;
     private bool _isCollisionVisible;
     private bool _isDisposed;
     private bool _isApplyingWorkspacePreferences;
@@ -141,6 +155,18 @@ public sealed class DetailWindowViewModel : ObservableObject, IDisposable
             if (SetProperty(ref _isSpectrumVisible, value))
             {
                 NotifyRollVisibilityChanged();
+                SaveWorkspacePreferences();
+            }
+        }
+    }
+
+    public bool IsLoudnessClockVisible
+    {
+        get => _isLoudnessClockVisible;
+        set
+        {
+            if (SetProperty(ref _isLoudnessClockVisible, value))
+            {
                 SaveWorkspacePreferences();
             }
         }
@@ -296,6 +322,82 @@ public sealed class DetailWindowViewModel : ObservableObject, IDisposable
     }
 
     public string SpectrumDisplayRangeText => $"{SpectrumDisplayFloorDb:0} to {SpectrumDisplayCeilingDb:0} dB";
+
+    public double LoudnessClockMinimumDb
+    {
+        get => _loudnessClockMinimumDb;
+        set
+        {
+            var next = Math.Clamp(
+                RoundLoudnessClockDb(value),
+                LoudnessClockMinimumLimitDb,
+                LoudnessClockMaximumDb - LoudnessClockMinimumSpanDb);
+            if (SetProperty(ref _loudnessClockMinimumDb, next))
+            {
+                CoerceLoudnessClockWarningToRange();
+                OnPropertyChanged(nameof(LoudnessClockRangeText));
+                SaveWorkspacePreferences();
+            }
+        }
+    }
+
+    public double LoudnessClockMaximumDb
+    {
+        get => _loudnessClockMaximumDb;
+        set
+        {
+            var next = Math.Clamp(
+                RoundLoudnessClockDb(value),
+                LoudnessClockMinimumDb + LoudnessClockMinimumSpanDb,
+                LoudnessClockMaximumLimitDb);
+            if (SetProperty(ref _loudnessClockMaximumDb, next))
+            {
+                CoerceLoudnessClockWarningToRange();
+                OnPropertyChanged(nameof(LoudnessClockRangeText));
+                SaveWorkspacePreferences();
+            }
+        }
+    }
+
+    public string LoudnessClockRangeText => $"{LoudnessClockMinimumDb:0} to {LoudnessClockMaximumDb:0} LUFS";
+
+    public double LoudnessClockWarningDb
+    {
+        get => _loudnessClockWarningDb;
+        set
+        {
+            var next = Math.Clamp(
+                RoundLoudnessClockDb(value),
+                LoudnessClockMinimumDb,
+                LoudnessClockMaximumDb);
+            if (SetProperty(ref _loudnessClockWarningDb, next))
+            {
+                OnPropertyChanged(nameof(LoudnessClockWarningText));
+                SaveWorkspacePreferences();
+            }
+        }
+    }
+
+    public string LoudnessClockWarningText => $"{LoudnessClockWarningDb:0} LUFS";
+
+    public double LoudnessClockCycleSeconds
+    {
+        get => _loudnessClockCycleSeconds;
+        set
+        {
+            var next = Math.Clamp(
+                RoundLoudnessClockCycleSeconds(value),
+                LoudnessClockMinimumCycleSeconds,
+                LoudnessClockMaximumCycleSeconds);
+            if (SetProperty(ref _loudnessClockCycleSeconds, next))
+            {
+                OnPropertyChanged(nameof(LoudnessClockCycleText));
+                SaveWorkspacePreferences();
+            }
+        }
+    }
+
+    public string LoudnessClockCycleText => $"{LoudnessClockCycleSeconds:0} s";
 
     public string SelectedFrequencyCollisionSourceDisplayName => SelectedFrequencyCollisionSource.DisplayName;
 
@@ -522,6 +624,7 @@ public sealed class DetailWindowViewModel : ObservableObject, IDisposable
         {
             IsWaveformVisible = sourceSettings?.PopupWaveformVisible ?? false;
             IsSpectrumVisible = sourceSettings?.PopupSpectrumVisible ?? false;
+            IsLoudnessClockVisible = sourceSettings?.PopupLoudnessClockVisible ?? false;
             IsCollisionVisible = sourceSettings?.PopupCollisionVisible ?? false;
             CollisionLevelFloorDb = GetCollisionLevelFloorDb(sourceSettings) ?? DefaultCollisionLevelFloorDb;
             CollisionProminenceThresholdDb = sourceSettings?.CollisionProminenceThresholdDb ?? DefaultCollisionProminenceThresholdDb;
@@ -529,6 +632,10 @@ public sealed class DetailWindowViewModel : ObservableObject, IDisposable
             CollisionFrequencyScale = sourceSettings?.CollisionFrequencyScale ?? CollisionFrequencyScale.Logarithmic;
             SpectrumDisplayFloorDb = sourceSettings?.SpectrumDisplayFloorDb ?? SpectrumDisplayDefaultFloorDb;
             SpectrumDisplayCeilingDb = sourceSettings?.SpectrumDisplayCeilingDb ?? SpectrumDisplayDefaultCeilingDb;
+            LoudnessClockMinimumDb = sourceSettings?.LoudnessClockMinimumDb ?? LoudnessClockDefaultMinimumDb;
+            LoudnessClockMaximumDb = sourceSettings?.LoudnessClockMaximumDb ?? LoudnessClockDefaultMaximumDb;
+            LoudnessClockWarningDb = sourceSettings?.LoudnessClockWarningDb ?? LoudnessClockDefaultWarningDb;
+            LoudnessClockCycleSeconds = sourceSettings?.LoudnessClockCycleSeconds ?? LoudnessClockDefaultCycleSeconds;
             if (sourceSettings?.PopupStereo is not null)
             {
                 sourceSettings.PopupStereo.ApplyTo(StereoSettings);
@@ -568,6 +675,7 @@ public sealed class DetailWindowViewModel : ObservableObject, IDisposable
         var sourceSettings = _workspaceSettings.GetOrCreateSource(Session.SourceKey);
         sourceSettings.PopupWaveformVisible = IsWaveformVisible;
         sourceSettings.PopupSpectrumVisible = IsSpectrumVisible;
+        sourceSettings.PopupLoudnessClockVisible = IsLoudnessClockVisible;
         sourceSettings.PopupCollisionVisible = IsCollisionVisible;
         sourceSettings.PopupCollisionSourceKey = SelectedFrequencyCollisionSourceKey == AllCollisionSourcesOption.SourceKey
             ? null
@@ -578,6 +686,10 @@ public sealed class DetailWindowViewModel : ObservableObject, IDisposable
         sourceSettings.CollisionFrequencyScale = CollisionFrequencyScale;
         sourceSettings.SpectrumDisplayFloorDb = SpectrumDisplayFloorDb;
         sourceSettings.SpectrumDisplayCeilingDb = SpectrumDisplayCeilingDb;
+        sourceSettings.LoudnessClockMinimumDb = LoudnessClockMinimumDb;
+        sourceSettings.LoudnessClockMaximumDb = LoudnessClockMaximumDb;
+        sourceSettings.LoudnessClockWarningDb = LoudnessClockWarningDb;
+        sourceSettings.LoudnessClockCycleSeconds = LoudnessClockCycleSeconds;
         sourceSettings.PopupStereo = StereoWorkspaceSettings.FromSettings(StereoSettings);
         _workspaceSettings.Save();
     }
@@ -660,6 +772,29 @@ public sealed class DetailWindowViewModel : ObservableObject, IDisposable
         return double.IsFinite(value)
             ? Math.Round(value, 0, MidpointRounding.AwayFromZero)
             : SpectrumDisplayDefaultFloorDb;
+    }
+
+    private static double RoundLoudnessClockDb(double value)
+    {
+        return double.IsFinite(value)
+            ? Math.Round(value, 0, MidpointRounding.AwayFromZero)
+            : LoudnessClockDefaultMinimumDb;
+    }
+
+    private static double RoundLoudnessClockCycleSeconds(double value)
+    {
+        return double.IsFinite(value)
+            ? Math.Round(value, 0, MidpointRounding.AwayFromZero)
+            : LoudnessClockDefaultCycleSeconds;
+    }
+
+    private void CoerceLoudnessClockWarningToRange()
+    {
+        var next = Math.Clamp(LoudnessClockWarningDb, LoudnessClockMinimumDb, LoudnessClockMaximumDb);
+        if (SetProperty(ref _loudnessClockWarningDb, next, nameof(LoudnessClockWarningDb)))
+        {
+            OnPropertyChanged(nameof(LoudnessClockWarningText));
+        }
     }
 
     private static bool FrequencyCollisionBandsEqual(

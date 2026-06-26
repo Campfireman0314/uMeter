@@ -40,8 +40,10 @@ public sealed class AudioSessionMeterViewModel : ObservableObject
     private IReadOnlyList<double> _rightSpectrumBuckets = EmptyDoubleSamples;
     private long _waveformPlotTick;
     private long _spectrumPlotTick;
+    private long _loudnessClockPlotTick;
     private long _lastWaveformPlotFrameVersion;
     private long _lastSpectrumPlotFrameVersion;
+    private long _lastLoudnessClockPlotFrameVersion;
     private int _resetCount;
     private TruePeakOversampling _truePeakOversampling = TruePeakOversampling.FourX;
     private WaveformDisplayMode _waveformDisplayMode = WaveformDisplayMode.Overall;
@@ -310,6 +312,8 @@ public sealed class AudioSessionMeterViewModel : ObservableObject
 
     public string MomentaryLufsText => FormatLufs(_momentaryLufs);
 
+    public double LoudnessClockMomentaryDb => _momentaryLufs ?? double.NaN;
+
     public string ShortTermLufsText => FormatLufs(_shortTermLufs);
 
     public string IntegratedLufsText => FormatLufs(_integratedLufs);
@@ -365,6 +369,8 @@ public sealed class AudioSessionMeterViewModel : ObservableObject
     public IReadOnlyList<double> SpectrumBuckets => _spectrumBuckets;
 
     public long SpectrumPlotTick => _spectrumPlotTick;
+
+    public long LoudnessClockPlotTick => _loudnessClockPlotTick;
 
     public IReadOnlyList<double> LeftSpectrumBuckets => _leftSpectrumBuckets;
 
@@ -562,6 +568,16 @@ public sealed class AudioSessionMeterViewModel : ObservableObject
         {
             OnPropertyChanged(nameof(MomentaryLufsText));
             OnPropertyChanged(nameof(MomentaryLufsLevel));
+            OnPropertyChanged(nameof(LoudnessClockMomentaryDb));
+        }
+
+        if (snapshot.MomentaryLufs is double momentaryLufs
+            && double.IsFinite(momentaryLufs)
+            && IsFreshPlotFrame(snapshot.PlotFrameVersion, _lastLoudnessClockPlotFrameVersion))
+        {
+            _lastLoudnessClockPlotFrameVersion = snapshot.PlotFrameVersion;
+            _loudnessClockPlotTick++;
+            OnPropertyChanged(nameof(LoudnessClockPlotTick));
         }
 
         if (shortTermChanged)
@@ -617,7 +633,9 @@ public sealed class AudioSessionMeterViewModel : ObservableObject
             OnPropertyChanged(nameof(CorrelationValue));
         }
 
-        if (hasWaveformFrame && IsFreshPlotFrame(snapshot.PlotFrameVersion, _lastWaveformPlotFrameVersion))
+        if (hasWaveformFrame
+            && (waveformChanged || leftWaveformChanged || rightWaveformChanged)
+            && IsFreshPlotFrame(snapshot.PlotFrameVersion, _lastWaveformPlotFrameVersion))
         {
             _lastWaveformPlotFrameVersion = snapshot.PlotFrameVersion;
             _waveformPlotTick++;
@@ -682,11 +700,14 @@ public sealed class AudioSessionMeterViewModel : ObservableObject
         _rightSpectrumBuckets = EmptyDoubleSamples;
         _lastWaveformPlotFrameVersion = -1;
         _lastSpectrumPlotFrameVersion = -1;
+        _lastLoudnessClockPlotFrameVersion = -1;
         _waveformPlotTick++;
         _spectrumPlotTick++;
+        _loudnessClockPlotTick++;
         RefreshPrimaryValueText();
 
         OnPropertyChanged(nameof(MomentaryLufsText));
+        OnPropertyChanged(nameof(LoudnessClockMomentaryDb));
         OnPropertyChanged(nameof(ShortTermLufsText));
         OnPropertyChanged(nameof(IntegratedLufsText));
         OnPropertyChanged(nameof(TruePeakText));
@@ -713,6 +734,7 @@ public sealed class AudioSessionMeterViewModel : ObservableObject
         OnPropertyChanged(nameof(LeftSpectrumBuckets));
         OnPropertyChanged(nameof(RightSpectrumBuckets));
         OnPropertyChanged(nameof(SpectrumPlotTick));
+        OnPropertyChanged(nameof(LoudnessClockPlotTick));
     }
 
     private void RefreshPrimaryValueText()

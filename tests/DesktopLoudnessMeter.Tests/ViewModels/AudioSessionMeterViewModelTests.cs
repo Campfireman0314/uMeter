@@ -337,7 +337,7 @@ public sealed class AudioSessionMeterViewModelTests
     }
 
     [Fact]
-    public void UpdateRaisesPlotTicksForAdvancedAnalyzerFrames()
+    public void UpdateRaisesSpectrumPlotTicksForAdvancedAnalyzerFramesWithoutRepublishingBuffers()
     {
         double[] waveform = [0.1, -0.2];
         double[] spectrum = [0.25, 0.75];
@@ -353,10 +353,69 @@ public sealed class AudioSessionMeterViewModelTests
             spectrumBuckets: spectrum,
             plotFrameVersion: 512));
 
-        Assert.Contains(nameof(AudioSessionMeterViewModel.WaveformPlotTick), changedProperties);
+        Assert.DoesNotContain(nameof(AudioSessionMeterViewModel.WaveformPlotTick), changedProperties);
         Assert.Contains(nameof(AudioSessionMeterViewModel.SpectrumPlotTick), changedProperties);
         Assert.DoesNotContain(nameof(AudioSessionMeterViewModel.WaveformSamples), changedProperties);
         Assert.DoesNotContain(nameof(AudioSessionMeterViewModel.SpectrumBuckets), changedProperties);
+    }
+
+    [Fact]
+    public void UpdateRaisesWaveformPlotTickWhenWaveformBufferChanges()
+    {
+        double[] waveform = [0.1, -0.2];
+        double[] nextWaveform = [0.3, -0.4];
+        double[] spectrum = [0.25, 0.75];
+        var row = new AudioSessionMeterViewModel(Snapshot(
+            waveformSamples: waveform,
+            spectrumBuckets: spectrum,
+            plotFrameVersion: 256));
+        var changedProperties = new List<string?>();
+        row.PropertyChanged += (_, args) => changedProperties.Add(args.PropertyName);
+
+        row.Update(Snapshot(
+            waveformSamples: nextWaveform,
+            spectrumBuckets: spectrum,
+            plotFrameVersion: 512));
+
+        Assert.Contains(nameof(AudioSessionMeterViewModel.WaveformPlotTick), changedProperties);
+        Assert.Contains(nameof(AudioSessionMeterViewModel.WaveformSamples), changedProperties);
+        Assert.Contains(nameof(AudioSessionMeterViewModel.SpectrumPlotTick), changedProperties);
+    }
+
+    [Fact]
+    public void FiniteMomentaryLoudnessAdvancesClockPlotTick()
+    {
+        var row = new AudioSessionMeterViewModel(Snapshot(
+            momentaryLufs: -24,
+            plotFrameVersion: 256));
+        var tick = row.LoudnessClockPlotTick;
+        var changedProperties = new List<string?>();
+        row.PropertyChanged += (_, args) => changedProperties.Add(args.PropertyName);
+
+        row.Update(Snapshot(
+            momentaryLufs: -18,
+            plotFrameVersion: 512));
+
+        Assert.True(row.LoudnessClockPlotTick > tick);
+        Assert.Equal(-18, row.LoudnessClockMomentaryDb);
+        Assert.Contains(nameof(AudioSessionMeterViewModel.LoudnessClockPlotTick), changedProperties);
+        Assert.Contains(nameof(AudioSessionMeterViewModel.LoudnessClockMomentaryDb), changedProperties);
+    }
+
+    [Fact]
+    public void MissingMomentaryLoudnessDoesNotAdvanceClockPlotTick()
+    {
+        var row = new AudioSessionMeterViewModel(Snapshot(
+            momentaryLufs: -24,
+            plotFrameVersion: 256));
+        var tick = row.LoudnessClockPlotTick;
+
+        row.Update(Snapshot(
+            momentaryLufs: null,
+            plotFrameVersion: 512));
+
+        Assert.Equal(tick, row.LoudnessClockPlotTick);
+        Assert.True(double.IsNaN(row.LoudnessClockMomentaryDb));
     }
 
     [Fact]
@@ -367,9 +426,11 @@ public sealed class AudioSessionMeterViewModelTests
         var row = new AudioSessionMeterViewModel(Snapshot(
             waveformSamples: waveform,
             spectrumBuckets: spectrum,
+            momentaryLufs: -18,
             plotFrameVersion: 4096));
         var waveformTickBeforeReset = row.WaveformPlotTick;
         var spectrumTickBeforeReset = row.SpectrumPlotTick;
+        var loudnessClockTickBeforeReset = row.LoudnessClockPlotTick;
         var changedProperties = new List<string?>();
         row.PropertyChanged += (_, args) => changedProperties.Add(args.PropertyName);
 
@@ -379,10 +440,14 @@ public sealed class AudioSessionMeterViewModelTests
         Assert.Empty(row.SpectrumBuckets);
         Assert.True(row.WaveformPlotTick > waveformTickBeforeReset);
         Assert.True(row.SpectrumPlotTick > spectrumTickBeforeReset);
+        Assert.True(row.LoudnessClockPlotTick > loudnessClockTickBeforeReset);
+        Assert.True(double.IsNaN(row.LoudnessClockMomentaryDb));
         Assert.Contains(nameof(AudioSessionMeterViewModel.WaveformSamples), changedProperties);
         Assert.Contains(nameof(AudioSessionMeterViewModel.SpectrumBuckets), changedProperties);
         Assert.Contains(nameof(AudioSessionMeterViewModel.WaveformPlotTick), changedProperties);
         Assert.Contains(nameof(AudioSessionMeterViewModel.SpectrumPlotTick), changedProperties);
+        Assert.Contains(nameof(AudioSessionMeterViewModel.LoudnessClockPlotTick), changedProperties);
+        Assert.Contains(nameof(AudioSessionMeterViewModel.LoudnessClockMomentaryDb), changedProperties);
 
         changedProperties.Clear();
         row.Update(Snapshot(

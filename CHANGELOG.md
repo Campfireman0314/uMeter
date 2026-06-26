@@ -4,6 +4,33 @@
 
 - Nothing yet.
 
+## v2.3.2 - 2026-06-27
+
+Rendering and loudness-clock polish patch.
+
+### Added
+
+- Added an optional loudness clock with configurable cycle duration, loudness range, warning level, fan fill, and current-position scan line.
+- Added over-maximum loudness classification so clipped clock values render with a stronger danger color at the outer display boundary.
+
+### Changed
+
+- Waveform rendering now uses viewport-bounded point budgets to reduce long-session drag on lower-end CPUs.
+- Spectrograph rendering now adapts its history and frequency resolution to the viewport and avoids rollover stripe artifacts.
+- Inline and pop-up detail title editing now use the same source-title editor pattern as source rows.
+- Clock controls now appear before Waveform controls in detail visualization toggles.
+- App, setup, protocol, sender kit, sender probe, VST3 sender project, and AAX sender project metadata now report version `2.3.2`.
+- Default versioned installer artifact is now `uMeter-Setup-2.3.2.exe`.
+
+### Fixed
+
+- Loudness clock fan rendering bridges cycle-origin wraps so the twelve-o'clock origin does not show a thin slit.
+
+### Verified
+
+- `dotnet test .\tests\DesktopLoudnessMeter.Tests\DesktopLoudnessMeter.Tests.csproj` with 258 passing tests.
+- `dotnet build .\desktop-loudness-meter.sln`.
+
 ## v2.3.0 - 2026-06-26
 
 Source continuity and workspace-control release.

@@ -90,6 +90,50 @@ public sealed class PcmMetricAnalyzerContractTests
         Assert.Equal(4096, fft.LastFftSize);
     }
 
+    [Fact]
+    public void WaveformRefreshReusesCacheBetweenEligibleFrameIntervals()
+    {
+        var window = new RecentSampleWindow(2, 48000, 4, 4800);
+
+        AddConstantFramesWithWaveformReads(window, 1, 0.1);
+        var initial = window.WaveformSamples!.ToArray();
+
+        AddConstantFramesWithWaveformReads(window, 128, 0.8);
+        var reused = window.WaveformSamples!.ToArray();
+
+        Assert.Equal(initial, reused);
+
+        AddConstantFramesWithWaveformReads(window, 2048, -0.4);
+        var refreshed = window.WaveformSamples!.ToArray();
+
+        Assert.NotEqual(initial, refreshed);
+    }
+
+    [Fact]
+    public void EcoModeUsesLongerWaveformRefreshInterval()
+    {
+        var window = new RecentSampleWindow(2, 48000, 4, 4800);
+
+        AddConstantFramesWithWaveformReads(window, 1, 0.1);
+        var normalInitial = window.WaveformSamples!.ToArray();
+        AddConstantFramesWithWaveformReads(window, 128, 0.8);
+        Assert.Equal(normalInitial, window.WaveformSamples!.ToArray());
+
+        window.SetPerformanceMode(PcmAnalysisPerformanceMode.Eco);
+        var ecoInitial = window.WaveformSamples!.ToArray();
+        Assert.NotEqual(normalInitial, ecoInitial);
+
+        AddConstantFramesWithWaveformReads(window, 1024, 0.8);
+        var reused = window.WaveformSamples!.ToArray();
+
+        Assert.Equal(ecoInitial, reused);
+
+        AddConstantFramesWithWaveformReads(window, 8192, -0.4);
+        var refreshed = window.WaveformSamples!.ToArray();
+
+        Assert.NotEqual(ecoInitial, refreshed);
+    }
+
     private static float[] Sine(double seconds, double amplitude, double frequency = 1000)
     {
         const int sampleRate = 48000;
@@ -112,6 +156,15 @@ public sealed class PcmMetricAnalyzerContractTests
             var sample = Math.Sin(2 * Math.PI * 1000 * frame / 48000) * 0.25;
             window.Add([sample, sample], [sample, sample, sample, sample]);
             _ = window.SpectrumBuckets;
+        }
+    }
+
+    private static void AddConstantFramesWithWaveformReads(RecentSampleWindow window, int frames, double sample)
+    {
+        for (var frame = 0; frame < frames; frame++)
+        {
+            window.Add([sample, sample], [sample, sample, sample, sample]);
+            _ = window.WaveformSamples;
         }
     }
 

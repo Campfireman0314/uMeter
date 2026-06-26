@@ -49,4 +49,21 @@ public sealed class SpectrumRollColumnRasterizerTests
         Assert.NotEqual(0, pixel);
         Assert.InRange((byte)(pixel >> 24), 1, 80);
     }
+
+    [Fact]
+    public void ResampledRowsPreserveStrongestBucketInRange()
+    {
+        var pixels = new int[3];
+        double[] buckets = [0, 0, 0, 1, 0, 0];
+        var transform = SpectrumRollColumnRasterizer.CreateDisplayTransform(-120, 0);
+
+        SpectrumRollColumnRasterizer.WriteColumn(
+            buckets,
+            pixels,
+            transform,
+            Colors.Cyan,
+            Colors.Orange);
+
+        Assert.Equal(1, pixels.Count(pixel => pixel != 0));
+    }
 }

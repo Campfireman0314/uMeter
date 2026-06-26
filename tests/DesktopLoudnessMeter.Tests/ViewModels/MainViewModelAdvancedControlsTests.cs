@@ -520,6 +520,7 @@ public sealed class MainViewModelAdvancedControlsTests
         viewModel.Sessions.Single(session => session.SourceKey == "plugin:lead").OpenDetailCommand.Execute(null);
         viewModel.IsInlineWaveformVisible = true;
         viewModel.IsInlineSpectrumVisible = true;
+        viewModel.IsInlineLoudnessClockVisible = true;
         viewModel.IsInlineCollisionVisible = true;
         viewModel.SelectedFrequencyCollisionSourceKey = "plugin:keys";
         viewModel.CollisionLevelFloorDb = -84;
@@ -528,12 +529,17 @@ public sealed class MainViewModelAdvancedControlsTests
         viewModel.CollisionFrequencyScale = CollisionFrequencyScale.Logarithmic;
         viewModel.SpectrumDisplayFloorDb = -150;
         viewModel.SpectrumDisplayCeilingDb = -12;
+        viewModel.LoudnessClockMinimumDb = -54;
+        viewModel.LoudnessClockMaximumDb = -3;
+        viewModel.LoudnessClockWarningDb = -14;
+        viewModel.LoudnessClockCycleSeconds = 45;
         viewModel.InlineStereoSettings.ScaleRangeDb = 48;
 
         var stored = workspace.GetSource("plugin:lead");
         Assert.NotNull(stored);
         Assert.True(stored!.InlineWaveformVisible);
         Assert.True(stored.InlineSpectrumVisible);
+        Assert.True(stored.InlineLoudnessClockVisible);
         Assert.True(stored.InlineCollisionVisible);
         Assert.Equal("plugin:keys", stored.InlineCollisionSourceKey);
         Assert.Equal(-84, stored.CollisionLevelFloorDb);
@@ -542,6 +548,10 @@ public sealed class MainViewModelAdvancedControlsTests
         Assert.Equal(CollisionFrequencyScale.Logarithmic, stored.CollisionFrequencyScale);
         Assert.Equal(-150, stored.SpectrumDisplayFloorDb);
         Assert.Equal(-12, stored.SpectrumDisplayCeilingDb);
+        Assert.Equal(-54, stored.LoudnessClockMinimumDb);
+        Assert.Equal(-3, stored.LoudnessClockMaximumDb);
+        Assert.Equal(-14, stored.LoudnessClockWarningDb);
+        Assert.Equal(45, stored.LoudnessClockCycleSeconds);
         Assert.Equal(48, stored.InlineStereo?.ScaleRangeDb);
 
         var restored = new MainViewModel(service, startTimer: false, workspaceSettings: workspace);
@@ -550,6 +560,7 @@ public sealed class MainViewModelAdvancedControlsTests
 
         Assert.True(restored.IsInlineWaveformVisible);
         Assert.True(restored.IsInlineSpectrumVisible);
+        Assert.True(restored.IsInlineLoudnessClockVisible);
         Assert.True(restored.IsInlineCollisionVisible);
         Assert.Equal("plugin:keys", restored.SelectedFrequencyCollisionSourceKey);
         Assert.Equal(-84, restored.CollisionLevelFloorDb);
@@ -558,6 +569,10 @@ public sealed class MainViewModelAdvancedControlsTests
         Assert.Equal(CollisionFrequencyScale.Logarithmic, restored.CollisionFrequencyScale);
         Assert.Equal(-150, restored.SpectrumDisplayFloorDb);
         Assert.Equal(-12, restored.SpectrumDisplayCeilingDb);
+        Assert.Equal(-54, restored.LoudnessClockMinimumDb);
+        Assert.Equal(-3, restored.LoudnessClockMaximumDb);
+        Assert.Equal(-14, restored.LoudnessClockWarningDb);
+        Assert.Equal(45, restored.LoudnessClockCycleSeconds);
         Assert.Equal(48, restored.InlineStereoSettings.ScaleRangeDb);
     }
 
@@ -572,6 +587,7 @@ public sealed class MainViewModelAdvancedControlsTests
         stored.SpectrumDisplayMode = SpectrumDisplayMode.Channels;
         stored.InlineWaveformVisible = true;
         stored.InlineSpectrumVisible = true;
+        stored.InlineLoudnessClockVisible = true;
         stored.InlineCollisionVisible = true;
         var service = new StaticSignalSourceMeterService(
             [Source("plugin:lead", "Lead", SignalSourceKind.Plugin, spectrumBuckets: [0.4])]);
@@ -594,7 +610,50 @@ public sealed class MainViewModelAdvancedControlsTests
         Assert.Equal(SpectrumDisplayMode.Overall, row.SpectrumDisplayMode);
         Assert.False(viewModel.IsInlineWaveformVisible);
         Assert.False(viewModel.IsInlineSpectrumVisible);
+        Assert.False(viewModel.IsInlineLoudnessClockVisible);
         Assert.False(viewModel.IsInlineCollisionVisible);
+    }
+
+    [Fact]
+    public void LoudnessClockRangePreservesMinimumSpan()
+    {
+        var viewModel = new MainViewModel(new StaticSignalSourceMeterService([]), startTimer: false);
+
+        viewModel.LoudnessClockMinimumDb = -10;
+        viewModel.LoudnessClockMaximumDb = -10;
+
+        Assert.True(viewModel.LoudnessClockMaximumDb > viewModel.LoudnessClockMinimumDb);
+
+        viewModel.LoudnessClockMaximumDb = -80;
+
+        Assert.True(viewModel.LoudnessClockMaximumDb > viewModel.LoudnessClockMinimumDb);
+    }
+
+    [Fact]
+    public void LoudnessClockCycleAndWarningClampToUsableRanges()
+    {
+        var viewModel = new MainViewModel(new StaticSignalSourceMeterService([]), startTimer: false);
+
+        Assert.Equal(-32, viewModel.LoudnessClockMinimumDb);
+        Assert.Equal(-4, viewModel.LoudnessClockMaximumDb);
+        Assert.Equal(30, viewModel.LoudnessClockCycleSeconds);
+        Assert.Equal(-12, viewModel.LoudnessClockWarningDb);
+
+        viewModel.LoudnessClockCycleSeconds = 5;
+        Assert.Equal(10, viewModel.LoudnessClockCycleSeconds);
+
+        viewModel.LoudnessClockCycleSeconds = 900;
+        Assert.Equal(600, viewModel.LoudnessClockCycleSeconds);
+
+        viewModel.LoudnessClockMinimumDb = -40;
+        viewModel.LoudnessClockMaximumDb = -20;
+        Assert.Equal(-20, viewModel.LoudnessClockWarningDb);
+
+        viewModel.LoudnessClockWarningDb = -80;
+        Assert.Equal(-40, viewModel.LoudnessClockWarningDb);
+
+        viewModel.LoudnessClockWarningDb = 12;
+        Assert.Equal(-20, viewModel.LoudnessClockWarningDb);
     }
 
     [Fact]

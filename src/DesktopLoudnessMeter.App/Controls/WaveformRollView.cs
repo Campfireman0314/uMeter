@@ -11,7 +11,7 @@ public sealed class WaveformRollView : FrameworkElement
     private const double MaximumValue = 1;
     private const double MinimumViewportSpan = 0.08;
     private const double PreferredPlotHeight = 122;
-    private const int MaximumRenderedWaveformPoints = 720;
+    private const int MaximumSmoothedWaveformPoints = 360;
     private static readonly double[] DecibelMarks = [0, -6, -12, -18];
     private bool _isPanning;
     private Point _panStart;
@@ -287,7 +287,7 @@ public sealed class WaveformRollView : FrameworkElement
         using (var context = geometry.Open())
         {
             context.BeginFigure(points[0], false, false);
-            if (points.Count < 4)
+            if (points.Count < 4 || points.Count > MaximumSmoothedWaveformPoints)
             {
                 for (var index = 1; index < points.Count; index++)
                 {
@@ -320,7 +320,8 @@ public sealed class WaveformRollView : FrameworkElement
 
     private IReadOnlyList<Point> CreateDisplayPoints(IReadOnlyList<double> samples, Rect plot)
     {
-        if (samples.Count <= MaximumRenderedWaveformPoints)
+        var pointBudget = WaveformRenderResolution.PointBudgetForPlotWidth(plot.Width);
+        if (samples.Count <= pointBudget)
         {
             var points = new Point[samples.Count];
             for (var index = 0; index < samples.Count; index++)
@@ -331,8 +332,8 @@ public sealed class WaveformRollView : FrameworkElement
             return points;
         }
 
-        var stride = (double)(samples.Count - 1) / (MaximumRenderedWaveformPoints - 1);
-        var decimated = new Point[MaximumRenderedWaveformPoints];
+        var stride = (double)(samples.Count - 1) / (pointBudget - 1);
+        var decimated = new Point[pointBudget];
         for (var index = 0; index < decimated.Length; index++)
         {
             decimated[index] = SampleToPoint(samples, (int)Math.Round(index * stride), samples.Count, plot);
@@ -457,6 +458,11 @@ public sealed class WaveformRollView : FrameworkElement
 
     private void ApplyPendingWaveformUpdate()
     {
+        if (ReferenceEquals(_renderedWaveformSamples, _pendingWaveformSamples))
+        {
+            return;
+        }
+
         _renderedWaveformSamples = _pendingWaveformSamples;
         InvalidateWaveformGeometry();
         InvalidateVisual();
