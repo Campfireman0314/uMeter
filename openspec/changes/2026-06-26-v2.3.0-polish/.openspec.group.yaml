@@ -1,0 +1,6 @@
+kind: group
+created: 2026-06-26
+execution_mode: serial
+suggested_focus: 01-source-continuity-reconfiguration
+active_subchange:
+recommended_order: 01-source-continuity-reconfiguration,02-spectrograph-fidelity,03-single-instance-launch,04-source-list-workspace-controls,05-v2.3.0-release-convergence
