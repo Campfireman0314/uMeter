@@ -91,10 +91,6 @@ public sealed class MainViewModel : ObservableObject, IDisposable
     private IReadOnlyList<FrequencyCollisionSourceOption> _frequencyCollisionSourceOptions = [AllCollisionSourcesOption];
     private IReadOnlyList<FrequencyCollisionBand> _frequencyCollisionBands = Array.Empty<FrequencyCollisionBand>();
     private bool _isAlwaysOnTop = true;
-    private bool _isInlineWaveformVisible;
-    private bool _isInlineSpectrumVisible;
-    private bool _isInlineLoudnessClockVisible;
-    private bool _isInlineCollisionVisible;
     private bool _showHiddenSources;
     private AudioSessionMeterViewModel? _selectedDetailSession;
     private readonly RelayCommand _switchDetailSessionCommand;
@@ -154,6 +150,20 @@ public sealed class MainViewModel : ObservableObject, IDisposable
         _moveSourceDownCommand = new RelayCommand(MoveSourceDown, CanMoveSourceDown);
         _forgetSelectedSourceCommand = new RelayCommand(_ => ForgetSelectedSource(), _ => SelectedDetailSession is not null);
         _selectEventOutputFolderCommand = new RelayCommand(_ => SelectEventOutputFolder());
+        InlineDetailModules =
+        [
+            InlineStereoModule,
+            InlineCollisionModule,
+            InlineLoudnessClockModule,
+            InlineWaveformModule,
+            InlineSpectrumModule
+        ];
+        ApplyDetailModuleLayouts(InlineDetailModules, null);
+        foreach (var module in InlineDetailModules)
+        {
+            module.PropertyChanged += InlineDetailModuleOnPropertyChanged;
+        }
+
         InlineStereoSettings.PropertyChanged += InlineStereoSettingsOnPropertyChanged;
         RefreshDefaultDetailLayoutStatus();
     }
@@ -163,6 +173,18 @@ public sealed class MainViewModel : ObservableObject, IDisposable
     public ObservableCollection<RecentEventViewModel> RecentEvents { get; } = [];
 
     public ObservableCollection<RecentEventViewModel> VisibleRecentEvents { get; } = [];
+
+    public DetailModuleViewModel InlineStereoModule { get; } = new(DetailModuleKind.Stereo, "Stereo image", isVisible: true);
+
+    public DetailModuleViewModel InlineCollisionModule { get; } = new(DetailModuleKind.Collision, "Frequency collision", isVisible: false);
+
+    public DetailModuleViewModel InlineLoudnessClockModule { get; } = new(DetailModuleKind.LoudnessClock, "Clock", isVisible: false);
+
+    public DetailModuleViewModel InlineWaveformModule { get; } = new(DetailModuleKind.Waveform, "Waveform", isVisible: false);
+
+    public DetailModuleViewModel InlineSpectrumModule { get; } = new(DetailModuleKind.Spectrum, "Spectrum", isVisible: false);
+
+    public IReadOnlyList<DetailModuleViewModel> InlineDetailModules { get; }
 
     public IReadOnlyList<RecentEventFilterOption> RecentEventFilterOptions { get; } =
     [
@@ -620,63 +642,41 @@ public sealed class MainViewModel : ObservableObject, IDisposable
         set => SetProperty(ref _isAlwaysOnTop, value);
     }
 
+    public bool IsInlineStereoVisible
+    {
+        get => InlineStereoModule.IsVisible;
+        set => InlineStereoModule.IsVisible = value;
+    }
+
     public bool IsInlineWaveformVisible
     {
-        get => _isInlineWaveformVisible;
-        set
-        {
-            if (SetProperty(ref _isInlineWaveformVisible, value))
-            {
-                NotifyInlineRollVisibilityChanged();
-                SaveSelectedDetailPreferences();
-            }
-        }
+        get => InlineWaveformModule.IsVisible;
+        set => InlineWaveformModule.IsVisible = value;
     }
 
     public bool IsInlineSpectrumVisible
     {
-        get => _isInlineSpectrumVisible;
-        set
-        {
-            if (SetProperty(ref _isInlineSpectrumVisible, value))
-            {
-                NotifyInlineRollVisibilityChanged();
-                SaveSelectedDetailPreferences();
-            }
-        }
+        get => InlineSpectrumModule.IsVisible;
+        set => InlineSpectrumModule.IsVisible = value;
     }
 
     public bool IsInlineLoudnessClockVisible
     {
-        get => _isInlineLoudnessClockVisible;
-        set
-        {
-            if (SetProperty(ref _isInlineLoudnessClockVisible, value))
-            {
-                SaveSelectedDetailPreferences();
-            }
-        }
+        get => InlineLoudnessClockModule.IsVisible;
+        set => InlineLoudnessClockModule.IsVisible = value;
     }
 
     public bool IsInlineCollisionVisible
     {
-        get => _isInlineCollisionVisible;
-        set
-        {
-            if (SetProperty(ref _isInlineCollisionVisible, value))
-            {
-                SaveSelectedDetailPreferences();
-                RefreshFrequencyCollisionOptions();
-                RefreshFrequencyCollisions();
-            }
-        }
+        get => InlineCollisionModule.IsVisible;
+        set => InlineCollisionModule.IsVisible = value;
     }
 
-    public bool IsInlineWaveformOnlyVisible => IsInlineWaveformVisible && !IsInlineSpectrumVisible;
+    public bool IsInlineWaveformOnlyVisible => IsInlineWaveformVisible;
 
-    public bool IsInlineSpectrumOnlyVisible => IsInlineSpectrumVisible && !IsInlineWaveformVisible;
+    public bool IsInlineSpectrumOnlyVisible => IsInlineSpectrumVisible;
 
-    public bool AreInlineRollsVisible => IsInlineWaveformVisible && IsInlineSpectrumVisible;
+    public bool AreInlineRollsVisible => false;
 
     public bool ShowHiddenSources
     {
@@ -697,7 +697,11 @@ public sealed class MainViewModel : ObservableObject, IDisposable
 
     public double InlineWaveformOnlyPanelMinHeight => RollGroupMinHeight(SelectedDetailSession?.IsChannelWaveformVisible == true);
 
+    public double InlineWaveformOnlyPanelDisplayMinHeight => IsInlineWaveformVisible ? InlineWaveformOnlyPanelMinHeight : 0;
+
     public double InlineSpectrumOnlyPanelMinHeight => RollGroupMinHeight(SelectedDetailSession?.IsChannelSpectrumVisible == true);
+
+    public double InlineSpectrumOnlyPanelDisplayMinHeight => IsInlineSpectrumVisible ? InlineSpectrumOnlyPanelMinHeight : 0;
 
     public double InlineWaveformOnlyPanelDefaultHeight => InlineWaveformOnlyPanelMinHeight;
 
@@ -783,6 +787,36 @@ public sealed class MainViewModel : ObservableObject, IDisposable
         Sessions.Move(currentIndex, insertionIndex);
         PersistCurrentSourceOrder();
         RaiseMoveCommandStateChanged();
+    }
+
+    public void MoveInlineDetailModuleTo(DetailModuleViewModel source, DetailModuleViewModel target, bool insertAfter)
+    {
+        if (ReferenceEquals(source, target)
+            || !InlineDetailModules.Contains(source)
+            || !InlineDetailModules.Contains(target))
+        {
+            return;
+        }
+
+        _isApplyingWorkspacePreferences = true;
+        try
+        {
+            MoveDetailModule(InlineDetailModules, source, target, insertAfter);
+        }
+        finally
+        {
+            _isApplyingWorkspacePreferences = false;
+        }
+
+        SaveSelectedDetailPreferences();
+    }
+
+    public void ClearInlineDetailModuleDropHints()
+    {
+        foreach (var module in InlineDetailModules)
+        {
+            module.SetReorderDropHint(before: false, after: false);
+        }
     }
 
     public AudioSessionMeterViewModel? SelectedDetailSession
@@ -899,6 +933,10 @@ public sealed class MainViewModel : ObservableObject, IDisposable
         }
 
         InlineStereoSettings.PropertyChanged -= InlineStereoSettingsOnPropertyChanged;
+        foreach (var module in InlineDetailModules)
+        {
+            module.PropertyChanged -= InlineDetailModuleOnPropertyChanged;
+        }
     }
 
     private void Reconcile(IReadOnlyList<SignalSourceSnapshot> snapshots)
@@ -1172,6 +1210,7 @@ public sealed class MainViewModel : ObservableObject, IDisposable
         {
             WaveformDisplayMode = selected?.WaveformDisplayMode ?? WaveformDisplayMode.Overall,
             SpectrumDisplayMode = selected?.SpectrumDisplayMode ?? SpectrumDisplayMode.Overall,
+            StereoVisible = IsInlineStereoVisible,
             WaveformVisible = IsInlineWaveformVisible,
             SpectrumVisible = IsInlineSpectrumVisible,
             LoudnessClockVisible = IsInlineLoudnessClockVisible,
@@ -1189,7 +1228,8 @@ public sealed class MainViewModel : ObservableObject, IDisposable
             LoudnessClockMaximumDb = LoudnessClockMaximumDb,
             LoudnessClockWarningDb = LoudnessClockWarningDb,
             LoudnessClockCycleSeconds = LoudnessClockCycleSeconds,
-            Stereo = StereoWorkspaceSettings.FromSettings(InlineStereoSettings)
+            Stereo = StereoWorkspaceSettings.FromSettings(InlineStereoSettings),
+            Modules = InlineDetailModules.OrderBy(module => module.OrderIndex).Select(module => module.ToLayout()).ToList()
         };
     }
 
@@ -1206,6 +1246,7 @@ public sealed class MainViewModel : ObservableObject, IDisposable
         {
             selected.WaveformDisplayMode = preset.WaveformDisplayMode;
             selected.SpectrumDisplayMode = preset.SpectrumDisplayMode;
+            IsInlineStereoVisible = preset.StereoVisible;
             IsInlineWaveformVisible = preset.WaveformVisible;
             IsInlineSpectrumVisible = preset.SpectrumVisible;
             IsInlineLoudnessClockVisible = preset.LoudnessClockVisible;
@@ -1221,6 +1262,7 @@ public sealed class MainViewModel : ObservableObject, IDisposable
             LoudnessClockWarningDb = preset.LoudnessClockWarningDb;
             LoudnessClockCycleSeconds = preset.LoudnessClockCycleSeconds;
             preset.CloneStereo().ApplyTo(InlineStereoSettings);
+            ApplyDetailModuleLayouts(InlineDetailModules, preset.Modules);
             SelectedFrequencyCollisionSource = FindFrequencyCollisionSourceOption(
                 preset.CollisionSourceKey ?? AllCollisionSourcesOption.SourceKey);
         }
@@ -1238,6 +1280,7 @@ public sealed class MainViewModel : ObservableObject, IDisposable
         RefreshFrequencyCollisions();
         NotifyInlineRollVisibilityChanged();
         NotifyInlineRollLayoutChanged();
+        NotifyInlineDetailModuleVisibilityChanged();
     }
 
     private bool SetFrequencyCollisionOptions(IReadOnlyList<FrequencyCollisionSourceOption> options)
@@ -1851,6 +1894,8 @@ public sealed class MainViewModel : ObservableObject, IDisposable
         OnPropertyChanged(nameof(IsInlineWaveformOnlyVisible));
         OnPropertyChanged(nameof(IsInlineSpectrumOnlyVisible));
         OnPropertyChanged(nameof(AreInlineRollsVisible));
+        OnPropertyChanged(nameof(InlineWaveformOnlyPanelDisplayMinHeight));
+        OnPropertyChanged(nameof(InlineSpectrumOnlyPanelDisplayMinHeight));
     }
 
     private void SelectedDetailSessionOnPropertyChanged(object? sender, PropertyChangedEventArgs args)
@@ -1872,16 +1917,129 @@ public sealed class MainViewModel : ObservableObject, IDisposable
         SaveSelectedDetailPreferences();
     }
 
+    private void InlineDetailModuleOnPropertyChanged(object? sender, PropertyChangedEventArgs args)
+    {
+        if (sender is not DetailModuleViewModel module)
+        {
+            return;
+        }
+
+        if (args.PropertyName is nameof(DetailModuleViewModel.IsVisible))
+        {
+            NotifyInlineDetailModuleVisibilityChanged(module.Kind);
+            if (module.Kind is DetailModuleKind.Waveform or DetailModuleKind.Spectrum)
+            {
+                NotifyInlineRollVisibilityChanged();
+            }
+
+            if (module.Kind is DetailModuleKind.Collision)
+            {
+                RefreshFrequencyCollisionOptions();
+                RefreshFrequencyCollisions();
+            }
+        }
+
+        if (!_isApplyingWorkspacePreferences
+            && (args.PropertyName is nameof(DetailModuleViewModel.IsVisible)
+                or nameof(DetailModuleViewModel.Height)
+                or nameof(DetailModuleViewModel.OrderIndex)))
+        {
+            SaveSelectedDetailPreferences();
+        }
+    }
+
+    private void NotifyInlineDetailModuleVisibilityChanged(DetailModuleKind? kind = null)
+    {
+        if (kind is null or DetailModuleKind.Stereo)
+        {
+            OnPropertyChanged(nameof(IsInlineStereoVisible));
+        }
+
+        if (kind is null or DetailModuleKind.Collision)
+        {
+            OnPropertyChanged(nameof(IsInlineCollisionVisible));
+        }
+
+        if (kind is null or DetailModuleKind.LoudnessClock)
+        {
+            OnPropertyChanged(nameof(IsInlineLoudnessClockVisible));
+        }
+
+        if (kind is null or DetailModuleKind.Waveform)
+        {
+            OnPropertyChanged(nameof(IsInlineWaveformVisible));
+        }
+
+        if (kind is null or DetailModuleKind.Spectrum)
+        {
+            OnPropertyChanged(nameof(IsInlineSpectrumVisible));
+        }
+    }
+
     private void NotifyInlineRollLayoutChanged()
     {
         OnPropertyChanged(nameof(InlineWaveformOnlyPanelMinHeight));
         OnPropertyChanged(nameof(InlineSpectrumOnlyPanelMinHeight));
+        OnPropertyChanged(nameof(InlineWaveformOnlyPanelDisplayMinHeight));
+        OnPropertyChanged(nameof(InlineSpectrumOnlyPanelDisplayMinHeight));
         OnPropertyChanged(nameof(InlineWaveformOnlyPanelDefaultHeight));
         OnPropertyChanged(nameof(InlineSpectrumOnlyPanelDefaultHeight));
         OnPropertyChanged(nameof(InlineWaveformRollGroupMinHeight));
         OnPropertyChanged(nameof(InlineSpectrumRollGroupMinHeight));
         OnPropertyChanged(nameof(InlineRollsPanelMinHeight));
         OnPropertyChanged(nameof(InlineRollsPanelDefaultHeight));
+    }
+
+    private static void ApplyDetailModuleLayouts(
+        IReadOnlyList<DetailModuleViewModel> modules,
+        IEnumerable<DetailModuleLayoutSettings>? layouts)
+    {
+        var layoutByKind = DetailModuleLayoutNormalizer.Normalize(layouts)
+            .ToDictionary(layout => layout.Kind);
+        foreach (var module in modules)
+        {
+            if (layoutByKind.TryGetValue(module.Kind, out var layout))
+            {
+                module.ApplyLayout(layout);
+            }
+        }
+    }
+
+    private static void MoveDetailModule(
+        IReadOnlyList<DetailModuleViewModel> modules,
+        DetailModuleViewModel source,
+        DetailModuleViewModel target,
+        bool insertAfter)
+    {
+        var ordered = modules
+            .OrderBy(module => module.OrderIndex)
+            .ThenBy(module => ModuleSortRank(module.Kind))
+            .ToList();
+        ordered.Remove(source);
+        var targetIndex = ordered.IndexOf(target);
+        if (targetIndex < 0)
+        {
+            return;
+        }
+
+        ordered.Insert(targetIndex + (insertAfter ? 1 : 0), source);
+        for (var index = 0; index < ordered.Count; index++)
+        {
+            ordered[index].OrderIndex = index;
+        }
+    }
+
+    private static int ModuleSortRank(DetailModuleKind kind)
+    {
+        return kind switch
+        {
+            DetailModuleKind.Stereo => 0,
+            DetailModuleKind.Collision => 1,
+            DetailModuleKind.LoudnessClock => 2,
+            DetailModuleKind.Waveform => 3,
+            DetailModuleKind.Spectrum => 4,
+            _ => int.MaxValue
+        };
     }
 
     private static double RollGroupMinHeight(bool channelsVisible)
@@ -2036,6 +2194,7 @@ public sealed class MainViewModel : ObservableObject, IDisposable
         }
 
         var preferences = GetOrCreatePreferences(SelectedDetailSession.SourceKey);
+        preferences.InlineStereoVisible = IsInlineStereoVisible;
         preferences.InlineWaveformVisible = IsInlineWaveformVisible;
         preferences.InlineSpectrumVisible = IsInlineSpectrumVisible;
         preferences.InlineLoudnessClockVisible = IsInlineLoudnessClockVisible;
@@ -2054,6 +2213,7 @@ public sealed class MainViewModel : ObservableObject, IDisposable
         preferences.LoudnessClockWarningDb = LoudnessClockWarningDb;
         preferences.LoudnessClockCycleSeconds = LoudnessClockCycleSeconds;
         preferences.InlineStereo = StereoWorkspaceSettings.FromSettings(InlineStereoSettings);
+        preferences.InlineDetailModules = InlineDetailModules.OrderBy(module => module.OrderIndex).Select(module => module.ToLayout()).ToList();
         SaveSourcePreferences(SelectedDetailSession.SourceKey);
     }
 
@@ -2071,6 +2231,7 @@ public sealed class MainViewModel : ObservableObject, IDisposable
             IsInlineWaveformVisible = preferences.InlineWaveformVisible ?? false;
             IsInlineSpectrumVisible = preferences.InlineSpectrumVisible ?? false;
             IsInlineLoudnessClockVisible = preferences.InlineLoudnessClockVisible ?? false;
+            IsInlineStereoVisible = preferences.InlineStereoVisible ?? true;
             IsInlineCollisionVisible = preferences.InlineCollisionVisible ?? false;
             CollisionLevelFloorDb = preferences.CollisionLevelFloorDb ?? DefaultCollisionLevelFloorDb;
             CollisionProminenceThresholdDb = preferences.CollisionProminenceThresholdDb ?? DefaultCollisionProminenceThresholdDb;
@@ -2091,6 +2252,7 @@ public sealed class MainViewModel : ObservableObject, IDisposable
                 InlineStereoSettings.Reset();
             }
 
+            ApplyDetailModuleLayouts(InlineDetailModules, preferences.InlineDetailModules);
             SelectedFrequencyCollisionSourceKey = preferences.InlineCollisionSourceKey ?? AllCollisionSourcesOption.SourceKey;
         }
         finally
@@ -2142,6 +2304,7 @@ public sealed class MainViewModel : ObservableObject, IDisposable
             IsInlineWaveformVisible = false;
             IsInlineSpectrumVisible = false;
             IsInlineLoudnessClockVisible = false;
+            IsInlineStereoVisible = true;
             IsInlineCollisionVisible = false;
             SelectedFrequencyCollisionSourceKey = AllCollisionSourcesOption.SourceKey;
             CollisionLevelFloorDb = DefaultCollisionLevelFloorDb;
@@ -2155,6 +2318,7 @@ public sealed class MainViewModel : ObservableObject, IDisposable
             LoudnessClockWarningDb = LoudnessClockDefaultWarningDb;
             LoudnessClockCycleSeconds = LoudnessClockDefaultCycleSeconds;
             InlineStereoSettings.Reset();
+            ApplyDetailModuleLayouts(InlineDetailModules, null);
         }
         finally
         {
@@ -2212,6 +2376,8 @@ public sealed class MainViewModel : ObservableObject, IDisposable
 
         public SpectrumDisplayMode SpectrumDisplayMode { get; set; } = SpectrumDisplayMode.Overall;
 
+        public bool? InlineStereoVisible { get; set; }
+
         public bool? InlineWaveformVisible { get; set; }
 
         public bool? InlineSpectrumVisible { get; set; }
@@ -2244,11 +2410,14 @@ public sealed class MainViewModel : ObservableObject, IDisposable
 
         public StereoWorkspaceSettings? InlineStereo { get; set; }
 
+        public List<DetailModuleLayoutSettings>? InlineDetailModules { get; set; }
+
         public static bool HasInlineDetailLayout(SourceWorkspaceSettings? workspace)
         {
             return workspace is not null
                 && (workspace.WaveformDisplayMode is not null
                     || workspace.SpectrumDisplayMode is not null
+                    || workspace.InlineStereoVisible is not null
                     || workspace.InlineWaveformVisible is not null
                     || workspace.InlineSpectrumVisible is not null
                     || workspace.InlineLoudnessClockVisible is not null
@@ -2265,7 +2434,8 @@ public sealed class MainViewModel : ObservableObject, IDisposable
                     || workspace.LoudnessClockMaximumDb is not null
                     || workspace.LoudnessClockWarningDb is not null
                     || workspace.LoudnessClockCycleSeconds is not null
-                    || workspace.InlineStereo is not null);
+                    || workspace.InlineStereo is not null
+                    || workspace.InlineDetailModules is { Count: > 0 });
         }
 
         public static SourceRowPreferences FromWorkspace(SourceWorkspaceSettings? workspace)
@@ -2278,6 +2448,7 @@ public sealed class MainViewModel : ObservableObject, IDisposable
                 TruePeakOversampling = workspace?.TruePeakOversampling,
                 WaveformDisplayMode = workspace?.WaveformDisplayMode ?? WaveformDisplayMode.Overall,
                 SpectrumDisplayMode = workspace?.SpectrumDisplayMode ?? SpectrumDisplayMode.Overall,
+                InlineStereoVisible = workspace?.InlineStereoVisible,
                 InlineWaveformVisible = workspace?.InlineWaveformVisible,
                 InlineSpectrumVisible = workspace?.InlineSpectrumVisible,
                 InlineLoudnessClockVisible = workspace?.InlineLoudnessClockVisible,
@@ -2293,7 +2464,8 @@ public sealed class MainViewModel : ObservableObject, IDisposable
                 LoudnessClockMaximumDb = workspace?.LoudnessClockMaximumDb,
                 LoudnessClockWarningDb = workspace?.LoudnessClockWarningDb,
                 LoudnessClockCycleSeconds = workspace?.LoudnessClockCycleSeconds,
-                InlineStereo = workspace?.InlineStereo
+                InlineStereo = workspace?.InlineStereo,
+                InlineDetailModules = workspace?.InlineDetailModules
             };
         }
 
@@ -2301,6 +2473,7 @@ public sealed class MainViewModel : ObservableObject, IDisposable
         {
             WaveformDisplayMode = preset.WaveformDisplayMode;
             SpectrumDisplayMode = preset.SpectrumDisplayMode;
+            InlineStereoVisible = preset.StereoVisible;
             InlineWaveformVisible = preset.WaveformVisible;
             InlineSpectrumVisible = preset.SpectrumVisible;
             InlineLoudnessClockVisible = preset.LoudnessClockVisible;
@@ -2317,6 +2490,7 @@ public sealed class MainViewModel : ObservableObject, IDisposable
             LoudnessClockWarningDb = preset.LoudnessClockWarningDb;
             LoudnessClockCycleSeconds = preset.LoudnessClockCycleSeconds;
             InlineStereo = preset.CloneStereo();
+            InlineDetailModules = preset.Modules;
         }
 
         private static double? GetCollisionLevelFloorDb(SourceWorkspaceSettings? workspace)
@@ -2339,6 +2513,7 @@ public sealed class MainViewModel : ObservableObject, IDisposable
             workspace.TruePeakOversampling = TruePeakOversampling;
             workspace.WaveformDisplayMode = WaveformDisplayMode;
             workspace.SpectrumDisplayMode = SpectrumDisplayMode;
+            workspace.InlineStereoVisible = InlineStereoVisible;
             workspace.InlineWaveformVisible = InlineWaveformVisible;
             workspace.InlineSpectrumVisible = InlineSpectrumVisible;
             workspace.InlineLoudnessClockVisible = InlineLoudnessClockVisible;
@@ -2355,6 +2530,7 @@ public sealed class MainViewModel : ObservableObject, IDisposable
             workspace.LoudnessClockWarningDb = LoudnessClockWarningDb;
             workspace.LoudnessClockCycleSeconds = LoudnessClockCycleSeconds;
             workspace.InlineStereo = InlineStereo;
+            workspace.InlineDetailModules = InlineDetailModules;
         }
     }
 }

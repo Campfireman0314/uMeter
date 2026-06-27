@@ -1,0 +1,6 @@
+kind: group
+created: 2026-06-27
+execution_mode: serial
+suggested_focus: 01-spectrograph-frequency-hover
+active_subchange: 03-detail-module-reorder
+recommended_order: 01-spectrograph-frequency-hover,02-detail-module-separation,03-detail-module-reorder

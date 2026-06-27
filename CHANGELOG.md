@@ -4,6 +4,28 @@
 
 - Nothing yet.
 
+## v2.3.4 - 2026-06-27
+
+Draggable detail-graph polish patch.
+
+### Changed
+
+- Collision analyzer modules keep their original compact fixed height and no longer expose a stretch handle.
+- App, setup, protocol, sender kit, sender probe, VST3 sender project, and AAX sender project metadata now report version `2.3.4`.
+- Default versioned installer artifact is now `uMeter-Setup-2.3.4.exe`.
+
+### Fixed
+
+- Detail graph reorder hints no longer animate layout height, avoiding block twitch near neighboring module rims.
+- Hidden waveform, spectrograph, and loudness-clock modules now stop tick-driven render work while inactive.
+- Detail resize grips use the themed handle template when graph-specific visibility styles are applied.
+- Source and detail title banners now show `Double click to edit alias` on hover.
+
+### Verified
+
+- `dotnet test .\desktop-loudness-meter.sln --no-restore` with 275 passing tests.
+- `dotnet build .\desktop-loudness-meter.sln --no-restore`.
+
 ## v2.3.3 - 2026-06-27
 
 UI reliability, detail-layout preset, and loudness-clock interaction patch.

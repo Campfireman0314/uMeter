@@ -15,6 +15,7 @@ public sealed class DetailLayoutPresetStoreTests
             {
                 WaveformDisplayMode = WaveformDisplayMode.Channels,
                 SpectrumDisplayMode = SpectrumDisplayMode.Channels,
+                StereoVisible = false,
                 WaveformVisible = true,
                 SpectrumVisible = true,
                 LoudnessClockVisible = true,
@@ -30,7 +31,14 @@ public sealed class DetailLayoutPresetStoreTests
                 LoudnessClockMaximumDb = -3,
                 LoudnessClockWarningDb = -14,
                 LoudnessClockCycleSeconds = 45,
-                Stereo = new StereoWorkspaceSettings { ScaleRangeDb = 48 }
+                Stereo = new StereoWorkspaceSettings { ScaleRangeDb = 48 },
+                Modules =
+                [
+                    new DetailModuleLayoutSettings { Kind = DetailModuleKind.Spectrum, OrderIndex = 0, Height = 360 },
+                    new DetailModuleLayoutSettings { Kind = DetailModuleKind.Stereo, OrderIndex = 1, Height = 300 },
+                    new DetailModuleLayoutSettings { Kind = DetailModuleKind.Waveform, OrderIndex = 2, Height = 280 },
+                    new DetailModuleLayoutSettings { Kind = DetailModuleKind.LoudnessClock, OrderIndex = 3, Height = 260 }
+                ]
             };
 
             Assert.True(DetailLayoutPresetStore.Save(path, preset, out var saveError), saveError);
@@ -38,6 +46,7 @@ public sealed class DetailLayoutPresetStoreTests
 
             Assert.Equal(WaveformDisplayMode.Channels, loaded.WaveformDisplayMode);
             Assert.Equal(SpectrumDisplayMode.Channels, loaded.SpectrumDisplayMode);
+            Assert.False(loaded.StereoVisible);
             Assert.True(loaded.WaveformVisible);
             Assert.True(loaded.SpectrumVisible);
             Assert.True(loaded.LoudnessClockVisible);
@@ -54,6 +63,10 @@ public sealed class DetailLayoutPresetStoreTests
             Assert.Equal(-14, loaded.LoudnessClockWarningDb);
             Assert.Equal(45, loaded.LoudnessClockCycleSeconds);
             Assert.Equal(48, loaded.Stereo.ScaleRangeDb);
+            Assert.Equal(
+                [DetailModuleKind.Spectrum, DetailModuleKind.Stereo, DetailModuleKind.Waveform, DetailModuleKind.LoudnessClock, DetailModuleKind.Collision],
+                loaded.Modules.Select(module => module.Kind).ToArray());
+            Assert.Equal(360, loaded.Modules[0].Height);
         }
         finally
         {

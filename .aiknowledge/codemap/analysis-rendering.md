@@ -62,4 +62,5 @@ Converts PCM into loudness, waveform, spectrum, stereo, loudness-clock, and coll
 - Loudness clock current-position scanning is an overlay on the fixed elapsed-cycle table; it narrows renderer inset without changing the stable phase mapping.
 - Loudness clock fan segments explicitly bridge through the cycle origin when retained samples wrap from high phase back to low phase, avoiding a visible top-origin slit caused by timer jitter.
 - Reused waveform buffers should not publish plot ticks; the visual update path should run when the waveform buffer reference actually changes.
+- Hidden waveform, spectrograph, and loudness-clock controls must gate tick-driven work with active/visibility checks so collapsed detail modules do not queue render updates or append clock samples in the background.
 - Collision display ratios may be remapped for logarithmic display, but bucket analysis remains based on Mel-spaced spectrum buckets.

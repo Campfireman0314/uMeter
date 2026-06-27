@@ -42,6 +42,7 @@ public sealed class SpectrumRollView : FrameworkElement
     private double _panStartMelSpan;
     private double _viewportCenterMel = (MinimumMel + MaximumMel) / 2;
     private double _viewportMelSpan = DomainMelSpan;
+    private Point? _hoverPosition;
 
     public SpectrumRollView()
     {
@@ -53,17 +54,17 @@ public sealed class SpectrumRollView : FrameworkElement
         {
             RecolorBitmapIfNeeded();
             FlushPendingBitmapWriteIfReady();
-            ApplyPendingSpectrumUpdateIfReady();
+            RequestSpectrumUpdateIfReady();
         };
         IsVisibleChanged += (_, _) =>
         {
             FlushPendingBitmapWriteIfReady();
-            ApplyPendingSpectrumUpdateIfReady();
+            RequestSpectrumUpdateIfReady();
         };
         SizeChanged += (_, _) =>
         {
             FlushPendingBitmapWriteIfReady();
-            ApplyPendingSpectrumUpdateIfReady();
+            RequestSpectrumUpdateIfReady();
         };
     }
 
@@ -89,6 +90,18 @@ public sealed class SpectrumRollView : FrameworkElement
     {
         get => (long)GetValue(PlotTickProperty);
         set => SetValue(PlotTickProperty, value);
+    }
+
+    public static readonly DependencyProperty IsActiveProperty = DependencyProperty.Register(
+        nameof(IsActive),
+        typeof(bool),
+        typeof(SpectrumRollView),
+        new FrameworkPropertyMetadata(true, IsActiveChanged));
+
+    public bool IsActive
+    {
+        get => (bool)GetValue(IsActiveProperty);
+        set => SetValue(IsActiveProperty, value);
     }
 
     public static readonly DependencyProperty DisplayFloorDbProperty = DependencyProperty.Register(
@@ -137,6 +150,7 @@ public sealed class SpectrumRollView : FrameworkElement
         NormalizeViewport(plot);
         DrawBackground(drawingContext, width, height, plot);
         DrawSpectrumRoll(drawingContext, plot);
+        DrawFrequencyHover(drawingContext, plot);
     }
 
     protected override void OnMouseLeftButtonDown(MouseButtonEventArgs e)
@@ -162,12 +176,14 @@ public sealed class SpectrumRollView : FrameworkElement
     protected override void OnMouseMove(MouseEventArgs e)
     {
         base.OnMouseMove(e);
+        _hoverPosition = e.GetPosition(this);
         if (!_isPanning)
         {
+            InvalidateVisual();
             return;
         }
 
-        var deltaY = e.GetPosition(this).Y - _panStart.Y;
+        var deltaY = _hoverPosition.Value.Y - _panStart.Y;
         var plot = GetPlotRect();
         var melDelta = deltaY * _panStartMelSpan / plot.Height;
         SetViewport(_panStartCenterMel + melDelta, _viewportMelSpan, plot);
@@ -211,6 +227,13 @@ public sealed class SpectrumRollView : FrameworkElement
     {
         base.OnLostMouseCapture(e);
         _isPanning = false;
+    }
+
+    protected override void OnMouseLeave(MouseEventArgs e)
+    {
+        base.OnMouseLeave(e);
+        _hoverPosition = null;
+        InvalidateVisual();
     }
 
     private void DrawFrequencyScale(DrawingContext drawingContext, Rect plot)
@@ -347,6 +370,55 @@ public sealed class SpectrumRollView : FrameworkElement
         drawingContext.Pop();
     }
 
+    private void DrawFrequencyHover(DrawingContext drawingContext, Rect plot)
+    {
+        if (_hoverPosition is not { } hoverPosition)
+        {
+            return;
+        }
+
+        var viewport = GetEffectiveViewport(plot);
+        if (SpectrumFrequencyHoverMapper.Map(hoverPosition, plot, viewport.Minimum, viewport.Span) is not { } frequency)
+        {
+            return;
+        }
+
+        var y = Math.Clamp(hoverPosition.Y, plot.Top, plot.Bottom);
+        drawingContext.DrawLine(
+            ThemedDrawing.GetPen(this, PlotColorRole.Signal, 172, 1),
+            new Point(plot.Left, y),
+            new Point(plot.Right, y));
+
+        var text = FormatFrequencyReadout(frequency);
+        var formatted = new FormattedText(
+            text,
+            CultureInfo.InvariantCulture,
+            FlowDirection.LeftToRight,
+            new Typeface("Segoe UI"),
+            10.5,
+            ThemedDrawing.GetBrush(this, PlotColorRole.Text),
+            VisualTreeHelper.GetDpi(this).PixelsPerDip);
+        var padding = new Thickness(7, 3, 7, 4);
+        var width = formatted.Width + padding.Left + padding.Right;
+        var height = formatted.Height + padding.Top + padding.Bottom;
+        var left = hoverPosition.X + 10;
+        if (left + width > plot.Right - 3)
+        {
+            left = hoverPosition.X - width - 10;
+        }
+
+        left = Math.Clamp(left, plot.Left + 4, Math.Max(plot.Left + 4, plot.Right - width - 4));
+        var top = Math.Clamp(y - (height / 2), plot.Top + 3, Math.Max(plot.Top + 3, plot.Bottom - height - 3));
+        var labelRect = new Rect(left, top, width, height);
+        drawingContext.DrawRoundedRectangle(
+            ThemedDrawing.GetBrush(this, PlotColorRole.ControlPressed, 236),
+            ThemedDrawing.GetPen(this, PlotColorRole.Signal, 144, 1),
+            labelRect,
+            5,
+            5);
+        drawingContext.DrawText(formatted, new Point(labelRect.Left + padding.Left, labelRect.Top + padding.Top));
+    }
+
     private void DrawBitmapSegment(DrawingContext drawingContext, int sourceX, int sourceWidth, Rect destination)
     {
         if (_bitmap is null || sourceWidth <= 0 || destination.Width <= 0 || destination.Height <= 0)
@@ -382,6 +454,11 @@ public sealed class SpectrumRollView : FrameworkElement
     private static string FormatFrequency(double frequency)
     {
         return frequency >= 1000 ? $"{frequency / 1000:0.#}k" : $"{frequency:0}";
+    }
+
+    private static string FormatFrequencyReadout(double frequency)
+    {
+        return frequency >= 1000 ? $"{frequency / 1000:0.##} kHz" : $"{frequency:0} Hz";
     }
 
     private double FrequencyToY(Rect plot, double frequency)
@@ -489,6 +566,17 @@ public sealed class SpectrumRollView : FrameworkElement
         }
     }
 
+    private static void IsActiveChanged(DependencyObject dependencyObject, DependencyPropertyChangedEventArgs args)
+    {
+        if (dependencyObject is not SpectrumRollView view)
+        {
+            return;
+        }
+
+        view.FlushPendingBitmapWriteIfReady();
+        view.RequestSpectrumUpdateIfReady();
+    }
+
     private static void DisplayRangeChanged(DependencyObject dependencyObject, DependencyPropertyChangedEventArgs args)
     {
         if (dependencyObject is not SpectrumRollView view)
@@ -503,12 +591,15 @@ public sealed class SpectrumRollView : FrameworkElement
     private void ScheduleSpectrumUpdate(IReadOnlyList<double>? buckets)
     {
         _pendingSpectrumBuckets = buckets is { Count: > 0 } ? buckets : null;
-        _spectrumUpdate.Request();
+        RequestSpectrumUpdateIfReady();
     }
 
-    private void ApplyPendingSpectrumUpdateIfReady()
+    private void RequestSpectrumUpdateIfReady()
     {
-        _spectrumUpdate.TryApply();
+        if (CanApplySpectrumUpdate())
+        {
+            _spectrumUpdate.Request();
+        }
     }
 
     private void ApplyPendingSpectrumUpdate()
@@ -525,6 +616,7 @@ public sealed class SpectrumRollView : FrameworkElement
     private bool CanApplySpectrumUpdate()
     {
         return IsLoaded
+            && IsActive
             && IsVisible
             && Visibility == Visibility.Visible
             && ActualWidth > 0

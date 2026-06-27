@@ -160,6 +160,8 @@ public sealed class SourceWorkspaceSettings
 
     public SpectrumDisplayMode? SpectrumDisplayMode { get; set; }
 
+    public bool? InlineStereoVisible { get; set; }
+
     public bool? InlineWaveformVisible { get; set; }
 
     public bool? InlineSpectrumVisible { get; set; }
@@ -167,6 +169,8 @@ public sealed class SourceWorkspaceSettings
     public bool? InlineLoudnessClockVisible { get; set; }
 
     public bool? InlineCollisionVisible { get; set; }
+
+    public bool? PopupStereoVisible { get; set; }
 
     public bool? PopupWaveformVisible { get; set; }
 
@@ -206,6 +210,10 @@ public sealed class SourceWorkspaceSettings
 
     public StereoWorkspaceSettings? PopupStereo { get; set; }
 
+    public List<DetailModuleLayoutSettings>? InlineDetailModules { get; set; }
+
+    public List<DetailModuleLayoutSettings>? PopupDetailModules { get; set; }
+
     public void Normalize()
     {
         Alias = string.IsNullOrWhiteSpace(Alias) ? null : Alias.Trim();
@@ -225,6 +233,12 @@ public sealed class SourceWorkspaceSettings
         LoudnessClockCycleSeconds = NormalizeLoudnessClockCycleSeconds(LoudnessClockCycleSeconds);
         InlineStereo?.Normalize();
         PopupStereo?.Normalize();
+        InlineDetailModules = InlineDetailModules is null
+            ? null
+            : DetailModuleLayoutNormalizer.Normalize(InlineDetailModules);
+        PopupDetailModules = PopupDetailModules is null
+            ? null
+            : DetailModuleLayoutNormalizer.Normalize(PopupDetailModules);
     }
 
     private void NormalizeLoudnessClockRange()
@@ -300,6 +314,15 @@ public sealed class SourceWorkspaceSettings
                 LoudnessClockSettingsMaximumCycleSeconds)
             : null;
     }
+}
+
+public sealed class DetailModuleLayoutSettings
+{
+    public DetailModuleKind Kind { get; set; }
+
+    public int OrderIndex { get; set; }
+
+    public double? Height { get; set; }
 }
 
 public sealed class StereoWorkspaceSettings

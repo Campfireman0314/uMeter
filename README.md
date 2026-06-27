@@ -4,7 +4,7 @@ Fast floating Windows desktop meter for seeing which app, DAW, or plugin sender 
 
 ## Current Version
 
-`v2.3.3` is the current public release. This patch closes the UI reliability and detail-layout preset pass with immediate theme refreshes, a more reliable tray menu, portable detail-layout JSON presets, and clock hover/time-scale polish.
+`v2.3.4` is the current public release. This patch closes the draggable detail-graph polish pass with fixed-height collision analysis, inactive hidden graphs, steadier reorder hints, and detail title hover guidance.
 
 ## Usable Baseline
 
@@ -75,7 +75,7 @@ The generated installers are written to:
 
 ```text
 artifacts\uMeter.Setup.exe
-artifacts\uMeter-Setup-2.3.3.exe
+artifacts\uMeter-Setup-2.3.4.exe
 ```
 
 The installer contains the desktop app and `uMeter Sender.vst3`. The VST3 install path defaults to:
@@ -120,6 +120,7 @@ For mixed-source behavior, duplicate names, and reconnect preference memory, see
 - `docs/current-status.md` - current release status and remaining known limits.
 - `docs/product-roadmap/` - post-v2.2.4 product roadmap and planning notes.
 - `docs/rendering-architecture.md` - graph rendering cleanup notes.
+- `docs/v2.3.4-release.md` - v2.3.4 release notes.
 - `docs/v2.3.3-release.md` - v2.3.3 release notes.
 - `docs/v2.3.2-release.md` - v2.3.2 release notes.
 - `docs/v2.3.0-release.md` - v2.3.0 release notes.
@@ -156,3 +157,4 @@ For mixed-source behavior, duplicate names, and reconnect preference memory, see
 16. Done: v2.3.0 source continuity, spectrograph fidelity, single-instance launch, and source-list workspace controls.
 17. Done: v2.3.2 rendering responsiveness, unified detail title editing, and loudness clock polish.
 18. Done: v2.3.3 UI reliability, detail-layout presets, and loudness clock interaction polish.
+19. Done: v2.3.4 draggable detail-graph polish and fixed-height collision analyzer.

@@ -8,6 +8,8 @@ namespace DesktopLoudnessMeter.App;
 
 public partial class DetailWindow : Window
 {
+    private Point _detailModuleDragStartPoint;
+
     public DetailWindow()
     {
         InitializeComponent();
@@ -45,9 +47,19 @@ public partial class DetailWindow : Window
         window.ShowDialog();
     }
 
-    private void DetailRollSettingsButton_OnClick(object sender, RoutedEventArgs e)
+    private void DetailClockSettingsButton_OnClick(object sender, RoutedEventArgs e)
     {
-        DetailRollSettingsPopup.IsOpen = !DetailRollSettingsPopup.IsOpen;
+        DetailClockSettingsPopup.IsOpen = !DetailClockSettingsPopup.IsOpen;
+    }
+
+    private void DetailWaveformSettingsButton_OnClick(object sender, RoutedEventArgs e)
+    {
+        DetailWaveformSettingsPopup.IsOpen = !DetailWaveformSettingsPopup.IsOpen;
+    }
+
+    private void DetailSpectrumSettingsButton_OnClick(object sender, RoutedEventArgs e)
+    {
+        DetailSpectrumSettingsPopup.IsOpen = !DetailSpectrumSettingsPopup.IsOpen;
     }
 
     private void SaveDetailLayoutButton_OnClick(object sender, RoutedEventArgs e)
@@ -170,6 +182,101 @@ public partial class DetailWindow : Window
         if (sender is TextBox { DataContext: AudioSessionMeterViewModel { IsAliasEditing: true } row })
         {
             row.CommitAliasEditCommand.Execute(null);
+        }
+    }
+
+    private void DetailModuleDragHandle_OnMouseMove(object sender, MouseEventArgs e)
+    {
+        if (sender is not FrameworkElement { Tag: DetailModuleViewModel module } element)
+        {
+            return;
+        }
+
+        if (e.LeftButton != MouseButtonState.Pressed)
+        {
+            _detailModuleDragStartPoint = e.GetPosition(this);
+            return;
+        }
+
+        var position = e.GetPosition(this);
+        if (Math.Abs(position.X - _detailModuleDragStartPoint.X) < SystemParameters.MinimumHorizontalDragDistance
+            && Math.Abs(position.Y - _detailModuleDragStartPoint.Y) < SystemParameters.MinimumVerticalDragDistance)
+        {
+            return;
+        }
+
+        DragDrop.DoDragDrop(element, module, DragDropEffects.Move);
+        ClearDetailModuleDropHints();
+    }
+
+    private void DetailModule_OnDragOver(object sender, DragEventArgs e)
+    {
+        if (DataContext is not DetailWindowViewModel viewModel
+            || sender is not FrameworkElement { Tag: DetailModuleViewModel target }
+            || e.Data.GetData(typeof(DetailModuleViewModel)) is not DetailModuleViewModel source)
+        {
+            ClearDetailModuleDropHints();
+            e.Effects = DragDropEffects.None;
+            e.Handled = true;
+            return;
+        }
+
+        if (ReferenceEquals(source, target))
+        {
+            ClearDetailModuleDropHints();
+            e.Effects = DragDropEffects.Move;
+            e.Handled = true;
+            return;
+        }
+
+        var insertAfter = ShouldInsertAfter(e, sender);
+        foreach (var module in viewModel.DetailModules)
+        {
+            module.SetReorderDropHint(ReferenceEquals(module, target) && !insertAfter, ReferenceEquals(module, target) && insertAfter);
+        }
+
+        e.Effects = DragDropEffects.Move;
+        e.Handled = true;
+    }
+
+    private void DetailModule_OnDrop(object sender, DragEventArgs e)
+    {
+        if (DataContext is not DetailWindowViewModel viewModel
+            || sender is not FrameworkElement { Tag: DetailModuleViewModel target }
+            || e.Data.GetData(typeof(DetailModuleViewModel)) is not DetailModuleViewModel source)
+        {
+            return;
+        }
+
+        viewModel.MoveDetailModuleTo(source, target, ShouldInsertAfter(e, sender));
+        ClearDetailModuleDropHints();
+        e.Handled = true;
+    }
+
+    private void DetailModule_OnGiveFeedback(object sender, GiveFeedbackEventArgs e)
+    {
+        if (e.Effects == DragDropEffects.None)
+        {
+            ClearDetailModuleDropHints();
+            return;
+        }
+
+        Mouse.SetCursor(Cursors.SizeAll);
+        e.UseDefaultCursors = false;
+        e.Handled = true;
+    }
+
+    private static bool ShouldInsertAfter(DragEventArgs e, object sender)
+    {
+        return sender is FrameworkElement element
+            && e.GetPosition(element).Y >= element.ActualHeight / 2;
+    }
+
+    private void ClearDetailModuleDropHints()
+    {
+        if (DataContext is DetailWindowViewModel viewModel)
+        {
+            viewModel.ClearDetailModuleDropHints();
         }
     }
 

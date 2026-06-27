@@ -20,6 +20,7 @@ public sealed class DetailWindowViewModelTests
 
         Assert.False(first.IsAlwaysOnTop);
         Assert.True(second.IsAlwaysOnTop);
+        Assert.True(first.IsStereoVisible);
         Assert.False(first.IsWaveformVisible);
         Assert.False(first.IsSpectrumVisible);
         Assert.False(first.IsCollisionVisible);
@@ -43,8 +44,9 @@ public sealed class DetailWindowViewModelTests
 
         viewModel.IsWaveformVisible = true;
 
-        Assert.False(viewModel.IsSpectrumOnlyVisible);
-        Assert.True(viewModel.AreRollsVisible);
+        Assert.True(viewModel.IsSpectrumOnlyVisible);
+        Assert.True(viewModel.IsWaveformOnlyVisible);
+        Assert.False(viewModel.AreRollsVisible);
     }
 
     [Fact]
@@ -115,6 +117,7 @@ public sealed class DetailWindowViewModelTests
         settings.PopupSpectrumVisible = true;
         settings.PopupLoudnessClockVisible = true;
         settings.PopupCollisionVisible = true;
+        settings.PopupStereoVisible = false;
         settings.PopupCollisionSourceKey = "plugin:second";
         settings.CollisionLevelFloorDb = -84;
         settings.CollisionProminenceThresholdDb = 9;
@@ -136,6 +139,7 @@ public sealed class DetailWindowViewModelTests
         Assert.True(viewModel.IsSpectrumVisible);
         Assert.True(viewModel.IsLoudnessClockVisible);
         Assert.True(viewModel.IsCollisionVisible);
+        Assert.False(viewModel.IsStereoVisible);
         Assert.Equal("plugin:second", viewModel.SelectedFrequencyCollisionSourceKey);
         Assert.Equal(-84, viewModel.CollisionLevelFloorDb);
         Assert.Equal(9, viewModel.CollisionProminenceThresholdDb);
@@ -162,6 +166,7 @@ public sealed class DetailWindowViewModelTests
         viewModel.IsSpectrumVisible = true;
         viewModel.IsLoudnessClockVisible = true;
         viewModel.IsCollisionVisible = true;
+        viewModel.IsStereoVisible = false;
         viewModel.SelectedFrequencyCollisionSourceKey = "plugin:second";
         viewModel.CollisionLevelFloorDb = -90;
         viewModel.CollisionProminenceThresholdDb = 10;
@@ -181,6 +186,7 @@ public sealed class DetailWindowViewModelTests
         Assert.True(stored.PopupSpectrumVisible);
         Assert.True(stored.PopupLoudnessClockVisible);
         Assert.True(stored.PopupCollisionVisible);
+        Assert.False(stored.PopupStereoVisible);
         Assert.Equal("plugin:second", stored.PopupCollisionSourceKey);
         Assert.Equal(-90, stored.CollisionLevelFloorDb);
         Assert.Equal(10, stored.CollisionProminenceThresholdDb);
@@ -193,6 +199,28 @@ public sealed class DetailWindowViewModelTests
         Assert.Equal(-11, stored.LoudnessClockWarningDb);
         Assert.Equal(90, stored.LoudnessClockCycleSeconds);
         Assert.Equal(0.2, stored.PopupStereo?.TracePersistenceSeconds);
+    }
+
+    [Fact]
+    public void PopupDetailModulesCanReorderAndPersistPerSource()
+    {
+        var workspace = new UserWorkspaceSettings();
+        var session = new AudioSessionMeterViewModel(Snapshot("plugin:first", "First", spectrumBuckets: [0.0, 0.4]));
+        var viewModel = new DetailWindowViewModel(session, workspaceSettings: workspace);
+
+        viewModel.SpectrumModule.Height = 340;
+        viewModel.MoveDetailModuleTo(viewModel.SpectrumModule, viewModel.StereoModule, insertAfter: false);
+
+        Assert.Equal(
+            [DetailModuleKind.Spectrum, DetailModuleKind.Stereo, DetailModuleKind.Collision, DetailModuleKind.LoudnessClock, DetailModuleKind.Waveform],
+            viewModel.DetailModules
+                .OrderBy(module => module.OrderIndex)
+                .Select(module => module.Kind)
+                .ToArray());
+        var storedModules = workspace.GetSource("plugin:first")!.PopupDetailModules;
+        Assert.NotNull(storedModules);
+        Assert.Equal(DetailModuleKind.Spectrum, storedModules![0].Kind);
+        Assert.Equal(340, storedModules[0].Height);
     }
 
     [Fact]
@@ -209,10 +237,13 @@ public sealed class DetailWindowViewModelTests
             viewModel.IsWaveformVisible = true;
             viewModel.IsSpectrumVisible = true;
             viewModel.IsLoudnessClockVisible = true;
+            viewModel.IsStereoVisible = false;
             viewModel.LoudnessClockMinimumDb = -44;
             viewModel.LoudnessClockMaximumDb = -6;
             viewModel.LoudnessClockWarningDb = -12;
             viewModel.LoudnessClockCycleSeconds = 90;
+            viewModel.SpectrumModule.Height = 350;
+            viewModel.MoveDetailModuleTo(viewModel.SpectrumModule, viewModel.StereoModule, insertAfter: false);
 
             Assert.True(viewModel.SaveDetailLayout(path));
 
@@ -221,8 +252,10 @@ public sealed class DetailWindowViewModelTests
             viewModel.IsWaveformVisible = false;
             viewModel.IsSpectrumVisible = false;
             viewModel.IsLoudnessClockVisible = false;
+            viewModel.IsStereoVisible = true;
             viewModel.LoudnessClockMinimumDb = -32;
             viewModel.LoudnessClockMaximumDb = -4;
+            viewModel.MoveDetailModuleTo(viewModel.StereoModule, viewModel.SpectrumModule, insertAfter: false);
 
             Assert.True(viewModel.LoadDetailLayout(path));
 
@@ -231,9 +264,12 @@ public sealed class DetailWindowViewModelTests
             Assert.True(viewModel.IsWaveformVisible);
             Assert.True(viewModel.IsSpectrumVisible);
             Assert.True(viewModel.IsLoudnessClockVisible);
+            Assert.False(viewModel.IsStereoVisible);
             Assert.Equal(-44, viewModel.LoudnessClockMinimumDb);
             Assert.Equal(-6, viewModel.LoudnessClockMaximumDb);
             Assert.Equal(90, viewModel.LoudnessClockCycleSeconds);
+            Assert.Equal(DetailModuleKind.Spectrum, viewModel.DetailModules.OrderBy(module => module.OrderIndex).First().Kind);
+            Assert.Equal(350, viewModel.SpectrumModule.Height);
         }
         finally
         {

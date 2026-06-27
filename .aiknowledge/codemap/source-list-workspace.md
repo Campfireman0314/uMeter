@@ -38,3 +38,4 @@ Maintains the global source row collection, per-source workspace state, row comm
 - Hidden rows remain in workspace preferences while being filtered from `Sessions` unless `ShowHiddenSources` is enabled.
 - Explicit user order wins over kind/name sorting, while unordered new sources still fall back to kind, display title, and key.
 - Inline and pop-up detail visualization visibility/range settings, including loudness clock range, warning level, and cycle duration, are persisted per stable source key and reset through the forget-source flow.
+- Detail module ordering persists for all graph modules, but the collision analyzer uses its original compact fixed height; imported or saved collision module heights normalize back to that fixed value.

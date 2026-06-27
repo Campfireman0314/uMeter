@@ -37,6 +37,8 @@ public sealed class DetailLayoutPreset
 
     public SpectrumDisplayMode SpectrumDisplayMode { get; set; } = SpectrumDisplayMode.Overall;
 
+    public bool StereoVisible { get; set; } = true;
+
     public bool WaveformVisible { get; set; }
 
     public bool SpectrumVisible { get; set; }
@@ -68,6 +70,8 @@ public sealed class DetailLayoutPreset
     public double LoudnessClockCycleSeconds { get; set; } = LoudnessClockDefaultCycleSeconds;
 
     public StereoWorkspaceSettings Stereo { get; set; } = new();
+
+    public List<DetailModuleLayoutSettings> Modules { get; set; } = DetailModuleLayoutNormalizer.DefaultLayouts().ToList();
 
     public void Normalize()
     {
@@ -107,6 +111,7 @@ public sealed class DetailLayoutPreset
             LoudnessClockMaximumCycleSeconds);
         Stereo ??= new StereoWorkspaceSettings();
         Stereo.Normalize();
+        Modules = DetailModuleLayoutNormalizer.Normalize(Modules);
     }
 
     internal bool Validate(out string error)
@@ -128,6 +133,15 @@ public sealed class DetailLayoutPreset
             || !Enum.IsDefined(CollisionFrequencyScale))
         {
             error = "The file contains an unsupported display mode.";
+            return false;
+        }
+
+        if (Modules is not null
+            && Modules.Any(module =>
+                !Enum.IsDefined(module.Kind)
+                || module.Height is double height && !double.IsFinite(height)))
+        {
+            error = "The file contains an unsupported detail module layout.";
             return false;
         }
 

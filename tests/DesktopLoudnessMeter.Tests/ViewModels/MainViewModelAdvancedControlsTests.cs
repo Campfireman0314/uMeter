@@ -258,6 +258,35 @@ public sealed class MainViewModelAdvancedControlsTests
     }
 
     [Fact]
+    public void InlineDetailModulesCanReorderAndPersistPerSource()
+    {
+        var workspace = new UserWorkspaceSettings();
+        var viewModel = new MainViewModel(
+            new StaticSignalSourceMeterService([Source("plugin:lead", "Lead", SignalSourceKind.Plugin)]),
+            startTimer: false,
+            workspaceSettings: workspace);
+
+        viewModel.RefreshNow();
+        viewModel.Sessions[0].OpenDetailCommand.Execute(null);
+        viewModel.InlineSpectrumModule.Height = 333;
+        viewModel.MoveInlineDetailModuleTo(
+            viewModel.InlineSpectrumModule,
+            viewModel.InlineStereoModule,
+            insertAfter: false);
+
+        Assert.Equal(
+            [DetailModuleKind.Spectrum, DetailModuleKind.Stereo, DetailModuleKind.Collision, DetailModuleKind.LoudnessClock, DetailModuleKind.Waveform],
+            viewModel.InlineDetailModules
+                .OrderBy(module => module.OrderIndex)
+                .Select(module => module.Kind)
+                .ToArray());
+        var storedModules = workspace.GetSource("plugin:lead")!.InlineDetailModules;
+        Assert.NotNull(storedModules);
+        Assert.Equal(DetailModuleKind.Spectrum, storedModules![0].Kind);
+        Assert.Equal(333, storedModules[0].Height);
+    }
+
+    [Fact]
     public void GlobalTruePeakOversamplingRemainsDefaultForNewSourcesWithoutPreferences()
     {
         var service = new SequenceSignalSourceMeterService(
@@ -403,8 +432,9 @@ public sealed class MainViewModelAdvancedControlsTests
 
         viewModel.IsInlineSpectrumVisible = true;
 
-        Assert.False(viewModel.IsInlineWaveformOnlyVisible);
-        Assert.True(viewModel.AreInlineRollsVisible);
+        Assert.True(viewModel.IsInlineWaveformOnlyVisible);
+        Assert.True(viewModel.IsInlineSpectrumOnlyVisible);
+        Assert.False(viewModel.AreInlineRollsVisible);
     }
 
     [Fact]
@@ -523,6 +553,7 @@ public sealed class MainViewModelAdvancedControlsTests
         viewModel.IsInlineSpectrumVisible = true;
         viewModel.IsInlineLoudnessClockVisible = true;
         viewModel.IsInlineCollisionVisible = true;
+        viewModel.IsInlineStereoVisible = false;
         viewModel.SelectedFrequencyCollisionSourceKey = "plugin:keys";
         viewModel.CollisionLevelFloorDb = -84;
         viewModel.CollisionProminenceThresholdDb = 9;
@@ -542,6 +573,7 @@ public sealed class MainViewModelAdvancedControlsTests
         Assert.True(stored.InlineSpectrumVisible);
         Assert.True(stored.InlineLoudnessClockVisible);
         Assert.True(stored.InlineCollisionVisible);
+        Assert.False(stored.InlineStereoVisible);
         Assert.Equal("plugin:keys", stored.InlineCollisionSourceKey);
         Assert.Equal(-84, stored.CollisionLevelFloorDb);
         Assert.Equal(9, stored.CollisionProminenceThresholdDb);
@@ -563,6 +595,7 @@ public sealed class MainViewModelAdvancedControlsTests
         Assert.True(restored.IsInlineSpectrumVisible);
         Assert.True(restored.IsInlineLoudnessClockVisible);
         Assert.True(restored.IsInlineCollisionVisible);
+        Assert.False(restored.IsInlineStereoVisible);
         Assert.Equal("plugin:keys", restored.SelectedFrequencyCollisionSourceKey);
         Assert.Equal(-84, restored.CollisionLevelFloorDb);
         Assert.Equal(9, restored.CollisionProminenceThresholdDb);
@@ -595,10 +628,16 @@ public sealed class MainViewModelAdvancedControlsTests
             viewModel.IsInlineWaveformVisible = true;
             viewModel.IsInlineSpectrumVisible = true;
             viewModel.IsInlineLoudnessClockVisible = true;
+            viewModel.IsInlineStereoVisible = false;
             viewModel.LoudnessClockMinimumDb = -48;
             viewModel.LoudnessClockMaximumDb = -6;
             viewModel.LoudnessClockWarningDb = -12;
             viewModel.LoudnessClockCycleSeconds = 60;
+            viewModel.InlineSpectrumModule.Height = 360;
+            viewModel.MoveInlineDetailModuleTo(
+                viewModel.InlineSpectrumModule,
+                viewModel.InlineStereoModule,
+                insertAfter: false);
 
             Assert.True(viewModel.SaveInlineDetailLayout(path));
 
@@ -607,8 +646,13 @@ public sealed class MainViewModelAdvancedControlsTests
             viewModel.IsInlineWaveformVisible = false;
             viewModel.IsInlineSpectrumVisible = false;
             viewModel.IsInlineLoudnessClockVisible = false;
+            viewModel.IsInlineStereoVisible = true;
             viewModel.LoudnessClockMinimumDb = -32;
             viewModel.LoudnessClockMaximumDb = -4;
+            viewModel.MoveInlineDetailModuleTo(
+                viewModel.InlineStereoModule,
+                viewModel.InlineSpectrumModule,
+                insertAfter: false);
 
             Assert.True(viewModel.LoadInlineDetailLayout(path));
 
@@ -617,9 +661,12 @@ public sealed class MainViewModelAdvancedControlsTests
             Assert.True(viewModel.IsInlineWaveformVisible);
             Assert.True(viewModel.IsInlineSpectrumVisible);
             Assert.True(viewModel.IsInlineLoudnessClockVisible);
+            Assert.False(viewModel.IsInlineStereoVisible);
             Assert.Equal(-48, viewModel.LoudnessClockMinimumDb);
             Assert.Equal(-6, viewModel.LoudnessClockMaximumDb);
             Assert.Equal(60, viewModel.LoudnessClockCycleSeconds);
+            Assert.Equal(DetailModuleKind.Spectrum, viewModel.InlineDetailModules.OrderBy(module => module.OrderIndex).First().Kind);
+            Assert.Equal(360, viewModel.InlineSpectrumModule.Height);
         }
         finally
         {

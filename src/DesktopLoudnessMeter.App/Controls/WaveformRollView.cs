@@ -33,9 +33,9 @@ public sealed class WaveformRollView : FrameworkElement
         _waveformUpdate = new DeferredRenderUpdate(this, CanApplyWaveformUpdate, ApplyPendingWaveformUpdate);
         Cursor = Cursors.SizeNS;
         SnapsToDevicePixels = true;
-        Loaded += (_, _) => ApplyPendingWaveformUpdateIfReady();
-        IsVisibleChanged += (_, _) => ApplyPendingWaveformUpdateIfReady();
-        SizeChanged += (_, _) => ApplyPendingWaveformUpdateIfReady();
+        Loaded += (_, _) => RequestWaveformUpdateIfReady();
+        IsVisibleChanged += (_, _) => RequestWaveformUpdateIfReady();
+        SizeChanged += (_, _) => RequestWaveformUpdateIfReady();
     }
 
     public static readonly DependencyProperty WaveformSamplesProperty = DependencyProperty.Register(
@@ -60,6 +60,18 @@ public sealed class WaveformRollView : FrameworkElement
     {
         get => (long)GetValue(PlotTickProperty);
         set => SetValue(PlotTickProperty, value);
+    }
+
+    public static readonly DependencyProperty IsActiveProperty = DependencyProperty.Register(
+        nameof(IsActive),
+        typeof(bool),
+        typeof(WaveformRollView),
+        new FrameworkPropertyMetadata(true, IsActiveChanged));
+
+    public bool IsActive
+    {
+        get => (bool)GetValue(IsActiveProperty);
+        set => SetValue(IsActiveProperty, value);
     }
 
     protected override Size MeasureOverride(Size availableSize)
@@ -445,15 +457,26 @@ public sealed class WaveformRollView : FrameworkElement
         }
     }
 
+    private static void IsActiveChanged(DependencyObject dependencyObject, DependencyPropertyChangedEventArgs args)
+    {
+        if (dependencyObject is WaveformRollView view)
+        {
+            view.RequestWaveformUpdateIfReady();
+        }
+    }
+
     private void ScheduleWaveformUpdate(IReadOnlyList<double>? samples)
     {
         _pendingWaveformSamples = samples is { Count: > 0 } ? samples : null;
-        _waveformUpdate.Request();
+        RequestWaveformUpdateIfReady();
     }
 
-    private void ApplyPendingWaveformUpdateIfReady()
+    private void RequestWaveformUpdateIfReady()
     {
-        _waveformUpdate.TryApply();
+        if (CanApplyWaveformUpdate())
+        {
+            _waveformUpdate.Request();
+        }
     }
 
     private void ApplyPendingWaveformUpdate()
@@ -471,6 +494,7 @@ public sealed class WaveformRollView : FrameworkElement
     private bool CanApplyWaveformUpdate()
     {
         return IsLoaded
+            && IsActive
             && IsVisible
             && Visibility == Visibility.Visible
             && ActualWidth > 0

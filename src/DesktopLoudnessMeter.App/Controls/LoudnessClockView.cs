@@ -87,6 +87,18 @@ public sealed class LoudnessClockView : FrameworkElement
         set => SetValue(CycleDurationSecondsProperty, value);
     }
 
+    public static readonly DependencyProperty IsActiveProperty = DependencyProperty.Register(
+        nameof(IsActive),
+        typeof(bool),
+        typeof(LoudnessClockView),
+        new FrameworkPropertyMetadata(true, IsActiveChanged));
+
+    public bool IsActive
+    {
+        get => (bool)GetValue(IsActiveProperty);
+        set => SetValue(IsActiveProperty, value);
+    }
+
     public LoudnessClockView()
     {
         Cursor = Cursors.Cross;
@@ -142,7 +154,10 @@ public sealed class LoudnessClockView : FrameworkElement
             return;
         }
 
-        view.AppendCurrentSample();
+        if (view.CanAppendCurrentSample())
+        {
+            view.AppendCurrentSample();
+        }
     }
 
     private static void DisplayRangeChanged(DependencyObject dependencyObject, DependencyPropertyChangedEventArgs args)
@@ -160,6 +175,24 @@ public sealed class LoudnessClockView : FrameworkElement
             view.TrimSamples(view.CurrentElapsedSeconds(), view.EffectiveCycleDurationSeconds());
             view.InvalidateVisual();
         }
+    }
+
+    private static void IsActiveChanged(DependencyObject dependencyObject, DependencyPropertyChangedEventArgs args)
+    {
+        if (dependencyObject is LoudnessClockView view && view.IsActive)
+        {
+            view.InvalidateVisual();
+        }
+    }
+
+    private bool CanAppendCurrentSample()
+    {
+        return IsActive
+            && IsLoaded
+            && IsVisible
+            && Visibility == Visibility.Visible
+            && ActualWidth > 0
+            && ActualHeight > 0;
     }
 
     private void AppendCurrentSample()

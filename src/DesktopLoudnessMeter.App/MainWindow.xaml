@@ -399,7 +399,11 @@
                     <ItemsControl ItemsSource="{Binding Sessions}">
                         <ItemsControl.ItemTemplate>
                             <DataTemplate>
-                                <Grid Margin="0,0,0,8">
+                                <Grid Margin="0,0,0,8"
+                                      AllowDrop="True"
+                                      DragOver="SourceRow_OnDragOver"
+                                      Drop="SourceRow_OnDrop"
+                                      GiveFeedback="SourceRow_OnGiveFeedback">
                                     <Grid.RowDefinitions>
                                         <RowDefinition Height="Auto" />
                                         <RowDefinition Height="Auto" />
@@ -497,6 +501,7 @@
                                             </Border>
                                             <Grid Grid.Column="4"
                                                   VerticalAlignment="Center"
+                                                  ToolTip="Double click to edit alias"
                                                   MouseLeftButtonDown="SourceTitle_OnMouseLeftButtonDown">
                                                 <TextBlock Foreground="{DynamicResource TextBrush}"
                                                            FontSize="13"
@@ -834,6 +839,7 @@
                     <StackPanel Margin="0,0,0,42">
                         <StackPanel Margin="0,0,0,12">
                             <Grid DataContext="{Binding SelectedDetailSession}"
+                                  ToolTip="Double click to edit alias"
                                   MouseLeftButtonDown="SourceTitle_OnMouseLeftButtonDown">
                                 <TextBlock FontSize="18"
                                            FontWeight="SemiBold"
@@ -926,695 +932,901 @@
                                                ValueText="{Binding SelectedDetailSession.Rms100MsText}" />
                 </StackPanel>
 
-                <Border Margin="0,6,0,0"
-                        Padding="12"
-                        Background="{DynamicResource PanelBrush}"
-                        CornerRadius="6">
-                    <Grid>
-                        <Grid.RowDefinitions>
-                            <RowDefinition Height="Auto" />
-                            <RowDefinition Height="Auto" />
-                            <RowDefinition Height="Auto" />
-                        </Grid.RowDefinitions>
+                <Popup x:Name="CollisionSettingsPopup"
+                       AllowsTransparency="True"
+                       DataContext="{Binding PlacementTarget.DataContext, RelativeSource={RelativeSource Self}}"
+                       Placement="Bottom"
+                       PlacementTarget="{Binding ElementName=CollisionSettingsButton}"
+                       PopupAnimation="Fade"
+                       StaysOpen="False">
+                    <Border MinWidth="230"
+                            Padding="10"
+                            Background="{DynamicResource PanelBrush}"
+                            BorderBrush="{DynamicResource ControlBorderBrush}"
+                            BorderThickness="1"
+                            CornerRadius="6">
+                        <StackPanel>
+                            <Grid>
+                                <Grid.ColumnDefinitions>
+                                    <ColumnDefinition Width="*" />
+                                    <ColumnDefinition Width="Auto" />
+                                </Grid.ColumnDefinitions>
+                                <TextBlock Foreground="{DynamicResource SubtleTextBrush}"
+                                           FontSize="11"
+                                           Text="Scale" />
+                                <TextBlock Grid.Column="1"
+                                           Foreground="{DynamicResource TextBrush}"
+                                           FontSize="11"
+                                           Text="{Binding CollisionFrequencyScaleText}" />
+                            </Grid>
+                            <ComboBox Margin="0,3,0,10"
+                                      Height="26"
+                                      ItemsSource="{Binding CollisionFrequencyScaleOptions}"
+                                      SelectedItem="{Binding CollisionFrequencyScale, Mode=TwoWay}" />
 
-                        <Grid>
-                            <Grid.ColumnDefinitions>
-                                <ColumnDefinition Width="Auto" />
-                                <ColumnDefinition Width="8" />
-                                <ColumnDefinition Width="Auto" />
-                                <ColumnDefinition Width="*" />
-                                <ColumnDefinition Width="Auto" />
-                            </Grid.ColumnDefinitions>
-                            <TextBlock Foreground="{DynamicResource SubtleTextBrush}"
-                                       VerticalAlignment="Center"
-                                       FontSize="11"
-                                       Text="Stereo image" />
-                            <Button Grid.Column="2"
-                                    Style="{StaticResource ChromeIconButton}"
-                                    FontFamily="Segoe MDL2 Assets"
-                                    FontSize="14"
-                                    Click="InlineStereoSettingsButton_OnClick"
-                                    Content="&#xE713;"
-                                    ToolTip="Stereo image scale settings" />
-                            <TextBlock Grid.Column="4"
-                                       Width="88"
-                                       TextAlignment="Right"
-                                       Foreground="{DynamicResource SubtleTextBrush}"
-                                       FontSize="11"
-                                       Text="{Binding SelectedDetailSession.StereoImageText}" />
-                        </Grid>
+                            <Grid>
+                                <Grid.ColumnDefinitions>
+                                    <ColumnDefinition Width="*" />
+                                    <ColumnDefinition Width="Auto" />
+                                </Grid.ColumnDefinitions>
+                                <TextBlock Foreground="{DynamicResource SubtleTextBrush}"
+                                           FontSize="11"
+                                           Text="Level floor" />
+                                <TextBlock Grid.Column="1"
+                                           Foreground="{DynamicResource TextBrush}"
+                                           FontSize="11"
+                                           Text="{Binding CollisionLevelFloorText}" />
+                            </Grid>
+                            <controls:EditableValueSlider Minimum="-200"
+                                                          Maximum="0"
+                                                          Step="1"
+                                                          DisplayFormat="0"
+                                                          DisplaySuffix=" dB"
+                                                          ToolTipService.InitialShowDelay="1000"
+                                                          ToolTip="Ignores frequency bins unless both the focused source and comparison source are at or above this level."
+                                                          Value="{Binding CollisionLevelFloorDb, Mode=TwoWay, UpdateSourceTrigger=PropertyChanged}" />
 
-                        <controls:StereoFanView Grid.Row="1"
-                                                MinHeight="190"
-                                                Margin="0,8,0,8"
-                                                Correlation="{Binding SelectedDetailSession.CorrelationValue, Mode=OneWay}"
-                                                ImageX="{Binding SelectedDetailSession.StereoImageX, Mode=OneWay}"
-                                                ImageY="{Binding SelectedDetailSession.StereoImageY, Mode=OneWay}"
-                                                Points="{Binding SelectedDetailSession.StereoImagePoints, Mode=OneWay}"
-                                                AutoScale="{Binding InlineStereoSettings.IsAutoScale, Mode=OneWay}"
-                                                ScaleRangeDb="{Binding InlineStereoSettings.ScaleRangeDb, Mode=OneWay}"
-                                                ManualCeilingDb="{Binding InlineStereoSettings.ManualCeilingDb, Mode=OneWay}"
-                                                AutoScaleFloorDb="{Binding InlineStereoSettings.AutoScaleFloorDb, Mode=OneWay}"
-                                                AutoScaleSpeedDbPerSecond="{Binding InlineStereoSettings.AutoScaleSpeedDbPerSecond, Mode=OneWay}"
-                                                TracePersistenceSeconds="{Binding InlineStereoSettings.TracePersistenceSeconds, Mode=OneWay}" />
+                            <Grid Margin="0,10,0,0">
+                                <Grid.ColumnDefinitions>
+                                    <ColumnDefinition Width="*" />
+                                    <ColumnDefinition Width="Auto" />
+                                </Grid.ColumnDefinitions>
+                                <TextBlock Foreground="{DynamicResource SubtleTextBrush}"
+                                           FontSize="11"
+                                           Text="Prominence" />
+                                <TextBlock Grid.Column="1"
+                                           Foreground="{DynamicResource TextBrush}"
+                                           FontSize="11"
+                                           Text="{Binding CollisionProminenceThresholdText}" />
+                            </Grid>
+                            <controls:EditableValueSlider Minimum="0"
+                                                          Maximum="24"
+                                                          Step="1"
+                                                          DisplayFormat="0"
+                                                          DisplaySuffix=" dB"
+                                                          ToolTipService.InitialShowDelay="1000"
+                                                          ToolTip="Requires both sources to rise above their nearby spectrum background before a frequency is treated as a collision."
+                                                          Value="{Binding CollisionProminenceThresholdDb, Mode=TwoWay, UpdateSourceTrigger=PropertyChanged}" />
 
-                        <controls:CorrelationMeter Grid.Row="2"
-                                                   Height="52"
-                                                   Value="{Binding SelectedDetailSession.CorrelationValue, Mode=OneWay}"
-                                                   ValueText="{Binding SelectedDetailSession.CorrelationText}" />
-                    </Grid>
-                </Border>
+                            <Grid Margin="0,10,0,0">
+                                <Grid.ColumnDefinitions>
+                                    <ColumnDefinition Width="*" />
+                                    <ColumnDefinition Width="Auto" />
+                                </Grid.ColumnDefinitions>
+                                <TextBlock Foreground="{DynamicResource SubtleTextBrush}"
+                                           FontSize="11"
+                                           Text="Match tolerance" />
+                                <TextBlock Grid.Column="1"
+                                           Foreground="{DynamicResource TextBrush}"
+                                           FontSize="11"
+                                           Text="{Binding CollisionRelativeThresholdText}" />
+                            </Grid>
+                            <controls:EditableValueSlider Minimum="0.02"
+                                                          Maximum="0.8"
+                                                          Step="0.02"
+                                                          DisplayScale="100"
+                                                          DisplayFormat="0"
+                                                          DisplaySuffix="%"
+                                                          ToolTipService.InitialShowDelay="1000"
+                                                          ToolTip="Maximum normalized level difference allowed between two prominent frequency bins."
+                                                          Value="{Binding CollisionRelativeThreshold, Mode=TwoWay, UpdateSourceTrigger=PropertyChanged}" />
+                        </StackPanel>
+                    </Border>
+                </Popup>
 
-                <Border Margin="0,10,0,0"
-                        Padding="12"
-                        Background="{DynamicResource PanelBrush}"
-                        CornerRadius="6">
-                    <Grid>
-                        <Grid.RowDefinitions>
-                            <RowDefinition Height="Auto" />
-                            <RowDefinition Height="8" />
-                            <RowDefinition Height="Auto" />
-                        </Grid.RowDefinitions>
+                <Popup x:Name="InlineClockSettingsPopup"
+                       AllowsTransparency="True"
+                       DataContext="{Binding PlacementTarget.DataContext, RelativeSource={RelativeSource Self}}"
+                       Placement="Bottom"
+                       PlacementTarget="{Binding ElementName=InlineClockSettingsButton}"
+                       PopupAnimation="Fade"
+                       StaysOpen="False">
+                    <Border MinWidth="286"
+                            Padding="10"
+                            Background="{DynamicResource PanelBrush}"
+                            BorderBrush="{DynamicResource ControlBorderBrush}"
+                            BorderThickness="1"
+                            CornerRadius="6">
+                        <StackPanel>
+                            <Grid>
+                                <Grid.ColumnDefinitions>
+                                    <ColumnDefinition Width="*" />
+                                    <ColumnDefinition Width="Auto" />
+                                </Grid.ColumnDefinitions>
+                                <TextBlock Foreground="{DynamicResource SubtleTextBrush}" FontSize="11" Text="Range" />
+                                <TextBlock Grid.Column="1" Foreground="{DynamicResource TextBrush}" FontSize="11" Text="{Binding LoudnessClockRangeText}" />
+                            </Grid>
+                            <controls:DbRangeSlider Margin="0,2,0,0"
+                                                    Minimum="-120"
+                                                    Maximum="0"
+                                                    Step="1"
+                                                    LowerValue="{Binding LoudnessClockMinimumDb, Mode=TwoWay, UpdateSourceTrigger=PropertyChanged}"
+                                                    UpperValue="{Binding LoudnessClockMaximumDb, Mode=TwoWay, UpdateSourceTrigger=PropertyChanged}" />
+                            <Grid Margin="0,10,0,0">
+                                <Grid.ColumnDefinitions>
+                                    <ColumnDefinition Width="*" />
+                                    <ColumnDefinition Width="Auto" />
+                                </Grid.ColumnDefinitions>
+                                <TextBlock Foreground="{DynamicResource SubtleTextBrush}" FontSize="11" Text="Warning" />
+                                <TextBlock Grid.Column="1" Foreground="{DynamicResource TextBrush}" FontSize="11" Text="{Binding LoudnessClockWarningText}" />
+                            </Grid>
+                            <controls:EditableValueSlider Minimum="-120"
+                                                          Maximum="0"
+                                                          Step="1"
+                                                          DisplayFormat="0"
+                                                          DisplaySuffix=" LUFS"
+                                                          Value="{Binding LoudnessClockWarningDb, Mode=TwoWay, UpdateSourceTrigger=PropertyChanged}" />
+                            <Grid Margin="0,10,0,0">
+                                <Grid.ColumnDefinitions>
+                                    <ColumnDefinition Width="*" />
+                                    <ColumnDefinition Width="Auto" />
+                                </Grid.ColumnDefinitions>
+                                <TextBlock Foreground="{DynamicResource SubtleTextBrush}" FontSize="11" Text="Cycle" />
+                                <TextBlock Grid.Column="1" Foreground="{DynamicResource TextBrush}" FontSize="11" Text="{Binding LoudnessClockCycleText}" />
+                            </Grid>
+                            <controls:EditableValueSlider Minimum="10"
+                                                          Maximum="600"
+                                                          Step="5"
+                                                          DisplayFormat="0"
+                                                          DisplaySuffix=" s"
+                                                          Value="{Binding LoudnessClockCycleSeconds, Mode=TwoWay, UpdateSourceTrigger=PropertyChanged}" />
+                        </StackPanel>
+                    </Border>
+                </Popup>
 
-                        <Grid>
-                            <Grid.ColumnDefinitions>
-                                <ColumnDefinition Width="Auto" />
-                                <ColumnDefinition Width="12" />
-                                <ColumnDefinition Width="*" />
-                                <ColumnDefinition Width="8" />
-                                <ColumnDefinition Width="Auto" />
-                                <ColumnDefinition Width="8" />
-                                <ColumnDefinition Width="Auto" />
-                            </Grid.ColumnDefinitions>
+                <Popup x:Name="InlineWaveformSettingsPopup"
+                       AllowsTransparency="True"
+                       DataContext="{Binding PlacementTarget.DataContext, RelativeSource={RelativeSource Self}}"
+                       Placement="Bottom"
+                       PlacementTarget="{Binding ElementName=InlineWaveformSettingsButton}"
+                       PopupAnimation="Fade"
+                       StaysOpen="False">
+                    <Border MinWidth="180"
+                            Padding="10"
+                            Background="{DynamicResource PanelBrush}"
+                            BorderBrush="{DynamicResource ControlBorderBrush}"
+                            BorderThickness="1"
+                            CornerRadius="6">
+                        <ComboBox Width="128"
+                                  Height="26"
+                                  ItemsSource="{Binding WaveformDisplayModeOptions}"
+                                  SelectedItem="{Binding SelectedDetailSession.WaveformDisplayMode, Mode=TwoWay}" />
+                    </Border>
+                </Popup>
 
-                            <CheckBox Content="Frequency collision"
-                                      IsChecked="{Binding IsInlineCollisionVisible, Mode=TwoWay}" />
-                            <Button Grid.Column="2"
-                                    Height="26"
-                                    HorizontalContentAlignment="Stretch"
-                                    IsEnabled="{Binding HasFrequencyCollisionSources}"
-                                    Click="CollisionSourceButton_OnClick">
-                                <Grid>
-                                    <Grid.ColumnDefinitions>
-                                        <ColumnDefinition Width="*" />
-                                        <ColumnDefinition Width="Auto" />
-                                    </Grid.ColumnDefinitions>
-                                    <TextBlock VerticalAlignment="Center"
-                                               Text="{Binding SelectedFrequencyCollisionSourceDisplayName}"
-                                               TextTrimming="CharacterEllipsis" />
-                                    <TextBlock Grid.Column="1"
-                                               Margin="8,0,0,0"
-                                               VerticalAlignment="Center"
-                                               FontSize="10"
-                                               Text="v" />
-                                </Grid>
-                                <Button.ContextMenu>
-                                    <ContextMenu ItemsSource="{Binding PlacementTarget.DataContext.FrequencyCollisionSourceOptions, RelativeSource={RelativeSource Self}}">
-                                        <ContextMenu.ItemContainerStyle>
-                                            <Style TargetType="{x:Type MenuItem}"
-                                                   BasedOn="{StaticResource {x:Type MenuItem}}">
-                                                <Setter Property="Header" Value="{Binding DisplayName}" />
-                                                <Setter Property="MinWidth" Value="172" />
-                                                <Setter Property="Command"
-                                                        Value="{Binding PlacementTarget.DataContext.SelectFrequencyCollisionSourceCommand, RelativeSource={RelativeSource AncestorType={x:Type ContextMenu}}}" />
-                                                <Setter Property="CommandParameter" Value="{Binding}" />
-                                            </Style>
-                                        </ContextMenu.ItemContainerStyle>
-                                    </ContextMenu>
-                                </Button.ContextMenu>
-                            </Button>
-                            <TextBlock Grid.Column="4"
-                                       VerticalAlignment="Center"
-                                       Foreground="{DynamicResource SubtleTextBrush}"
-                                       FontSize="10"
-                                       Text="20 Hz - 22 kHz" />
-                            <Button x:Name="CollisionSettingsButton"
-                                    Grid.Column="6"
-                                    Style="{StaticResource ChromeIconButton}"
-                                    FontFamily="Segoe MDL2 Assets"
-                                    FontSize="14"
-                                    Content="&#xE713;"
-                                    ToolTip="Collision settings"
-                                    Click="CollisionSettingsButton_OnClick" />
-                        </Grid>
+                <Popup x:Name="InlineSpectrumSettingsPopup"
+                       AllowsTransparency="True"
+                       DataContext="{Binding PlacementTarget.DataContext, RelativeSource={RelativeSource Self}}"
+                       Placement="Bottom"
+                       PlacementTarget="{Binding ElementName=InlineSpectrumSettingsButton}"
+                       PopupAnimation="Fade"
+                       StaysOpen="False">
+                    <Border MinWidth="286"
+                            Padding="10"
+                            Background="{DynamicResource PanelBrush}"
+                            BorderBrush="{DynamicResource ControlBorderBrush}"
+                            BorderThickness="1"
+                            CornerRadius="6">
+                        <StackPanel>
+                            <ComboBox Width="128"
+                                      Height="26"
+                                      ItemsSource="{Binding SpectrumDisplayModeOptions}"
+                                      SelectedItem="{Binding SelectedDetailSession.SpectrumDisplayMode, Mode=TwoWay}" />
+                            <Grid Margin="0,12,0,0">
+                                <Grid.ColumnDefinitions>
+                                    <ColumnDefinition Width="*" />
+                                    <ColumnDefinition Width="Auto" />
+                                </Grid.ColumnDefinitions>
+                                <TextBlock Foreground="{DynamicResource SubtleTextBrush}" FontSize="11" Text="Range" />
+                                <TextBlock Grid.Column="1" Foreground="{DynamicResource TextBrush}" FontSize="11" Text="{Binding SpectrumDisplayRangeText}" />
+                            </Grid>
+                            <controls:DbRangeSlider Margin="0,2,0,0"
+                                                    Minimum="-200"
+                                                    Maximum="0"
+                                                    Step="1"
+                                                    LowerValue="{Binding SpectrumDisplayFloorDb, Mode=TwoWay, UpdateSourceTrigger=PropertyChanged}"
+                                                    UpperValue="{Binding SpectrumDisplayCeilingDb, Mode=TwoWay, UpdateSourceTrigger=PropertyChanged}" />
+                        </StackPanel>
+                    </Border>
+                </Popup>
 
-                        <controls:FrequencyCollisionBar Grid.Row="2"
-                                                        CollisionBands="{Binding FrequencyCollisionBands, Mode=OneWay}"
-                                                        FrequencyScale="{Binding CollisionFrequencyScale, Mode=OneWay}">
-                            <controls:FrequencyCollisionBar.Style>
-                                <Style TargetType="controls:FrequencyCollisionBar">
-                                    <Setter Property="Visibility" Value="Collapsed" />
-                                    <Style.Triggers>
-                                        <DataTrigger Binding="{Binding IsInlineCollisionVisible}" Value="True">
-                                            <Setter Property="Visibility" Value="Visible" />
-                                        </DataTrigger>
-                                    </Style.Triggers>
-                                </Style>
-                            </controls:FrequencyCollisionBar.Style>
-                        </controls:FrequencyCollisionBar>
+                <Grid>
+                    <Grid.RowDefinitions>
+                        <RowDefinition Height="Auto" />
+                        <RowDefinition Height="Auto" />
+                        <RowDefinition Height="Auto" />
+                        <RowDefinition Height="Auto" />
+                        <RowDefinition Height="Auto" />
+                    </Grid.RowDefinitions>
 
-                        <Popup x:Name="CollisionSettingsPopup"
-                               AllowsTransparency="True"
-                               DataContext="{Binding PlacementTarget.DataContext, RelativeSource={RelativeSource Self}}"
-                               Placement="Bottom"
-                               PlacementTarget="{Binding ElementName=CollisionSettingsButton}"
-                               PopupAnimation="Fade"
-                               StaysOpen="False">
-                            <Border MinWidth="230"
-                                    Padding="10"
-                                    Background="{DynamicResource PanelBrush}"
-                                    BorderBrush="{DynamicResource ControlBorderBrush}"
-                                    BorderThickness="1"
-                                    CornerRadius="6">
-                                <StackPanel>
-                                    <Grid>
-                                        <Grid.ColumnDefinitions>
-                                            <ColumnDefinition Width="*" />
-                                            <ColumnDefinition Width="Auto" />
-                                        </Grid.ColumnDefinitions>
-                                        <TextBlock Foreground="{DynamicResource SubtleTextBrush}"
-                                                   FontSize="11"
-                                                   Text="Scale" />
-                                        <TextBlock Grid.Column="1"
-                                                   Foreground="{DynamicResource TextBrush}"
-                                                   FontSize="11"
-                                                   Text="{Binding CollisionFrequencyScaleText}" />
-                                    </Grid>
-                                    <ComboBox Margin="0,3,0,10"
-                                              Height="26"
-                                              ItemsSource="{Binding CollisionFrequencyScaleOptions}"
-                                              SelectedItem="{Binding CollisionFrequencyScale, Mode=TwoWay}" />
-
-                                    <Grid>
-                                        <Grid.ColumnDefinitions>
-                                            <ColumnDefinition Width="*" />
-                                            <ColumnDefinition Width="Auto" />
-                                        </Grid.ColumnDefinitions>
-                                        <TextBlock Foreground="{DynamicResource SubtleTextBrush}"
-                                                   FontSize="11"
-                                                   Text="Level floor" />
-                                        <TextBlock Grid.Column="1"
-                                                   Foreground="{DynamicResource TextBrush}"
-                                                   FontSize="11"
-                                                   Text="{Binding CollisionLevelFloorText}" />
-                                    </Grid>
-                                    <controls:EditableValueSlider Minimum="-200"
-                                                                  Maximum="0"
-                                                                  Step="1"
-                                                                  DisplayFormat="0"
-                                                                  DisplaySuffix=" dB"
-                                                                  ToolTipService.InitialShowDelay="1000"
-                                                                  ToolTip="Ignores frequency bins unless both the focused source and comparison source are at or above this level."
-                                                                  Value="{Binding CollisionLevelFloorDb, Mode=TwoWay, UpdateSourceTrigger=PropertyChanged}" />
-
-                                    <Grid Margin="0,10,0,0">
-                                        <Grid.ColumnDefinitions>
-                                            <ColumnDefinition Width="*" />
-                                            <ColumnDefinition Width="Auto" />
-                                        </Grid.ColumnDefinitions>
-                                        <TextBlock Foreground="{DynamicResource SubtleTextBrush}"
-                                                   FontSize="11"
-                                                   Text="Prominence" />
-                                        <TextBlock Grid.Column="1"
-                                                   Foreground="{DynamicResource TextBrush}"
-                                                   FontSize="11"
-                                                   Text="{Binding CollisionProminenceThresholdText}" />
-                                    </Grid>
-                                    <controls:EditableValueSlider Minimum="0"
-                                                                  Maximum="24"
-                                                                  Step="1"
-                                                                  DisplayFormat="0"
-                                                                  DisplaySuffix=" dB"
-                                                                  ToolTipService.InitialShowDelay="1000"
-                                                                  ToolTip="Requires both sources to rise above their nearby spectrum background before a frequency is treated as a collision."
-                                                                  Value="{Binding CollisionProminenceThresholdDb, Mode=TwoWay, UpdateSourceTrigger=PropertyChanged}" />
-
-                                    <Grid Margin="0,10,0,0">
-                                        <Grid.ColumnDefinitions>
-                                            <ColumnDefinition Width="*" />
-                                            <ColumnDefinition Width="Auto" />
-                                        </Grid.ColumnDefinitions>
-                                        <TextBlock Foreground="{DynamicResource SubtleTextBrush}"
-                                                   FontSize="11"
-                                                   Text="Match tolerance" />
-                                        <TextBlock Grid.Column="1"
-                                                   Foreground="{DynamicResource TextBrush}"
-                                                   FontSize="11"
-                                                   Text="{Binding CollisionRelativeThresholdText}" />
-                                    </Grid>
-                                    <controls:EditableValueSlider Minimum="0.02"
-                                                                  Maximum="0.8"
-                                                                  Step="0.02"
-                                                                  DisplayScale="100"
-                                                                  DisplayFormat="0"
-                                                                  DisplaySuffix="%"
-                                                                  ToolTipService.InitialShowDelay="1000"
-                                                                  ToolTip="Maximum normalized level difference allowed between two prominent frequency bins."
-                                                                  Value="{Binding CollisionRelativeThreshold, Mode=TwoWay, UpdateSourceTrigger=PropertyChanged}" />
-                                </StackPanel>
-                            </Border>
-                        </Popup>
-                    </Grid>
-                </Border>
-
-                <WrapPanel Margin="0,10,0,6"
-                           VerticalAlignment="Center">
-                    <CheckBox Content="Clock"
-                              IsChecked="{Binding IsInlineLoudnessClockVisible, Mode=TwoWay}" />
-                    <CheckBox Margin="14,0,0,0"
-                              Content="Waveform"
-                              IsChecked="{Binding IsInlineWaveformVisible, Mode=TwoWay}" />
-                    <CheckBox Margin="14,0,0,0"
-                              Content="Spectrum"
-                              IsChecked="{Binding IsInlineSpectrumVisible, Mode=TwoWay}" />
-                    <Button x:Name="InlineRollSettingsButton"
-                            Margin="14,0,0,0"
-                            Style="{StaticResource ChromeIconButton}"
-                            FontFamily="Segoe MDL2 Assets"
-                            FontSize="14"
-                            Content="&#xE713;"
-                            ToolTip="Roll display modes"
-                            Click="InlineRollSettingsButton_OnClick" />
-                    <Popup x:Name="InlineRollSettingsPopup"
-                           AllowsTransparency="True"
-                           DataContext="{Binding PlacementTarget.DataContext, RelativeSource={RelativeSource Self}}"
-                           Placement="Bottom"
-                           PlacementTarget="{Binding ElementName=InlineRollSettingsButton}"
-                           PopupAnimation="Fade"
-                           StaysOpen="False">
-                        <Border MinWidth="286"
+                    <StackPanel Grid.Row="{Binding InlineStereoModule.OrderIndex}"
+                                Margin="0,0,0,8"
+                                Tag="{Binding InlineStereoModule}"
+                                AllowDrop="True"
+                                DragOver="InlineDetailModule_OnDragOver"
+                                Drop="InlineDetailModule_OnDrop"
+                                GiveFeedback="InlineDetailModule_OnGiveFeedback">
+                        <Border Style="{StaticResource DetailModuleDropBeforeHint}">
+                            <Border Height="2"
+                                    Margin="8,0"
+                                    VerticalAlignment="Center"
+                                    Background="{DynamicResource AccentBrush}"
+                                    CornerRadius="1" />
+                        </Border>
+                        <Border x:Name="InlineStereoPanel"
+                                Height="{Binding InlineStereoModule.DisplayHeight, Mode=TwoWay, UpdateSourceTrigger=PropertyChanged}"
+                                MinHeight="{Binding InlineStereoModule.DisplayMinimumHeight}"
+                                MaxHeight="900"
                                 Padding="10"
                                 Background="{DynamicResource PanelBrush}"
                                 BorderBrush="{DynamicResource ControlBorderBrush}"
                                 BorderThickness="1"
                                 CornerRadius="6">
-                            <StackPanel>
+                            <Grid>
+                                <Grid.RowDefinitions>
+                                    <RowDefinition Height="Auto" />
+                                    <RowDefinition Height="*" />
+                                    <RowDefinition Height="Auto" />
+                                </Grid.RowDefinitions>
                                 <Grid>
                                     <Grid.ColumnDefinitions>
                                         <ColumnDefinition Width="Auto" />
-                                        <ColumnDefinition Width="10" />
+                                        <ColumnDefinition Width="4" />
+                                        <ColumnDefinition Width="Auto" />
+                                        <ColumnDefinition Width="6" />
                                         <ColumnDefinition Width="*" />
+                                        <ColumnDefinition Width="8" />
+                                        <ColumnDefinition Width="Auto" />
+                                        <ColumnDefinition Width="8" />
+                                        <ColumnDefinition Width="Auto" />
                                     </Grid.ColumnDefinitions>
-                                    <Grid.RowDefinitions>
-                                        <RowDefinition Height="Auto" />
-                                        <RowDefinition Height="8" />
-                                        <RowDefinition Height="Auto" />
-                                    </Grid.RowDefinitions>
-                                    <TextBlock VerticalAlignment="Center"
-                                               Foreground="{DynamicResource SubtleTextBrush}"
-                                               FontSize="11"
-                                               Text="Wave" />
-                                    <ComboBox Grid.Column="2"
-                                              Width="112"
-                                              Height="26"
-                                              ItemsSource="{Binding WaveformDisplayModeOptions}"
-                                              SelectedItem="{Binding SelectedDetailSession.WaveformDisplayMode, Mode=TwoWay}" />
-                                    <TextBlock Grid.Row="2"
+                                    <TextBlock Width="14"
+                                               VerticalAlignment="Center"
+                                               Cursor="SizeAll"
+                                               FontSize="13"
+                                               Foreground="{DynamicResource DisabledTextBrush}"
+                                               MouseMove="InlineDetailModuleDragHandle_OnMouseMove"
+                                               Tag="{Binding InlineStereoModule}"
+                                               Text="::"
+                                               ToolTip="Drag to reorder" />
+                                    <ToggleButton Grid.Column="2"
+                                                  Style="{StaticResource DetailModuleToggleButton}"
+                                                  IsChecked="{Binding IsInlineStereoVisible, Mode=TwoWay}"
+                                                  ToolTip="Show stereo image" />
+                                    <TextBlock Grid.Column="4"
                                                VerticalAlignment="Center"
                                                Foreground="{DynamicResource SubtleTextBrush}"
                                                FontSize="11"
-                                               Text="Spec" />
-                                    <ComboBox Grid.Row="2"
-                                              Grid.Column="2"
-                                              Width="112"
-                                              Height="26"
-                                              ItemsSource="{Binding SpectrumDisplayModeOptions}"
-                                              SelectedItem="{Binding SelectedDetailSession.SpectrumDisplayMode, Mode=TwoWay}" />
+                                               Text="Stereo image" />
+                                    <TextBlock Grid.Column="6"
+                                               Width="88"
+                                               TextAlignment="Right"
+                                               Foreground="{DynamicResource SubtleTextBrush}"
+                                               FontSize="11"
+                                               Text="{Binding SelectedDetailSession.StereoImageText}" />
+                                    <Button Grid.Column="8"
+                                            Style="{StaticResource ChromeIconButton}"
+                                            FontFamily="Segoe MDL2 Assets"
+                                            FontSize="14"
+                                            Click="InlineStereoSettingsButton_OnClick"
+                                            Content="&#xE713;"
+                                            ToolTip="Stereo image scale settings" />
                                 </Grid>
-                                <Grid Margin="0,12,0,0">
-                                    <Grid.ColumnDefinitions>
-                                        <ColumnDefinition Width="*" />
-                                        <ColumnDefinition Width="Auto" />
-                                    </Grid.ColumnDefinitions>
-                                    <TextBlock Foreground="{DynamicResource SubtleTextBrush}"
-                                               FontSize="11"
-                                               Text="Spectrum range" />
-                                    <TextBlock Grid.Column="1"
-                                               Foreground="{DynamicResource TextBrush}"
-                                               FontSize="11"
-                                               Text="{Binding SpectrumDisplayRangeText}" />
-                                </Grid>
-                                <controls:DbRangeSlider Margin="0,2,0,0"
-                                                        Minimum="-200"
-                                                        Maximum="0"
-                                                        Step="1"
-                                                        LowerValue="{Binding SpectrumDisplayFloorDb, Mode=TwoWay, UpdateSourceTrigger=PropertyChanged}"
-                                                        UpperValue="{Binding SpectrumDisplayCeilingDb, Mode=TwoWay, UpdateSourceTrigger=PropertyChanged}" />
-                                <Grid Margin="0,12,0,0">
-                                    <Grid.ColumnDefinitions>
-                                        <ColumnDefinition Width="*" />
-                                        <ColumnDefinition Width="Auto" />
-                                    </Grid.ColumnDefinitions>
-                                    <TextBlock Foreground="{DynamicResource SubtleTextBrush}"
-                                               FontSize="11"
-                                               Text="Clock range" />
-                                    <TextBlock Grid.Column="1"
-                                               Foreground="{DynamicResource TextBrush}"
-                                               FontSize="11"
-                                               Text="{Binding LoudnessClockRangeText}" />
-                                </Grid>
-                                <controls:DbRangeSlider Margin="0,2,0,0"
-                                                        Minimum="-120"
-                                                        Maximum="0"
-                                                        Step="1"
-                                                        LowerValue="{Binding LoudnessClockMinimumDb, Mode=TwoWay, UpdateSourceTrigger=PropertyChanged}"
-                                                        UpperValue="{Binding LoudnessClockMaximumDb, Mode=TwoWay, UpdateSourceTrigger=PropertyChanged}" />
-                                <Grid Margin="0,10,0,0">
-                                    <Grid.ColumnDefinitions>
-                                        <ColumnDefinition Width="*" />
-                                        <ColumnDefinition Width="Auto" />
-                                    </Grid.ColumnDefinitions>
-                                    <TextBlock Foreground="{DynamicResource SubtleTextBrush}"
-                                               FontSize="11"
-                                               Text="Warning" />
-                                    <TextBlock Grid.Column="1"
-                                               Foreground="{DynamicResource TextBrush}"
-                                               FontSize="11"
-                                               Text="{Binding LoudnessClockWarningText}" />
-                                </Grid>
-                                <controls:EditableValueSlider Minimum="-120"
-                                                              Maximum="0"
-                                                              Step="1"
-                                                              DisplayFormat="0"
-                                                              DisplaySuffix=" LUFS"
-                                                              Value="{Binding LoudnessClockWarningDb, Mode=TwoWay, UpdateSourceTrigger=PropertyChanged}" />
-                                <Grid Margin="0,10,0,0">
-                                    <Grid.ColumnDefinitions>
-                                        <ColumnDefinition Width="*" />
-                                        <ColumnDefinition Width="Auto" />
-                                    </Grid.ColumnDefinitions>
-                                    <TextBlock Foreground="{DynamicResource SubtleTextBrush}"
-                                               FontSize="11"
-                                               Text="Cycle" />
-                                    <TextBlock Grid.Column="1"
-                                               Foreground="{DynamicResource TextBrush}"
-                                               FontSize="11"
-                                               Text="{Binding LoudnessClockCycleText}" />
-                                </Grid>
-                                <controls:EditableValueSlider Minimum="10"
-                                                              Maximum="600"
-                                                              Step="5"
-                                                              DisplayFormat="0"
-                                                              DisplaySuffix=" s"
-                                                              Value="{Binding LoudnessClockCycleSeconds, Mode=TwoWay, UpdateSourceTrigger=PropertyChanged}" />
-                            </StackPanel>
+                                <controls:StereoFanView Grid.Row="1"
+                                                        MinHeight="120"
+                                                        Margin="0,8,0,8"
+                                                        Correlation="{Binding SelectedDetailSession.CorrelationValue, Mode=OneWay}"
+                                                        ImageX="{Binding SelectedDetailSession.StereoImageX, Mode=OneWay}"
+                                                        ImageY="{Binding SelectedDetailSession.StereoImageY, Mode=OneWay}"
+                                                        Points="{Binding SelectedDetailSession.StereoImagePoints, Mode=OneWay}"
+                                                        AutoScale="{Binding InlineStereoSettings.IsAutoScale, Mode=OneWay}"
+                                                        ScaleRangeDb="{Binding InlineStereoSettings.ScaleRangeDb, Mode=OneWay}"
+                                                        ManualCeilingDb="{Binding InlineStereoSettings.ManualCeilingDb, Mode=OneWay}"
+                                                        AutoScaleFloorDb="{Binding InlineStereoSettings.AutoScaleFloorDb, Mode=OneWay}"
+                                                        AutoScaleSpeedDbPerSecond="{Binding InlineStereoSettings.AutoScaleSpeedDbPerSecond, Mode=OneWay}"
+                                                        TracePersistenceSeconds="{Binding InlineStereoSettings.TracePersistenceSeconds, Mode=OneWay}">
+                                    <controls:StereoFanView.Style>
+                                        <Style TargetType="controls:StereoFanView">
+                                            <Setter Property="Visibility" Value="Collapsed" />
+                                            <Style.Triggers>
+                                                <DataTrigger Binding="{Binding IsInlineStereoVisible}" Value="True">
+                                                    <Setter Property="Visibility" Value="Visible" />
+                                                </DataTrigger>
+                                            </Style.Triggers>
+                                        </Style>
+                                    </controls:StereoFanView.Style>
+                                </controls:StereoFanView>
+                                <controls:CorrelationMeter Grid.Row="2"
+                                                           Height="52"
+                                                           Value="{Binding SelectedDetailSession.CorrelationValue, Mode=OneWay}"
+                                                           ValueText="{Binding SelectedDetailSession.CorrelationText}">
+                                    <controls:CorrelationMeter.Style>
+                                        <Style TargetType="controls:CorrelationMeter">
+                                            <Setter Property="Visibility" Value="Collapsed" />
+                                            <Style.Triggers>
+                                                <DataTrigger Binding="{Binding IsInlineStereoVisible}" Value="True">
+                                                    <Setter Property="Visibility" Value="Visible" />
+                                                </DataTrigger>
+                                            </Style.Triggers>
+                                        </Style>
+                                    </controls:CorrelationMeter.Style>
+                                </controls:CorrelationMeter>
+                            </Grid>
                         </Border>
-                    </Popup>
-                </WrapPanel>
+                        <controls:VerticalResizeThumb TargetElement="{Binding ElementName=InlineStereoPanel}">
+                            <controls:VerticalResizeThumb.Style>
+                                <Style BasedOn="{StaticResource {x:Type controls:VerticalResizeThumb}}" TargetType="controls:VerticalResizeThumb">
+                                    <Setter Property="Visibility" Value="Collapsed" />
+                                    <Style.Triggers>
+                                        <DataTrigger Binding="{Binding IsInlineStereoVisible}" Value="True">
+                                            <Setter Property="Visibility" Value="Visible" />
+                                        </DataTrigger>
+                                    </Style.Triggers>
+                                </Style>
+                            </controls:VerticalResizeThumb.Style>
+                        </controls:VerticalResizeThumb>
+                        <Border Style="{StaticResource DetailModuleDropAfterHint}">
+                            <Border Height="2"
+                                    Margin="8,0"
+                                    VerticalAlignment="Center"
+                                    Background="{DynamicResource AccentBrush}"
+                                    CornerRadius="1" />
+                        </Border>
+                    </StackPanel>
 
-                <Border x:Name="InlineLoudnessClockPanel"
-                        Height="260"
-                        MinHeight="220"
-                        MaxHeight="520"
-                        Margin="0,0,0,8"
-                        Padding="6"
-                        Background="{DynamicResource PanelBrush}"
-                        CornerRadius="6">
-                    <Border.Style>
-                        <Style TargetType="Border">
-                            <Setter Property="Visibility" Value="Collapsed" />
-                            <Style.Triggers>
-                                <DataTrigger Binding="{Binding IsInlineLoudnessClockVisible}" Value="True">
-                                    <Setter Property="Visibility" Value="Visible" />
-                                </DataTrigger>
-                            </Style.Triggers>
-                        </Style>
-                    </Border.Style>
-                    <controls:LoudnessClockView CurrentLoudnessDb="{Binding SelectedDetailSession.LoudnessClockMomentaryDb, Mode=OneWay}"
-                                                PlotTick="{Binding SelectedDetailSession.LoudnessClockPlotTick, Mode=OneWay}"
-                                                MinimumLoudnessDb="{Binding LoudnessClockMinimumDb, Mode=OneWay}"
-                                                MaximumLoudnessDb="{Binding LoudnessClockMaximumDb, Mode=OneWay}"
-                                                WarningLoudnessDb="{Binding LoudnessClockWarningDb, Mode=OneWay}"
-                                                CycleDurationSeconds="{Binding LoudnessClockCycleSeconds, Mode=OneWay}" />
-                </Border>
-
-                <StackPanel>
-                    <StackPanel.Style>
-                        <Style TargetType="StackPanel">
-                            <Setter Property="Visibility" Value="Collapsed" />
-                            <Style.Triggers>
-                                <DataTrigger Binding="{Binding IsInlineWaveformOnlyVisible}" Value="True">
-                                    <Setter Property="Visibility" Value="Visible" />
-                                </DataTrigger>
-                            </Style.Triggers>
-                        </Style>
-                    </StackPanel.Style>
-                    <Border x:Name="InlineWaveformOnlyPanel"
-                            Height="{Binding InlineWaveformOnlyPanelDefaultHeight}"
-                            MinHeight="{Binding InlineWaveformOnlyPanelMinHeight}"
-                            MaxHeight="900"
-                            Padding="10"
-                            Background="{DynamicResource PanelBrush}"
-                            CornerRadius="6">
-                        <Grid>
-                            <controls:WaveformRollView WaveformSamples="{Binding SelectedDetailSession.WaveformSamples, Mode=OneWay}"
-                                                       PlotTick="{Binding SelectedDetailSession.WaveformPlotTick, Mode=OneWay}">
-                                <controls:WaveformRollView.Style>
-                                    <Style TargetType="controls:WaveformRollView">
-                                        <Setter Property="Visibility" Value="Collapsed" />
-                                        <Style.Triggers>
-                                            <DataTrigger Binding="{Binding SelectedDetailSession.IsOverallWaveformVisible}" Value="True">
-                                                <Setter Property="Visibility" Value="Visible" />
-                                            </DataTrigger>
-                                        </Style.Triggers>
-                                    </Style>
-                                </controls:WaveformRollView.Style>
-                            </controls:WaveformRollView>
+                    <StackPanel Grid.Row="{Binding InlineCollisionModule.OrderIndex}"
+                                Margin="0,0,0,8"
+                                Tag="{Binding InlineCollisionModule}"
+                                AllowDrop="True"
+                                DragOver="InlineDetailModule_OnDragOver"
+                                Drop="InlineDetailModule_OnDrop"
+                                GiveFeedback="InlineDetailModule_OnGiveFeedback">
+                        <Border Style="{StaticResource DetailModuleDropBeforeHint}">
+                            <Border Height="2"
+                                    Margin="8,0"
+                                    VerticalAlignment="Center"
+                                    Background="{DynamicResource AccentBrush}"
+                                    CornerRadius="1" />
+                        </Border>
+                        <Border x:Name="InlineCollisionPanel"
+                                Height="{Binding InlineCollisionModule.DisplayHeight, Mode=TwoWay, UpdateSourceTrigger=PropertyChanged}"
+                                MinHeight="{Binding InlineCollisionModule.DisplayMinimumHeight}"
+                                MaxHeight="112"
+                                Padding="12"
+                                Background="{DynamicResource PanelBrush}"
+                                BorderBrush="{DynamicResource ControlBorderBrush}"
+                                BorderThickness="1"
+                                CornerRadius="6">
                             <Grid>
-                                <Grid.Style>
-                                    <Style TargetType="Grid">
-                                        <Setter Property="Visibility" Value="Collapsed" />
-                                        <Style.Triggers>
-                                            <DataTrigger Binding="{Binding SelectedDetailSession.IsChannelWaveformVisible}" Value="True">
-                                                <Setter Property="Visibility" Value="Visible" />
-                                            </DataTrigger>
-                                        </Style.Triggers>
-                                    </Style>
-                                </Grid.Style>
                                 <Grid.RowDefinitions>
                                     <RowDefinition Height="Auto" />
-                                    <RowDefinition Height="*" MinHeight="185" />
                                     <RowDefinition Height="Auto" />
-                                    <RowDefinition Height="*" MinHeight="185" />
                                 </Grid.RowDefinitions>
-                                <TextBlock Foreground="{DynamicResource SubtleTextBrush}" FontSize="10" Text="L" />
-                                <controls:WaveformRollView Grid.Row="1"
-                                                           WaveformSamples="{Binding SelectedDetailSession.LeftWaveformSamples, Mode=OneWay}"
-                                                           PlotTick="{Binding SelectedDetailSession.WaveformPlotTick, Mode=OneWay}" />
-                                <TextBlock Grid.Row="2" Margin="0,5,0,0" Foreground="{DynamicResource SubtleTextBrush}" FontSize="10" Text="R" />
-                                <controls:WaveformRollView Grid.Row="3"
-                                                           WaveformSamples="{Binding SelectedDetailSession.RightWaveformSamples, Mode=OneWay}"
-                                                           PlotTick="{Binding SelectedDetailSession.WaveformPlotTick, Mode=OneWay}" />
-                            </Grid>
-                        </Grid>
-                    </Border>
-                    <controls:VerticalResizeThumb TargetElement="{Binding ElementName=InlineWaveformOnlyPanel}" />
-                </StackPanel>
+                                <Grid>
+                                    <Grid.ColumnDefinitions>
+                                        <ColumnDefinition Width="Auto" />
+                                        <ColumnDefinition Width="4" />
+                                        <ColumnDefinition Width="Auto" />
+                                        <ColumnDefinition Width="6" />
+                                        <ColumnDefinition Width="Auto" />
+                                        <ColumnDefinition Width="8" />
+                                        <ColumnDefinition Width="*" />
+                                        <ColumnDefinition Width="8" />
+                                        <ColumnDefinition Width="Auto" />
+                                        <ColumnDefinition Width="8" />
+                                        <ColumnDefinition Width="Auto" />
+                                    </Grid.ColumnDefinitions>
+                                    <TextBlock Width="14"
+                                               VerticalAlignment="Center"
+                                               Cursor="SizeAll"
+                                               FontSize="13"
+                                               Foreground="{DynamicResource DisabledTextBrush}"
+                                               MouseMove="InlineDetailModuleDragHandle_OnMouseMove"
+                                               Tag="{Binding InlineCollisionModule}"
+                                               Text="::"
+                                               ToolTip="Drag to reorder" />
+                                    <ToggleButton Grid.Column="2"
+                                                  Style="{StaticResource DetailModuleToggleButton}"
+                                                  IsChecked="{Binding IsInlineCollisionVisible, Mode=TwoWay}"
+                                                  ToolTip="Show frequency collision" />
+                                    <TextBlock Grid.Column="4"
+                                               VerticalAlignment="Center"
+                                               Foreground="{DynamicResource SubtleTextBrush}"
+                                               FontSize="11"
+                                               Text="Frequency collision" />
+                                    <Button Grid.Column="6"
+                                            Height="26"
+                                            MinWidth="118"
+                                            HorizontalContentAlignment="Stretch"
+                                            IsEnabled="{Binding HasFrequencyCollisionSources}"
+                                            Click="CollisionSourceButton_OnClick">
+                                        <Grid>
+                                            <Grid.ColumnDefinitions>
+                                                <ColumnDefinition Width="*" />
+                                                <ColumnDefinition Width="Auto" />
+                                            </Grid.ColumnDefinitions>
+                                            <TextBlock VerticalAlignment="Center"
+                                                       Text="{Binding SelectedFrequencyCollisionSourceDisplayName}"
+                                                       TextTrimming="CharacterEllipsis" />
+                                            <TextBlock Grid.Column="1"
+                                                       Margin="8,0,0,0"
+                                                       VerticalAlignment="Center"
+                                                       FontSize="10"
+                                                       Text="v" />
+                                        </Grid>
+                                        <Button.ContextMenu>
+                                            <ContextMenu ItemsSource="{Binding PlacementTarget.DataContext.FrequencyCollisionSourceOptions, RelativeSource={RelativeSource Self}}">
+                                                <ContextMenu.ItemContainerStyle>
+                                                    <Style TargetType="{x:Type MenuItem}"
+                                                           BasedOn="{StaticResource {x:Type MenuItem}}">
+                                                        <Setter Property="Header" Value="{Binding DisplayName}" />
+                                                        <Setter Property="MinWidth" Value="172" />
+                                                        <Setter Property="Command"
+                                                                Value="{Binding PlacementTarget.DataContext.SelectFrequencyCollisionSourceCommand, RelativeSource={RelativeSource AncestorType={x:Type ContextMenu}}}" />
+                                                        <Setter Property="CommandParameter" Value="{Binding}" />
+                                                    </Style>
+                                                </ContextMenu.ItemContainerStyle>
+                                            </ContextMenu>
+                                        </Button.ContextMenu>
+                                    </Button>
+                                    <TextBlock Grid.Column="8"
+                                               VerticalAlignment="Center"
+                                               Foreground="{DynamicResource SubtleTextBrush}"
+                                               FontSize="10"
+                                               Text="20 Hz - 22 kHz" />
+                                    <Button x:Name="CollisionSettingsButton"
+                                            Grid.Column="10"
+                                            Style="{StaticResource ChromeIconButton}"
+                                            FontFamily="Segoe MDL2 Assets"
+                                            FontSize="14"
+                                            Content="&#xE713;"
+                                            ToolTip="Collision settings"
+                                            Click="CollisionSettingsButton_OnClick" />
+                                </Grid>
 
-                <StackPanel>
-                    <StackPanel.Style>
-                        <Style TargetType="StackPanel">
-                            <Setter Property="Visibility" Value="Collapsed" />
-                            <Style.Triggers>
-                                <DataTrigger Binding="{Binding IsInlineSpectrumOnlyVisible}" Value="True">
-                                    <Setter Property="Visibility" Value="Visible" />
-                                </DataTrigger>
-                            </Style.Triggers>
-                        </Style>
-                    </StackPanel.Style>
-                    <Border x:Name="InlineSpectrumOnlyPanel"
-                            Height="{Binding InlineSpectrumOnlyPanelDefaultHeight}"
-                            MinHeight="{Binding InlineSpectrumOnlyPanelMinHeight}"
-                            MaxHeight="900"
-                            Padding="10"
-                            Background="{DynamicResource PanelBrush}"
-                            CornerRadius="6">
-                        <Grid>
-                            <controls:SpectrumRollView SpectrumBuckets="{Binding SelectedDetailSession.SpectrumBuckets, Mode=OneWay}"
-                                                       PlotTick="{Binding SelectedDetailSession.SpectrumPlotTick, Mode=OneWay}"
-                                                       DisplayFloorDb="{Binding SpectrumDisplayFloorDb, Mode=OneWay}"
-                                                       DisplayCeilingDb="{Binding SpectrumDisplayCeilingDb, Mode=OneWay}">
-                                <controls:SpectrumRollView.Style>
-                                    <Style TargetType="controls:SpectrumRollView">
-                                        <Setter Property="Visibility" Value="Collapsed" />
-                                        <Style.Triggers>
-                                            <DataTrigger Binding="{Binding SelectedDetailSession.IsOverallSpectrumVisible}" Value="True">
-                                                <Setter Property="Visibility" Value="Visible" />
-                                            </DataTrigger>
-                                        </Style.Triggers>
-                                    </Style>
-                                </controls:SpectrumRollView.Style>
-                            </controls:SpectrumRollView>
-                            <Grid>
-                                <Grid.Style>
-                                    <Style TargetType="Grid">
-                                        <Setter Property="Visibility" Value="Collapsed" />
-                                        <Style.Triggers>
-                                            <DataTrigger Binding="{Binding SelectedDetailSession.IsChannelSpectrumVisible}" Value="True">
-                                                <Setter Property="Visibility" Value="Visible" />
-                                            </DataTrigger>
-                                        </Style.Triggers>
-                                    </Style>
-                                </Grid.Style>
-                                <Grid.RowDefinitions>
-                                    <RowDefinition Height="Auto" />
-                                    <RowDefinition Height="*" MinHeight="185" />
-                                    <RowDefinition Height="Auto" />
-                                    <RowDefinition Height="*" MinHeight="185" />
-                                </Grid.RowDefinitions>
-                                <TextBlock Foreground="{DynamicResource SubtleTextBrush}" FontSize="10" Text="L" />
-                                <controls:SpectrumRollView Grid.Row="1"
-                                                           SpectrumBuckets="{Binding SelectedDetailSession.LeftSpectrumBuckets, Mode=OneWay}"
-                                                           PlotTick="{Binding SelectedDetailSession.SpectrumPlotTick, Mode=OneWay}"
-                                                           DisplayFloorDb="{Binding SpectrumDisplayFloorDb, Mode=OneWay}"
-                                                           DisplayCeilingDb="{Binding SpectrumDisplayCeilingDb, Mode=OneWay}" />
-                                <TextBlock Grid.Row="2" Margin="0,5,0,0" Foreground="{DynamicResource SubtleTextBrush}" FontSize="10" Text="R" />
-                                <controls:SpectrumRollView Grid.Row="3"
-                                                           SpectrumBuckets="{Binding SelectedDetailSession.RightSpectrumBuckets, Mode=OneWay}"
-                                                           PlotTick="{Binding SelectedDetailSession.SpectrumPlotTick, Mode=OneWay}"
-                                                           DisplayFloorDb="{Binding SpectrumDisplayFloorDb, Mode=OneWay}"
-                                                           DisplayCeilingDb="{Binding SpectrumDisplayCeilingDb, Mode=OneWay}" />
+                                <controls:FrequencyCollisionBar Grid.Row="1"
+                                                                Margin="0,8,0,0"
+                                                                CollisionBands="{Binding FrequencyCollisionBands, Mode=OneWay}"
+                                                                FrequencyScale="{Binding CollisionFrequencyScale, Mode=OneWay}">
+                                    <controls:FrequencyCollisionBar.Style>
+                                        <Style TargetType="controls:FrequencyCollisionBar">
+                                            <Setter Property="Visibility" Value="Collapsed" />
+                                            <Style.Triggers>
+                                                <DataTrigger Binding="{Binding IsInlineCollisionVisible}" Value="True">
+                                                    <Setter Property="Visibility" Value="Visible" />
+                                                </DataTrigger>
+                                            </Style.Triggers>
+                                        </Style>
+                                    </controls:FrequencyCollisionBar.Style>
+                                </controls:FrequencyCollisionBar>
                             </Grid>
-                        </Grid>
-                    </Border>
-                    <controls:VerticalResizeThumb TargetElement="{Binding ElementName=InlineSpectrumOnlyPanel}" />
-                </StackPanel>
+                        </Border>
+                        <Border Style="{StaticResource DetailModuleDropAfterHint}">
+                            <Border Height="2"
+                                    Margin="8,0"
+                                    VerticalAlignment="Center"
+                                    Background="{DynamicResource AccentBrush}"
+                                    CornerRadius="1" />
+                        </Border>
+                    </StackPanel>
 
-                <Grid x:Name="InlineRollsPanel"
-                      Height="{Binding InlineRollsPanelDefaultHeight}"
-                      MinHeight="{Binding InlineRollsPanelMinHeight}"
-                      MaxHeight="1200">
-                    <Grid.Style>
-                        <Style TargetType="Grid">
-                            <Setter Property="Visibility" Value="Collapsed" />
-                            <Style.Triggers>
-                                <DataTrigger Binding="{Binding AreInlineRollsVisible}" Value="True">
-                                    <Setter Property="Visibility" Value="Visible" />
-                                </DataTrigger>
-                            </Style.Triggers>
-                        </Style>
-                    </Grid.Style>
-                    <Grid.RowDefinitions>
-                        <RowDefinition x:Name="InlineWaveformRollRow"
-                                       Height="155*"
-                                       MinHeight="{Binding DataContext.InlineWaveformRollGroupMinHeight, ElementName=InlineRollsPanel}" />
-                        <RowDefinition Height="8" />
-                        <RowDefinition Height="185*" MinHeight="{Binding DataContext.InlineSpectrumRollGroupMinHeight, ElementName=InlineRollsPanel}" />
-                    </Grid.RowDefinitions>
-                    <Border Grid.Row="0"
-                            Padding="10"
-                            Background="{DynamicResource PanelBrush}"
-                            CornerRadius="6">
-                        <Grid>
-                            <controls:WaveformRollView WaveformSamples="{Binding SelectedDetailSession.WaveformSamples, Mode=OneWay}"
-                                                       PlotTick="{Binding SelectedDetailSession.WaveformPlotTick, Mode=OneWay}">
-                                <controls:WaveformRollView.Style>
-                                    <Style TargetType="controls:WaveformRollView">
-                                        <Setter Property="Visibility" Value="Collapsed" />
-                                        <Style.Triggers>
-                                            <DataTrigger Binding="{Binding SelectedDetailSession.IsOverallWaveformVisible}" Value="True">
-                                                <Setter Property="Visibility" Value="Visible" />
-                                            </DataTrigger>
-                                        </Style.Triggers>
-                                    </Style>
-                                </controls:WaveformRollView.Style>
-                            </controls:WaveformRollView>
+                    <StackPanel Grid.Row="{Binding InlineLoudnessClockModule.OrderIndex}"
+                                Margin="0,0,0,8"
+                                Tag="{Binding InlineLoudnessClockModule}"
+                                AllowDrop="True"
+                                DragOver="InlineDetailModule_OnDragOver"
+                                Drop="InlineDetailModule_OnDrop"
+                                GiveFeedback="InlineDetailModule_OnGiveFeedback">
+                        <Border Style="{StaticResource DetailModuleDropBeforeHint}">
+                            <Border Height="2"
+                                    Margin="8,0"
+                                    VerticalAlignment="Center"
+                                    Background="{DynamicResource AccentBrush}"
+                                    CornerRadius="1" />
+                        </Border>
+                        <Border x:Name="InlineLoudnessClockPanel"
+                                Height="{Binding InlineLoudnessClockModule.DisplayHeight, Mode=TwoWay, UpdateSourceTrigger=PropertyChanged}"
+                                MinHeight="{Binding InlineLoudnessClockModule.DisplayMinimumHeight}"
+                                MaxHeight="720"
+                                Padding="6"
+                                Background="{DynamicResource PanelBrush}"
+                                BorderBrush="{DynamicResource ControlBorderBrush}"
+                                BorderThickness="1"
+                                CornerRadius="6">
                             <Grid>
-                                <Grid.Style>
-                                    <Style TargetType="Grid">
-                                        <Setter Property="Visibility" Value="Collapsed" />
-                                        <Style.Triggers>
-                                            <DataTrigger Binding="{Binding SelectedDetailSession.IsChannelWaveformVisible}" Value="True">
-                                                <Setter Property="Visibility" Value="Visible" />
-                                            </DataTrigger>
-                                        </Style.Triggers>
-                                    </Style>
-                                </Grid.Style>
                                 <Grid.RowDefinitions>
                                     <RowDefinition Height="Auto" />
-                                    <RowDefinition Height="*" MinHeight="185" />
-                                    <RowDefinition Height="Auto" />
-                                    <RowDefinition Height="*" MinHeight="185" />
+                                    <RowDefinition Height="*" />
                                 </Grid.RowDefinitions>
-                                <TextBlock Foreground="{DynamicResource SubtleTextBrush}" FontSize="10" Text="L" />
-                                <controls:WaveformRollView Grid.Row="1"
-                                                           WaveformSamples="{Binding SelectedDetailSession.LeftWaveformSamples, Mode=OneWay}"
-                                                           PlotTick="{Binding SelectedDetailSession.WaveformPlotTick, Mode=OneWay}" />
-                                <TextBlock Grid.Row="2" Margin="0,5,0,0" Foreground="{DynamicResource SubtleTextBrush}" FontSize="10" Text="R" />
-                                <controls:WaveformRollView Grid.Row="3"
-                                                           WaveformSamples="{Binding SelectedDetailSession.RightWaveformSamples, Mode=OneWay}"
-                                                           PlotTick="{Binding SelectedDetailSession.WaveformPlotTick, Mode=OneWay}" />
+                                <Grid Margin="4,0,4,4">
+                                    <Grid.ColumnDefinitions>
+                                        <ColumnDefinition Width="Auto" />
+                                        <ColumnDefinition Width="4" />
+                                        <ColumnDefinition Width="Auto" />
+                                        <ColumnDefinition Width="6" />
+                                        <ColumnDefinition Width="*" />
+                                        <ColumnDefinition Width="8" />
+                                        <ColumnDefinition Width="Auto" />
+                                    </Grid.ColumnDefinitions>
+                                    <TextBlock Width="14"
+                                               VerticalAlignment="Center"
+                                               Cursor="SizeAll"
+                                               FontSize="13"
+                                               Foreground="{DynamicResource DisabledTextBrush}"
+                                               MouseMove="InlineDetailModuleDragHandle_OnMouseMove"
+                                               Tag="{Binding InlineLoudnessClockModule}"
+                                               Text="::"
+                                               ToolTip="Drag to reorder" />
+                                    <ToggleButton Grid.Column="2"
+                                                  Style="{StaticResource DetailModuleToggleButton}"
+                                                  IsChecked="{Binding IsInlineLoudnessClockVisible, Mode=TwoWay}"
+                                                  ToolTip="Show clock" />
+                                    <TextBlock Grid.Column="4"
+                                               VerticalAlignment="Center"
+                                               Foreground="{DynamicResource SubtleTextBrush}"
+                                               FontSize="11"
+                                               Text="Clock" />
+                                    <Button x:Name="InlineClockSettingsButton"
+                                            Grid.Column="6"
+                                            Style="{StaticResource ChromeIconButton}"
+                                            FontFamily="Segoe MDL2 Assets"
+                                            FontSize="14"
+                                            Content="&#xE713;"
+                                            ToolTip="Clock settings"
+                                            Click="InlineClockSettingsButton_OnClick" />
+                                </Grid>
+                                <controls:LoudnessClockView Grid.Row="1"
+                                                            CurrentLoudnessDb="{Binding SelectedDetailSession.LoudnessClockMomentaryDb, Mode=OneWay}"
+                                                            IsActive="{Binding IsInlineLoudnessClockVisible, Mode=OneWay}"
+                                                            PlotTick="{Binding SelectedDetailSession.LoudnessClockPlotTick, Mode=OneWay}"
+                                                            MinimumLoudnessDb="{Binding LoudnessClockMinimumDb, Mode=OneWay}"
+                                                            MaximumLoudnessDb="{Binding LoudnessClockMaximumDb, Mode=OneWay}"
+                                                            WarningLoudnessDb="{Binding LoudnessClockWarningDb, Mode=OneWay}"
+                                                            CycleDurationSeconds="{Binding LoudnessClockCycleSeconds, Mode=OneWay}">
+                                    <controls:LoudnessClockView.Style>
+                                        <Style TargetType="controls:LoudnessClockView">
+                                            <Setter Property="Visibility" Value="Collapsed" />
+                                            <Style.Triggers>
+                                                <DataTrigger Binding="{Binding IsInlineLoudnessClockVisible}" Value="True">
+                                                    <Setter Property="Visibility" Value="Visible" />
+                                                </DataTrigger>
+                                            </Style.Triggers>
+                                        </Style>
+                                    </controls:LoudnessClockView.Style>
+                                </controls:LoudnessClockView>
                             </Grid>
-                        </Grid>
-                    </Border>
-                    <controls:GridRowResizeThumb Grid.Row="1"
-                                                 ContainerElement="{Binding ElementName=InlineRollsPanel}"
-                                                 TargetRow="{Binding ElementName=InlineWaveformRollRow}" />
-                    <Border Grid.Row="2"
-                            Padding="10"
-                            Background="{DynamicResource PanelBrush}"
-                            CornerRadius="6">
-                        <Grid>
-                            <controls:SpectrumRollView SpectrumBuckets="{Binding SelectedDetailSession.SpectrumBuckets, Mode=OneWay}"
-                                                       PlotTick="{Binding SelectedDetailSession.SpectrumPlotTick, Mode=OneWay}"
-                                                       DisplayFloorDb="{Binding SpectrumDisplayFloorDb, Mode=OneWay}"
-                                                       DisplayCeilingDb="{Binding SpectrumDisplayCeilingDb, Mode=OneWay}">
-                                <controls:SpectrumRollView.Style>
-                                    <Style TargetType="controls:SpectrumRollView">
-                                        <Setter Property="Visibility" Value="Collapsed" />
-                                        <Style.Triggers>
-                                            <DataTrigger Binding="{Binding SelectedDetailSession.IsOverallSpectrumVisible}" Value="True">
-                                                <Setter Property="Visibility" Value="Visible" />
-                                            </DataTrigger>
-                                        </Style.Triggers>
-                                    </Style>
-                                </controls:SpectrumRollView.Style>
-                            </controls:SpectrumRollView>
+                        </Border>
+                        <controls:VerticalResizeThumb TargetElement="{Binding ElementName=InlineLoudnessClockPanel}">
+                            <controls:VerticalResizeThumb.Style>
+                                <Style BasedOn="{StaticResource {x:Type controls:VerticalResizeThumb}}" TargetType="controls:VerticalResizeThumb">
+                                    <Setter Property="Visibility" Value="Collapsed" />
+                                    <Style.Triggers>
+                                        <DataTrigger Binding="{Binding IsInlineLoudnessClockVisible}" Value="True">
+                                            <Setter Property="Visibility" Value="Visible" />
+                                        </DataTrigger>
+                                    </Style.Triggers>
+                                </Style>
+                            </controls:VerticalResizeThumb.Style>
+                        </controls:VerticalResizeThumb>
+                        <Border Style="{StaticResource DetailModuleDropAfterHint}">
+                            <Border Height="2"
+                                    Margin="8,0"
+                                    VerticalAlignment="Center"
+                                    Background="{DynamicResource AccentBrush}"
+                                    CornerRadius="1" />
+                        </Border>
+                    </StackPanel>
+
+                    <StackPanel Grid.Row="{Binding InlineWaveformModule.OrderIndex}"
+                                Margin="0,0,0,8"
+                                Tag="{Binding InlineWaveformModule}"
+                                AllowDrop="True"
+                                DragOver="InlineDetailModule_OnDragOver"
+                                Drop="InlineDetailModule_OnDrop"
+                                GiveFeedback="InlineDetailModule_OnGiveFeedback">
+                        <Border Style="{StaticResource DetailModuleDropBeforeHint}">
+                            <Border Height="2"
+                                    Margin="8,0"
+                                    VerticalAlignment="Center"
+                                    Background="{DynamicResource AccentBrush}"
+                                    CornerRadius="1" />
+                        </Border>
+                        <Border x:Name="InlineWaveformOnlyPanel"
+                                Height="{Binding InlineWaveformModule.DisplayHeight, Mode=TwoWay, UpdateSourceTrigger=PropertyChanged}"
+                                MinHeight="{Binding InlineWaveformOnlyPanelDisplayMinHeight}"
+                                MaxHeight="900"
+                                Padding="10"
+                                Background="{DynamicResource PanelBrush}"
+                                BorderBrush="{DynamicResource ControlBorderBrush}"
+                                BorderThickness="1"
+                                CornerRadius="6">
                             <Grid>
-                                <Grid.Style>
-                                    <Style TargetType="Grid">
-                                        <Setter Property="Visibility" Value="Collapsed" />
-                                        <Style.Triggers>
-                                            <DataTrigger Binding="{Binding SelectedDetailSession.IsChannelSpectrumVisible}" Value="True">
-                                                <Setter Property="Visibility" Value="Visible" />
-                                            </DataTrigger>
-                                        </Style.Triggers>
-                                    </Style>
-                                </Grid.Style>
                                 <Grid.RowDefinitions>
                                     <RowDefinition Height="Auto" />
-                                    <RowDefinition Height="*" MinHeight="185" />
-                                    <RowDefinition Height="Auto" />
-                                    <RowDefinition Height="*" MinHeight="185" />
+                                    <RowDefinition Height="*" />
                                 </Grid.RowDefinitions>
-                                <TextBlock Foreground="{DynamicResource SubtleTextBrush}" FontSize="10" Text="L" />
-                                <controls:SpectrumRollView Grid.Row="1"
-                                                           SpectrumBuckets="{Binding SelectedDetailSession.LeftSpectrumBuckets, Mode=OneWay}"
-                                                           PlotTick="{Binding SelectedDetailSession.SpectrumPlotTick, Mode=OneWay}"
-                                                           DisplayFloorDb="{Binding SpectrumDisplayFloorDb, Mode=OneWay}"
-                                                           DisplayCeilingDb="{Binding SpectrumDisplayCeilingDb, Mode=OneWay}" />
-                                <TextBlock Grid.Row="2" Margin="0,5,0,0" Foreground="{DynamicResource SubtleTextBrush}" FontSize="10" Text="R" />
-                                <controls:SpectrumRollView Grid.Row="3"
-                                                           SpectrumBuckets="{Binding SelectedDetailSession.RightSpectrumBuckets, Mode=OneWay}"
-                                                           PlotTick="{Binding SelectedDetailSession.SpectrumPlotTick, Mode=OneWay}"
-                                                           DisplayFloorDb="{Binding SpectrumDisplayFloorDb, Mode=OneWay}"
-                                                           DisplayCeilingDb="{Binding SpectrumDisplayCeilingDb, Mode=OneWay}" />
+                                <Grid>
+                                    <Grid.ColumnDefinitions>
+                                        <ColumnDefinition Width="Auto" />
+                                        <ColumnDefinition Width="4" />
+                                        <ColumnDefinition Width="Auto" />
+                                        <ColumnDefinition Width="6" />
+                                        <ColumnDefinition Width="*" />
+                                        <ColumnDefinition Width="8" />
+                                        <ColumnDefinition Width="Auto" />
+                                    </Grid.ColumnDefinitions>
+                                    <TextBlock Width="14"
+                                               VerticalAlignment="Center"
+                                               Cursor="SizeAll"
+                                               FontSize="13"
+                                               Foreground="{DynamicResource DisabledTextBrush}"
+                                               MouseMove="InlineDetailModuleDragHandle_OnMouseMove"
+                                               Tag="{Binding InlineWaveformModule}"
+                                               Text="::"
+                                               ToolTip="Drag to reorder" />
+                                    <ToggleButton Grid.Column="2"
+                                                  Style="{StaticResource DetailModuleToggleButton}"
+                                                  IsChecked="{Binding IsInlineWaveformVisible, Mode=TwoWay}"
+                                                  ToolTip="Show waveform" />
+                                    <TextBlock Grid.Column="4"
+                                               VerticalAlignment="Center"
+                                               Foreground="{DynamicResource SubtleTextBrush}"
+                                               FontSize="11"
+                                               Text="Waveform" />
+                                    <Button x:Name="InlineWaveformSettingsButton"
+                                            Grid.Column="6"
+                                            Style="{StaticResource ChromeIconButton}"
+                                            FontFamily="Segoe MDL2 Assets"
+                                            FontSize="14"
+                                            Content="&#xE713;"
+                                            ToolTip="Waveform settings"
+                                            Click="InlineWaveformSettingsButton_OnClick" />
+                                </Grid>
+                                <Grid Grid.Row="1" Margin="0,8,0,0">
+                                    <Grid.Style>
+                                        <Style TargetType="Grid">
+                                            <Setter Property="Visibility" Value="Collapsed" />
+                                            <Style.Triggers>
+                                                <DataTrigger Binding="{Binding IsInlineWaveformOnlyVisible}" Value="True">
+                                                    <Setter Property="Visibility" Value="Visible" />
+                                                </DataTrigger>
+                                            </Style.Triggers>
+                                        </Style>
+                                    </Grid.Style>
+                                    <controls:WaveformRollView WaveformSamples="{Binding SelectedDetailSession.WaveformSamples, Mode=OneWay}"
+                                                               IsActive="{Binding IsInlineWaveformVisible, Mode=OneWay}"
+                                                               PlotTick="{Binding SelectedDetailSession.WaveformPlotTick, Mode=OneWay}">
+                                        <controls:WaveformRollView.Style>
+                                            <Style TargetType="controls:WaveformRollView">
+                                                <Setter Property="Visibility" Value="Collapsed" />
+                                                <Style.Triggers>
+                                                    <DataTrigger Binding="{Binding SelectedDetailSession.IsOverallWaveformVisible}" Value="True">
+                                                        <Setter Property="Visibility" Value="Visible" />
+                                                    </DataTrigger>
+                                                </Style.Triggers>
+                                            </Style>
+                                        </controls:WaveformRollView.Style>
+                                    </controls:WaveformRollView>
+                                    <Grid>
+                                        <Grid.Style>
+                                            <Style TargetType="Grid">
+                                                <Setter Property="Visibility" Value="Collapsed" />
+                                                <Style.Triggers>
+                                                    <DataTrigger Binding="{Binding SelectedDetailSession.IsChannelWaveformVisible}" Value="True">
+                                                        <Setter Property="Visibility" Value="Visible" />
+                                                    </DataTrigger>
+                                                </Style.Triggers>
+                                            </Style>
+                                        </Grid.Style>
+                                        <Grid.RowDefinitions>
+                                            <RowDefinition Height="Auto" />
+                                            <RowDefinition Height="*" MinHeight="185" />
+                                            <RowDefinition Height="Auto" />
+                                            <RowDefinition Height="*" MinHeight="185" />
+                                        </Grid.RowDefinitions>
+                                        <TextBlock Foreground="{DynamicResource SubtleTextBrush}" FontSize="10" Text="L" />
+                                        <controls:WaveformRollView Grid.Row="1"
+                                                                   WaveformSamples="{Binding SelectedDetailSession.LeftWaveformSamples, Mode=OneWay}"
+                                                                   IsActive="{Binding IsInlineWaveformVisible, Mode=OneWay}"
+                                                                   PlotTick="{Binding SelectedDetailSession.WaveformPlotTick, Mode=OneWay}" />
+                                        <TextBlock Grid.Row="2" Margin="0,5,0,0" Foreground="{DynamicResource SubtleTextBrush}" FontSize="10" Text="R" />
+                                        <controls:WaveformRollView Grid.Row="3"
+                                                                   WaveformSamples="{Binding SelectedDetailSession.RightWaveformSamples, Mode=OneWay}"
+                                                                   IsActive="{Binding IsInlineWaveformVisible, Mode=OneWay}"
+                                                                   PlotTick="{Binding SelectedDetailSession.WaveformPlotTick, Mode=OneWay}" />
+                                    </Grid>
+                                </Grid>
                             </Grid>
-                        </Grid>
-                    </Border>
+                        </Border>
+                        <controls:VerticalResizeThumb TargetElement="{Binding ElementName=InlineWaveformOnlyPanel}">
+                            <controls:VerticalResizeThumb.Style>
+                                <Style BasedOn="{StaticResource {x:Type controls:VerticalResizeThumb}}" TargetType="controls:VerticalResizeThumb">
+                                    <Setter Property="Visibility" Value="Collapsed" />
+                                    <Style.Triggers>
+                                        <DataTrigger Binding="{Binding IsInlineWaveformVisible}" Value="True">
+                                            <Setter Property="Visibility" Value="Visible" />
+                                        </DataTrigger>
+                                    </Style.Triggers>
+                                </Style>
+                            </controls:VerticalResizeThumb.Style>
+                        </controls:VerticalResizeThumb>
+                        <Border Style="{StaticResource DetailModuleDropAfterHint}">
+                            <Border Height="2"
+                                    Margin="8,0"
+                                    VerticalAlignment="Center"
+                                    Background="{DynamicResource AccentBrush}"
+                                    CornerRadius="1" />
+                        </Border>
+                    </StackPanel>
+
+                    <StackPanel Grid.Row="{Binding InlineSpectrumModule.OrderIndex}"
+                                Margin="0,0,0,8"
+                                Tag="{Binding InlineSpectrumModule}"
+                                AllowDrop="True"
+                                DragOver="InlineDetailModule_OnDragOver"
+                                Drop="InlineDetailModule_OnDrop"
+                                GiveFeedback="InlineDetailModule_OnGiveFeedback">
+                        <Border Style="{StaticResource DetailModuleDropBeforeHint}">
+                            <Border Height="2"
+                                    Margin="8,0"
+                                    VerticalAlignment="Center"
+                                    Background="{DynamicResource AccentBrush}"
+                                    CornerRadius="1" />
+                        </Border>
+                        <Border x:Name="InlineSpectrumOnlyPanel"
+                                Height="{Binding InlineSpectrumModule.DisplayHeight, Mode=TwoWay, UpdateSourceTrigger=PropertyChanged}"
+                                MinHeight="{Binding InlineSpectrumOnlyPanelDisplayMinHeight}"
+                                MaxHeight="900"
+                                Padding="10"
+                                Background="{DynamicResource PanelBrush}"
+                                BorderBrush="{DynamicResource ControlBorderBrush}"
+                                BorderThickness="1"
+                                CornerRadius="6">
+                            <Grid>
+                                <Grid.RowDefinitions>
+                                    <RowDefinition Height="Auto" />
+                                    <RowDefinition Height="*" />
+                                </Grid.RowDefinitions>
+                                <Grid>
+                                    <Grid.ColumnDefinitions>
+                                        <ColumnDefinition Width="Auto" />
+                                        <ColumnDefinition Width="4" />
+                                        <ColumnDefinition Width="Auto" />
+                                        <ColumnDefinition Width="6" />
+                                        <ColumnDefinition Width="*" />
+                                        <ColumnDefinition Width="8" />
+                                        <ColumnDefinition Width="Auto" />
+                                    </Grid.ColumnDefinitions>
+                                    <TextBlock Width="14"
+                                               VerticalAlignment="Center"
+                                               Cursor="SizeAll"
+                                               FontSize="13"
+                                               Foreground="{DynamicResource DisabledTextBrush}"
+                                               MouseMove="InlineDetailModuleDragHandle_OnMouseMove"
+                                               Tag="{Binding InlineSpectrumModule}"
+                                               Text="::"
+                                               ToolTip="Drag to reorder" />
+                                    <ToggleButton Grid.Column="2"
+                                                  Style="{StaticResource DetailModuleToggleButton}"
+                                                  IsChecked="{Binding IsInlineSpectrumVisible, Mode=TwoWay}"
+                                                  ToolTip="Show spectrum" />
+                                    <TextBlock Grid.Column="4"
+                                               VerticalAlignment="Center"
+                                               Foreground="{DynamicResource SubtleTextBrush}"
+                                               FontSize="11"
+                                               Text="Spectrum" />
+                                    <Button x:Name="InlineSpectrumSettingsButton"
+                                            Grid.Column="6"
+                                            Style="{StaticResource ChromeIconButton}"
+                                            FontFamily="Segoe MDL2 Assets"
+                                            FontSize="14"
+                                            Content="&#xE713;"
+                                            ToolTip="Spectrum settings"
+                                            Click="InlineSpectrumSettingsButton_OnClick" />
+                                </Grid>
+                                <Grid Grid.Row="1" Margin="0,8,0,0">
+                                    <Grid.Style>
+                                        <Style TargetType="Grid">
+                                            <Setter Property="Visibility" Value="Collapsed" />
+                                            <Style.Triggers>
+                                                <DataTrigger Binding="{Binding IsInlineSpectrumOnlyVisible}" Value="True">
+                                                    <Setter Property="Visibility" Value="Visible" />
+                                                </DataTrigger>
+                                            </Style.Triggers>
+                                        </Style>
+                                    </Grid.Style>
+                                    <controls:SpectrumRollView SpectrumBuckets="{Binding SelectedDetailSession.SpectrumBuckets, Mode=OneWay}"
+                                                               IsActive="{Binding IsInlineSpectrumVisible, Mode=OneWay}"
+                                                               PlotTick="{Binding SelectedDetailSession.SpectrumPlotTick, Mode=OneWay}"
+                                                               DisplayFloorDb="{Binding SpectrumDisplayFloorDb, Mode=OneWay}"
+                                                               DisplayCeilingDb="{Binding SpectrumDisplayCeilingDb, Mode=OneWay}">
+                                        <controls:SpectrumRollView.Style>
+                                            <Style TargetType="controls:SpectrumRollView">
+                                                <Setter Property="Visibility" Value="Collapsed" />
+                                                <Style.Triggers>
+                                                    <DataTrigger Binding="{Binding SelectedDetailSession.IsOverallSpectrumVisible}" Value="True">
+                                                        <Setter Property="Visibility" Value="Visible" />
+                                                    </DataTrigger>
+                                                </Style.Triggers>
+                                            </Style>
+                                        </controls:SpectrumRollView.Style>
+                                    </controls:SpectrumRollView>
+                                    <Grid>
+                                        <Grid.Style>
+                                            <Style TargetType="Grid">
+                                                <Setter Property="Visibility" Value="Collapsed" />
+                                                <Style.Triggers>
+                                                    <DataTrigger Binding="{Binding SelectedDetailSession.IsChannelSpectrumVisible}" Value="True">
+                                                        <Setter Property="Visibility" Value="Visible" />
+                                                    </DataTrigger>
+                                                </Style.Triggers>
+                                            </Style>
+                                        </Grid.Style>
+                                        <Grid.RowDefinitions>
+                                            <RowDefinition Height="Auto" />
+                                            <RowDefinition Height="*" MinHeight="185" />
+                                            <RowDefinition Height="Auto" />
+                                            <RowDefinition Height="*" MinHeight="185" />
+                                        </Grid.RowDefinitions>
+                                        <TextBlock Foreground="{DynamicResource SubtleTextBrush}" FontSize="10" Text="L" />
+                                        <controls:SpectrumRollView Grid.Row="1"
+                                                                   SpectrumBuckets="{Binding SelectedDetailSession.LeftSpectrumBuckets, Mode=OneWay}"
+                                                                   IsActive="{Binding IsInlineSpectrumVisible, Mode=OneWay}"
+                                                                   PlotTick="{Binding SelectedDetailSession.SpectrumPlotTick, Mode=OneWay}"
+                                                                   DisplayFloorDb="{Binding SpectrumDisplayFloorDb, Mode=OneWay}"
+                                                                   DisplayCeilingDb="{Binding SpectrumDisplayCeilingDb, Mode=OneWay}" />
+                                        <TextBlock Grid.Row="2" Margin="0,5,0,0" Foreground="{DynamicResource SubtleTextBrush}" FontSize="10" Text="R" />
+                                        <controls:SpectrumRollView Grid.Row="3"
+                                                                   SpectrumBuckets="{Binding SelectedDetailSession.RightSpectrumBuckets, Mode=OneWay}"
+                                                                   IsActive="{Binding IsInlineSpectrumVisible, Mode=OneWay}"
+                                                                   PlotTick="{Binding SelectedDetailSession.SpectrumPlotTick, Mode=OneWay}"
+                                                                   DisplayFloorDb="{Binding SpectrumDisplayFloorDb, Mode=OneWay}"
+                                                                   DisplayCeilingDb="{Binding SpectrumDisplayCeilingDb, Mode=OneWay}" />
+                                    </Grid>
+                                </Grid>
+                            </Grid>
+                        </Border>
+                        <controls:VerticalResizeThumb TargetElement="{Binding ElementName=InlineSpectrumOnlyPanel}">
+                            <controls:VerticalResizeThumb.Style>
+                                <Style BasedOn="{StaticResource {x:Type controls:VerticalResizeThumb}}" TargetType="controls:VerticalResizeThumb">
+                                    <Setter Property="Visibility" Value="Collapsed" />
+                                    <Style.Triggers>
+                                        <DataTrigger Binding="{Binding IsInlineSpectrumVisible}" Value="True">
+                                            <Setter Property="Visibility" Value="Visible" />
+                                        </DataTrigger>
+                                    </Style.Triggers>
+                                </Style>
+                            </controls:VerticalResizeThumb.Style>
+                        </controls:VerticalResizeThumb>
+                        <Border Style="{StaticResource DetailModuleDropAfterHint}">
+                            <Border Height="2"
+                                    Margin="8,0"
+                                    VerticalAlignment="Center"
+                                    Background="{DynamicResource AccentBrush}"
+                                    CornerRadius="1" />
+                        </Border>
+                    </StackPanel>
                 </Grid>
-                <controls:VerticalResizeThumb TargetElement="{Binding ElementName=InlineRollsPanel}">
-                    <controls:VerticalResizeThumb.Style>
-                        <Style TargetType="controls:VerticalResizeThumb" BasedOn="{StaticResource {x:Type controls:VerticalResizeThumb}}">
-                            <Setter Property="Visibility" Value="Collapsed" />
-                            <Style.Triggers>
-                                <DataTrigger Binding="{Binding AreInlineRollsVisible}" Value="True">
-                                    <Setter Property="Visibility" Value="Visible" />
-                                </DataTrigger>
-                            </Style.Triggers>
-                        </Style>
-                    </controls:VerticalResizeThumb.Style>
-                </controls:VerticalResizeThumb>
                     </StackPanel>
                 </ScrollViewer>
 

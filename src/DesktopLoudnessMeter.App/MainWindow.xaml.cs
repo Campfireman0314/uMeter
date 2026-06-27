@@ -11,6 +11,7 @@ public partial class MainWindow : Window
 {
     private GlobalSettingsWindow? _globalSettingsWindow;
     private Point _sourceDragStartPoint;
+    private Point _inlineDetailModuleDragStartPoint;
 
     public MainWindow()
     {
@@ -70,9 +71,19 @@ public partial class MainWindow : Window
         window.ShowDialog();
     }
 
-    private void InlineRollSettingsButton_OnClick(object sender, RoutedEventArgs e)
+    private void InlineClockSettingsButton_OnClick(object sender, RoutedEventArgs e)
     {
-        InlineRollSettingsPopup.IsOpen = !InlineRollSettingsPopup.IsOpen;
+        InlineClockSettingsPopup.IsOpen = !InlineClockSettingsPopup.IsOpen;
+    }
+
+    private void InlineWaveformSettingsButton_OnClick(object sender, RoutedEventArgs e)
+    {
+        InlineWaveformSettingsPopup.IsOpen = !InlineWaveformSettingsPopup.IsOpen;
+    }
+
+    private void InlineSpectrumSettingsButton_OnClick(object sender, RoutedEventArgs e)
+    {
+        InlineSpectrumSettingsPopup.IsOpen = !InlineSpectrumSettingsPopup.IsOpen;
     }
 
     private void SaveInlineDetailLayoutButton_OnClick(object sender, RoutedEventArgs e)
@@ -226,11 +237,18 @@ public partial class MainWindow : Window
     {
         if (DataContext is not MainViewModel viewModel
             || sender is not FrameworkElement { DataContext: AudioSessionMeterViewModel target }
-            || e.Data.GetData(typeof(AudioSessionMeterViewModel)) is not AudioSessionMeterViewModel source
-            || ReferenceEquals(source, target))
+            || e.Data.GetData(typeof(AudioSessionMeterViewModel)) is not AudioSessionMeterViewModel source)
         {
             ClearSourceDropHints();
             e.Effects = DragDropEffects.None;
+            e.Handled = true;
+            return;
+        }
+
+        if (ReferenceEquals(source, target))
+        {
+            ClearSourceDropHints();
+            e.Effects = DragDropEffects.Move;
             e.Handled = true;
             return;
         }
@@ -264,7 +282,96 @@ public partial class MainWindow : Window
         if (e.Effects == DragDropEffects.None)
         {
             ClearSourceDropHints();
+            return;
         }
+
+        UseMoveDragCursor(e);
+    }
+
+    private void InlineDetailModuleDragHandle_OnMouseMove(object sender, MouseEventArgs e)
+    {
+        if (sender is not FrameworkElement { Tag: DetailModuleViewModel module } element)
+        {
+            return;
+        }
+
+        if (e.LeftButton != MouseButtonState.Pressed)
+        {
+            _inlineDetailModuleDragStartPoint = e.GetPosition(this);
+            return;
+        }
+
+        var position = e.GetPosition(this);
+        if (Math.Abs(position.X - _inlineDetailModuleDragStartPoint.X) < SystemParameters.MinimumHorizontalDragDistance
+            && Math.Abs(position.Y - _inlineDetailModuleDragStartPoint.Y) < SystemParameters.MinimumVerticalDragDistance)
+        {
+            return;
+        }
+
+        DragDrop.DoDragDrop(element, module, DragDropEffects.Move);
+        ClearInlineDetailModuleDropHints();
+    }
+
+    private void InlineDetailModule_OnDragOver(object sender, DragEventArgs e)
+    {
+        if (DataContext is not MainViewModel viewModel
+            || sender is not FrameworkElement { Tag: DetailModuleViewModel target }
+            || e.Data.GetData(typeof(DetailModuleViewModel)) is not DetailModuleViewModel source)
+        {
+            ClearInlineDetailModuleDropHints();
+            e.Effects = DragDropEffects.None;
+            e.Handled = true;
+            return;
+        }
+
+        if (ReferenceEquals(source, target))
+        {
+            ClearInlineDetailModuleDropHints();
+            e.Effects = DragDropEffects.Move;
+            e.Handled = true;
+            return;
+        }
+
+        var insertAfter = ShouldInsertAfter(e, sender);
+        foreach (var module in viewModel.InlineDetailModules)
+        {
+            module.SetReorderDropHint(ReferenceEquals(module, target) && !insertAfter, ReferenceEquals(module, target) && insertAfter);
+        }
+
+        e.Effects = DragDropEffects.Move;
+        e.Handled = true;
+    }
+
+    private void InlineDetailModule_OnDrop(object sender, DragEventArgs e)
+    {
+        if (DataContext is not MainViewModel viewModel
+            || sender is not FrameworkElement { Tag: DetailModuleViewModel target }
+            || e.Data.GetData(typeof(DetailModuleViewModel)) is not DetailModuleViewModel source)
+        {
+            return;
+        }
+
+        viewModel.MoveInlineDetailModuleTo(source, target, ShouldInsertAfter(e, sender));
+        ClearInlineDetailModuleDropHints();
+        e.Handled = true;
+    }
+
+    private void InlineDetailModule_OnGiveFeedback(object sender, GiveFeedbackEventArgs e)
+    {
+        if (e.Effects == DragDropEffects.None)
+        {
+            ClearInlineDetailModuleDropHints();
+            return;
+        }
+
+        UseMoveDragCursor(e);
+    }
+
+    private static void UseMoveDragCursor(GiveFeedbackEventArgs e)
+    {
+        Mouse.SetCursor(Cursors.SizeAll);
+        e.UseDefaultCursors = false;
+        e.Handled = true;
     }
 
     private static bool ShouldInsertAfter(DragEventArgs e, object sender)
@@ -287,6 +394,14 @@ public partial class MainWindow : Window
         foreach (var row in viewModel.Sessions)
         {
             row.SetReorderDropHint(before: false, after: false);
+        }
+    }
+
+    private void ClearInlineDetailModuleDropHints()
+    {
+        if (DataContext is MainViewModel viewModel)
+        {
+            viewModel.ClearInlineDetailModuleDropHints();
         }
     }
 
