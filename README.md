@@ -8,30 +8,19 @@ Fast floating Windows desktop meter for seeing which app, DAW, or plugin sender 
 
 ## Usable Baseline
 
-- WPF/.NET 8 Windows desktop app.
-- Always-on-top compact overlay window with hide-to-tray, restore, pop-up detail, and exit tray actions.
-- Mixed source rows for WASAPI app/session audio, localhost loopback probes, and plugin sender instances.
-- Only one desktop app instance is allowed per user session; repeated launches activate the existing app.
-- JUCE `uMeter Sender` VST3 audio-effect plugin with pass-through audio, stable source identity, host-based default names, live source rename, temporary mute, and late desktop-app discovery.
-- Plugin sources disappear from the main list on unload, while open detail views show an `Instance not found` overlay and can switch to another active source.
-- User-reorderable source rows, duplicate-name disambiguation, source identity text, and process-lifetime handle retention.
-- Row-title alias editing, hidden-source filtering, and a global `Show hidden` toggle.
-- Peak/LUFS global display mode, true-peak options, topmost behavior, resets, and per-session details.
-- DSP engine for momentary/short-term/integrated loudness, recent-window true peak, 100 ms RMS, polar stereo image, and correlation.
-- Optional pop-up detail windows with independent topmost state, stereo scale settings, and true-peak oversampling ratio.
-- Optional waveform and spectrum panels with overall/channel display modes, vertical pan, mouse-wheel zoom, double-click reset, and stretchable panel height.
-- Optional loudness clock panel with configurable cycle length, loudness range, warning level, fan fill, scan line, time markers, hover readout, and over-range danger coloring.
-- Oversampled waveform display with dBFS scale markings.
-- Horizontally rolling Mel-scaled FFT spectrum display from 20 Hz to 22 kHz with sharp bucket rendering and raw-PCM spectrum analysis.
-- Frequency collision analyzer for comparing prominent spectrum overlap between sources, with source selection, level floor, prominence, match tolerance, cursor marker, and double-click numeric slider entry.
-- Recent Events strip for source lifecycle, true-peak max, and loudness-jump events, with type filtering and configurable retained entry count.
-- Global settings window for event history limit, future event output folder selection, and optional default detail-layout preset loading.
-- Detail panels can save and load their visualization layout/settings as JSON presets.
-- Display dB range control for the spectrograph, adjustable from `-200 to 0 dB` and defaulting to `-120 to 0 dB`.
-- Stereo image dot history/intensity control through trace persistence.
-- Optional native RfRapid C++ FFT and true-peak reconstruction acceleration, with managed fallback.
-- Packaged installer with app install path, shortcut options, and configurable VST3 install path.
-- App and tray icons are included under `src/DesktopLoudnessMeter.App/Assets`.
+- **App shell:** WPF/.NET 8 floating Windows meter with always-on-top mode, hide-to-tray, native tray restore/pop-up/exit actions, single-instance activation, themed controls, app/tray icons, and persisted user settings under `%APPDATA%\uMeter`.
+- **Source workspace:** Mixed source list for WASAPI app/session audio, localhost loopback probes, and JUCE `uMeter Sender` VST3 instances. Rows support stable source identity, user ordering, duplicate-name disambiguation, aliases, hide/show filtering, reconnect retention, and detail switching when a watched plugin instance disappears.
+- **Sender plugin:** JUCE VST3 audio-effect sender with pass-through audio, stable source handles, host-based default names, live source rename, temporary mute, late desktop-app discovery, and receiver acknowledgement/status feedback.
+- **Detail workspace:** Inline and pop-up detail panels share the same per-source settings model. Detail modules can be independently shown, hidden, dragged, reordered, saved, loaded from JSON presets, or restored from an optional validated default layout file.
+- **Detail graphs:** Stereo image plus correlation, loudness clock, waveform, and spectrograph are separate graph modules. Stereo/waveform/spectrograph/clock modules are resizeable where useful; the collision analyzer is a compact fixed-height module.
+- **Metering:** Peak/LUFS display, true-peak oversampling options, momentary/short-term/integrated loudness, recent-window true peak, 100 ms RMS, polar stereo image, and correlation.
+- **Waveform:** Oversampled dBFS waveform display with overall/channel modes, viewport-bounded rendering, vertical pan, mouse-wheel zoom, double-click reset, and inactive hidden-module gating.
+- **Spectrograph:** Horizontally rolling Mel-scaled FFT display from 20 Hz to 22 kHz using raw PCM history, dynamic viewport resolution, adjustable display range, hover frequency readout, sharp bucket rendering, and rollover-stripe protection.
+- **Loudness clock:** Configurable cycle length, loudness range, warning threshold, fan-fill plotting, scan line, time markers, hover readout, and over-range danger coloring.
+- **Collision analyzer:** Prominent spectrum-overlap comparison between sources with source selection, logarithmic/Mel scale, level floor, prominence, match tolerance, frequency cursor marker, and double-click numeric slider entry.
+- **Events and settings:** Recent Events strip for source lifecycle, true-peak max, loudness jumps, and conservative collision overlaps, with type filtering and configurable retained entry count. Global settings cover event history, future event output folder selection, and default detail-layout loading.
+- **Performance and reliability:** Eco mode, hidden graph active gates, deferred render update coalescing, theme refresh across open windows/popups, bitmap-lock retry handling, and optional native RfRapid C++ FFT/true-peak acceleration with managed fallback.
+- **Packaging:** Installer includes the desktop app and `uMeter Sender.vst3`, with app install path, shortcut options, configurable VST3 path, standard VST3 mirror install, quiet mode, and versioned artifacts.
 
 ## Run
 
