@@ -5,13 +5,15 @@ param(
     [ValidateSet("Debug", "Release")]
     [string]$Configuration = "Release",
 
-    [string]$JuceDir = "E:\JUCE",
+    [string]$JuceDir = "",
 
     [string]$Vst3BuildDir = (Join-Path $PSScriptRoot "..\build\juce-vst3"),
 
     [string]$AaxBuildDir = (Join-Path $PSScriptRoot "..\build\juce-aax"),
 
     [string]$AaxSdkDir = "",
+
+    [switch]$InstallCopy,
 
     [switch]$NoInstallCopy,
 
@@ -25,16 +27,38 @@ $aaxProjectDir = Join-Path $root "src\DesktopLoudnessMeter.JuceAaxPlugin"
 $vst3BuildDirFull = [System.IO.Path]::GetFullPath($Vst3BuildDir)
 $aaxBuildDirFull = [System.IO.Path]::GetFullPath($AaxBuildDir)
 
+function Test-IsUnderRoot {
+    param(
+        [Parameter(Mandatory = $true)]
+        [string]$Path,
+
+        [Parameter(Mandatory = $true)]
+        [string]$RootPath
+    )
+
+    $fullPath = [System.IO.Path]::GetFullPath($Path).TrimEnd([char[]]@('\', '/')) + '\'
+    $fullRoot = [System.IO.Path]::GetFullPath($RootPath).TrimEnd([char[]]@('\', '/')) + '\'
+    return $fullPath.StartsWith($fullRoot, [System.StringComparison]::OrdinalIgnoreCase)
+}
+
 function Resolve-CMake {
     $command = Get-Command cmake -ErrorAction SilentlyContinue
     if ($null -ne $command) {
         return $command.Source
     }
 
+    $vswhere = Join-Path ${env:ProgramFiles(x86)} "Microsoft Visual Studio\Installer\vswhere.exe"
+    if (Test-Path -LiteralPath $vswhere) {
+        $vsCMake = & $vswhere -latest -products * -requires Microsoft.Component.MSBuild -find "Common7\IDE\CommonExtensions\Microsoft\CMake\CMake\bin\cmake.exe" |
+            Select-Object -First 1
+        if ($vsCMake -and (Test-Path -LiteralPath $vsCMake)) {
+            return $vsCMake
+        }
+    }
+
     foreach ($candidate in @(
         "C:\Program Files\CMake\bin\cmake.exe",
-        "C:\Program Files (x86)\CMake\bin\cmake.exe",
-        "D:\Program Files\Microsoft Visual Studio\2022\BuildTools\Common7\IDE\CommonExtensions\Microsoft\CMake\CMake\bin\cmake.exe"
+        "C:\Program Files (x86)\CMake\bin\cmake.exe"
     )) {
         if (Test-Path -LiteralPath $candidate) {
             return $candidate
@@ -42,6 +66,35 @@ function Resolve-CMake {
     }
 
     throw "CMake was not found. Install CMake or add it to PATH."
+}
+
+function Resolve-JuceDir {
+    param(
+        [string]$ConfiguredPath
+    )
+
+    if (-not [string]::IsNullOrWhiteSpace($ConfiguredPath)) {
+        if (Test-Path -LiteralPath (Join-Path $ConfiguredPath "CMakeLists.txt")) {
+            return [System.IO.Path]::GetFullPath($ConfiguredPath)
+        }
+
+        throw "JUCE_DIR must point to a JUCE checkout containing CMakeLists.txt. Current value: $ConfiguredPath"
+    }
+
+    $candidates = @(
+        $env:JUCE_DIR,
+        $env:JUCE_ROOT,
+        "C:\JUCE",
+        "E:\JUCE"
+    ) | Where-Object { -not [string]::IsNullOrWhiteSpace($_) } | Select-Object -Unique
+
+    foreach ($candidate in $candidates) {
+        if (Test-Path -LiteralPath (Join-Path $candidate "CMakeLists.txt")) {
+            return [System.IO.Path]::GetFullPath($candidate)
+        }
+    }
+
+    throw "JUCE checkout was not found. Pass -JuceDir <path> or set JUCE_DIR to a checkout containing CMakeLists.txt."
 }
 
 function Resolve-CMakeTool {
@@ -66,6 +119,44 @@ function Resolve-CMakeTool {
     return $ToolName
 }
 
+function Clear-StaleCMakeBuildDirectory {
+    param(
+        [Parameter(Mandatory = $true)]
+        [string]$BuildDir,
+
+        [Parameter(Mandatory = $true)]
+        [string]$SourceDir
+    )
+
+    $cache = Join-Path $BuildDir "CMakeCache.txt"
+    if (-not (Test-Path -LiteralPath $cache)) {
+        return
+    }
+
+    $cachedHome = Select-String -Path $cache -Pattern '^CMAKE_HOME_DIRECTORY:INTERNAL=(.*)$' |
+        ForEach-Object { $_.Matches[0].Groups[1].Value } |
+        Select-Object -First 1
+
+    if ([string]::IsNullOrWhiteSpace($cachedHome)) {
+        return
+    }
+
+    $sourceFull = [System.IO.Path]::GetFullPath($SourceDir).TrimEnd([char[]]@('\', '/'))
+    $cachedFull = [System.IO.Path]::GetFullPath($cachedHome).TrimEnd([char[]]@('\', '/'))
+    if ($sourceFull.Equals($cachedFull, [System.StringComparison]::OrdinalIgnoreCase)) {
+        return
+    }
+
+    if (-not (Test-IsUnderRoot -Path $BuildDir -RootPath $root)) {
+        throw "Refusing to clean stale CMake build directory outside the repository: $BuildDir"
+    }
+
+    Write-Host "Removing stale CMake build directory: $BuildDir"
+    Write-Host "  cached source: $cachedFull"
+    Write-Host "  current source: $sourceFull"
+    Remove-Item -LiteralPath $BuildDir -Recurse -Force
+}
+
 function Invoke-Native {
     param(
         [Parameter(Mandatory = $true)]
@@ -86,13 +177,18 @@ function Invoke-Native {
 
 $cmake = Resolve-CMake
 $ctest = Resolve-CMakeTool "ctest.exe" $cmake
-$copyVst3 = "ON"
-$copyAax = "ON"
+$JuceDir = Resolve-JuceDir $JuceDir
+$copyVst3 = "OFF"
+$copyAax = "OFF"
 $buildTests = "OFF"
 
-if ($NoInstallCopy) {
-    $copyVst3 = "OFF"
-    $copyAax = "OFF"
+if ($InstallCopy -and $NoInstallCopy) {
+    throw "Use either -InstallCopy or -NoInstallCopy, not both."
+}
+
+if ($InstallCopy) {
+    $copyVst3 = "ON"
+    $copyAax = "ON"
 }
 
 if ($RunTests) {
@@ -100,6 +196,8 @@ if ($RunTests) {
 }
 
 if ($Format -eq "VST3" -or $Format -eq "Both" -or $RunTests) {
+    Clear-StaleCMakeBuildDirectory -BuildDir $vst3BuildDirFull -SourceDir $vst3ProjectDir
+
     Invoke-Native "JUCE VST3 configure" $cmake @(
         "-S", $vst3ProjectDir,
         "-B", $vst3BuildDirFull,
@@ -133,6 +231,8 @@ if ($Format -eq "VST3" -or $Format -eq "Both" -or $RunTests) {
 }
 
 if ($Format -eq "AAX" -or $Format -eq "Both") {
+    Clear-StaleCMakeBuildDirectory -BuildDir $aaxBuildDirFull -SourceDir $aaxProjectDir
+
     $configureArgs = @(
         "-S", $aaxProjectDir,
         "-B", $aaxBuildDirFull,

@@ -11,7 +11,7 @@ public sealed class WaveformRollView : FrameworkElement
     private const double MaximumValue = 1;
     private const double MinimumViewportSpan = 0.08;
     private const double PreferredPlotHeight = 122;
-    private const int MaximumRenderedWaveformPoints = 720;
+    private const int MaximumSmoothedWaveformPoints = 360;
     private static readonly double[] DecibelMarks = [0, -6, -12, -18];
     private bool _isPanning;
     private Point _panStart;
@@ -33,9 +33,9 @@ public sealed class WaveformRollView : FrameworkElement
         _waveformUpdate = new DeferredRenderUpdate(this, CanApplyWaveformUpdate, ApplyPendingWaveformUpdate);
         Cursor = Cursors.SizeNS;
         SnapsToDevicePixels = true;
-        Loaded += (_, _) => ApplyPendingWaveformUpdateIfReady();
-        IsVisibleChanged += (_, _) => ApplyPendingWaveformUpdateIfReady();
-        SizeChanged += (_, _) => ApplyPendingWaveformUpdateIfReady();
+        Loaded += (_, _) => RequestWaveformUpdateIfReady();
+        IsVisibleChanged += (_, _) => RequestWaveformUpdateIfReady();
+        SizeChanged += (_, _) => RequestWaveformUpdateIfReady();
     }
 
     public static readonly DependencyProperty WaveformSamplesProperty = DependencyProperty.Register(
@@ -60,6 +60,18 @@ public sealed class WaveformRollView : FrameworkElement
     {
         get => (long)GetValue(PlotTickProperty);
         set => SetValue(PlotTickProperty, value);
+    }
+
+    public static readonly DependencyProperty IsActiveProperty = DependencyProperty.Register(
+        nameof(IsActive),
+        typeof(bool),
+        typeof(WaveformRollView),
+        new FrameworkPropertyMetadata(true, IsActiveChanged));
+
+    public bool IsActive
+    {
+        get => (bool)GetValue(IsActiveProperty);
+        set => SetValue(IsActiveProperty, value);
     }
 
     protected override Size MeasureOverride(Size availableSize)
@@ -287,7 +299,7 @@ public sealed class WaveformRollView : FrameworkElement
         using (var context = geometry.Open())
         {
             context.BeginFigure(points[0], false, false);
-            if (points.Count < 4)
+            if (points.Count < 4 || points.Count > MaximumSmoothedWaveformPoints)
             {
                 for (var index = 1; index < points.Count; index++)
                 {
@@ -320,7 +332,8 @@ public sealed class WaveformRollView : FrameworkElement
 
     private IReadOnlyList<Point> CreateDisplayPoints(IReadOnlyList<double> samples, Rect plot)
     {
-        if (samples.Count <= MaximumRenderedWaveformPoints)
+        var pointBudget = WaveformRenderResolution.PointBudgetForPlotWidth(plot.Width);
+        if (samples.Count <= pointBudget)
         {
             var points = new Point[samples.Count];
             for (var index = 0; index < samples.Count; index++)
@@ -331,8 +344,8 @@ public sealed class WaveformRollView : FrameworkElement
             return points;
         }
 
-        var stride = (double)(samples.Count - 1) / (MaximumRenderedWaveformPoints - 1);
-        var decimated = new Point[MaximumRenderedWaveformPoints];
+        var stride = (double)(samples.Count - 1) / (pointBudget - 1);
+        var decimated = new Point[pointBudget];
         for (var index = 0; index < decimated.Length; index++)
         {
             decimated[index] = SampleToPoint(samples, (int)Math.Round(index * stride), samples.Count, plot);
@@ -444,19 +457,35 @@ public sealed class WaveformRollView : FrameworkElement
         }
     }
 
+    private static void IsActiveChanged(DependencyObject dependencyObject, DependencyPropertyChangedEventArgs args)
+    {
+        if (dependencyObject is WaveformRollView view)
+        {
+            view.RequestWaveformUpdateIfReady();
+        }
+    }
+
     private void ScheduleWaveformUpdate(IReadOnlyList<double>? samples)
     {
         _pendingWaveformSamples = samples is { Count: > 0 } ? samples : null;
-        _waveformUpdate.Request();
+        RequestWaveformUpdateIfReady();
     }
 
-    private void ApplyPendingWaveformUpdateIfReady()
+    private void RequestWaveformUpdateIfReady()
     {
-        _waveformUpdate.TryApply();
+        if (CanApplyWaveformUpdate())
+        {
+            _waveformUpdate.Request();
+        }
     }
 
     private void ApplyPendingWaveformUpdate()
     {
+        if (ReferenceEquals(_renderedWaveformSamples, _pendingWaveformSamples))
+        {
+            return;
+        }
+
         _renderedWaveformSamples = _pendingWaveformSamples;
         InvalidateWaveformGeometry();
         InvalidateVisual();
@@ -465,6 +494,7 @@ public sealed class WaveformRollView : FrameworkElement
     private bool CanApplyWaveformUpdate()
     {
         return IsLoaded
+            && IsActive
             && IsVisible
             && Visibility == Visibility.Visible
             && ActualWidth > 0

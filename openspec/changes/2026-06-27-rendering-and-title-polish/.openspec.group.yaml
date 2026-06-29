@@ -1,0 +1,6 @@
+kind: group
+created: 2026-06-27
+execution_mode: mixed
+suggested_focus: 04-loudness-clock-polish
+active_subchange: 04-loudness-clock-polish
+recommended_order: 01-rendering-performance-responsive-spectrum,02-unified-source-title-editors,03-loudness-clock-graph,04-loudness-clock-polish

@@ -204,19 +204,15 @@ public sealed class LocalLoopbackSignalSourceService :
             return;
         }
 
-        if (_sourcesByHandle.TryGetValue(packet.Handle, out var source)
-            && source.SampleRate == sampleRate
-            && source.Channels == channels)
+        if (_sourcesByHandle.TryGetValue(packet.Handle, out var source))
         {
-            source.DisplayName = NormalizeDisplayName(packet.DisplayName, packet.Handle);
-            source.SourceKind = NormalizeSourceKind(packet.SourceKind);
-            source.Touch(_clock());
+            source.Reconfigure(
+                NormalizeDisplayName(packet.DisplayName, packet.Handle),
+                NormalizeSourceKind(packet.SourceKind),
+                sampleRate,
+                channels,
+                _clock());
             return;
-        }
-
-        if (_sourcesByHandle.Remove(packet.Handle, out var previousSource))
-        {
-            previousSource.Dispose();
         }
 
         _sourcesByHandle[packet.Handle] = new SourceState(
@@ -389,9 +385,9 @@ public sealed class LocalLoopbackSignalSourceService :
 
         public SignalSourceKind SourceKind { get; set; }
 
-        public int SampleRate { get; }
+        public int SampleRate { get; private set; }
 
-        public int Channels { get; }
+        public int Channels { get; private set; }
 
         public DateTimeOffset LastSeenAt { get; private set; }
 
@@ -402,6 +398,36 @@ public sealed class LocalLoopbackSignalSourceService :
         public void Touch(DateTimeOffset timestamp)
         {
             LastSeenAt = timestamp;
+        }
+
+        public void Reconfigure(
+            string displayName,
+            SignalSourceKind sourceKind,
+            int sampleRate,
+            int channels,
+            DateTimeOffset timestamp)
+        {
+            DisplayName = displayName;
+            SourceKind = sourceKind;
+            LastSeenAt = timestamp;
+
+            if (SampleRate == sampleRate && Channels == channels)
+            {
+                return;
+            }
+
+            SampleRate = sampleRate;
+            Channels = channels;
+            Peak = 0;
+            var previousAnalyzer = _analyzer;
+            _analyzer = CreateAnalyzer(
+                sampleRate,
+                channels,
+                _truePeakOversampling,
+                _channelWaveformEnabled,
+                _channelSpectrumEnabled,
+                _performanceMode);
+            previousAnalyzer.Dispose();
         }
 
         public void Process(IReadOnlyList<float> samples)

@@ -1,5 +1,6 @@
 using System.Windows;
 using System.Windows.Controls.Primitives;
+using System.Windows.Data;
 using System.Windows.Input;
 
 namespace DesktopLoudnessMeter.App.Controls;
@@ -16,6 +17,7 @@ public sealed class VerticalResizeThumb : Thumb
     {
         Cursor = Cursors.SizeNS;
         DragDelta += HandleDragDelta;
+        DragCompleted += (_, _) => UpdateHeightSource();
     }
 
     public FrameworkElement? TargetElement
@@ -31,9 +33,21 @@ public sealed class VerticalResizeThumb : Thumb
             return;
         }
 
-        var currentHeight = double.IsNaN(target.Height) ? target.ActualHeight : target.Height;
+        var currentHeight = double.IsNaN(target.Height)
+            ? target.ActualHeight
+            : Math.Max(target.Height, target.ActualHeight);
         var minimumHeight = target.MinHeight > 0 ? target.MinHeight : 90;
         var maximumHeight = target.MaxHeight > 0 && !double.IsInfinity(target.MaxHeight) ? target.MaxHeight : 520;
-        target.Height = Math.Clamp(currentHeight + args.VerticalChange, minimumHeight, maximumHeight);
+        target.SetCurrentValue(
+            FrameworkElement.HeightProperty,
+            Math.Clamp(currentHeight + args.VerticalChange, minimumHeight, maximumHeight));
+    }
+
+    private void UpdateHeightSource()
+    {
+        if (TargetElement is { } target)
+        {
+            BindingOperations.GetBindingExpression(target, FrameworkElement.HeightProperty)?.UpdateSource();
+        }
     }
 }

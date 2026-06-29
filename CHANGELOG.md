@@ -4,6 +4,106 @@
 
 - Nothing yet.
 
+## v2.3.4 - 2026-06-27
+
+Draggable detail-graph polish patch.
+
+### Changed
+
+- Collision analyzer modules keep their original compact fixed height and no longer expose a stretch handle.
+- App, setup, protocol, sender kit, sender probe, VST3 sender project, and AAX sender project metadata now report version `2.3.4`.
+- Default versioned installer artifact is now `uMeter-Setup-2.3.4.exe`.
+
+### Fixed
+
+- Detail graph reorder hints no longer animate layout height, avoiding block twitch near neighboring module rims.
+- Hidden waveform, spectrograph, and loudness-clock modules now stop tick-driven render work while inactive.
+- Detail resize grips use the themed handle template when graph-specific visibility styles are applied.
+- Source and detail title banners now show `Double click to edit alias` on hover.
+
+### Verified
+
+- `dotnet test .\desktop-loudness-meter.sln --no-restore` with 275 passing tests.
+- `dotnet build .\desktop-loudness-meter.sln --no-restore`.
+
+## v2.3.3 - 2026-06-27
+
+UI reliability, detail-layout preset, and loudness-clock interaction patch.
+
+### Added
+
+- Added JSON detail-layout presets with save/load icons for inline and pop-up detail panels.
+- Added a global setting that can load the default detail layout from a preset file, with validation and built-in fallback when the file is invalid.
+- Added loudness-clock time scale markers and a hover readout blob for time/value inspection.
+
+### Changed
+
+- Moved detail-layout preset save/load icons into the top detail header beside the detail controls.
+- Tray right-click handling now uses the native `NotifyIcon.ContextMenuStrip` open flow and rebuilds the menu on open.
+- Theme changes now refresh resource-backed controls across open windows and popups so slider colors update immediately.
+- App, setup, protocol, sender kit, sender probe, VST3 sender project, and AAX sender project metadata now report version `2.3.3`.
+- Default versioned installer artifact is now `uMeter-Setup-2.3.3.exe`.
+
+### Verified
+
+- `dotnet test .\desktop-loudness-meter.sln --no-restore` with 269 passing tests.
+- `dotnet build .\desktop-loudness-meter.sln --no-restore`.
+
+## v2.3.2 - 2026-06-27
+
+Rendering and loudness-clock polish patch.
+
+### Added
+
+- Added an optional loudness clock with configurable cycle duration, loudness range, warning level, fan fill, and current-position scan line.
+- Added over-maximum loudness classification so clipped clock values render with a stronger danger color at the outer display boundary.
+
+### Changed
+
+- Waveform rendering now uses viewport-bounded point budgets to reduce long-session drag on lower-end CPUs.
+- Spectrograph rendering now adapts its history and frequency resolution to the viewport and avoids rollover stripe artifacts.
+- Inline and pop-up detail title editing now use the same source-title editor pattern as source rows.
+- Clock controls now appear before Waveform controls in detail visualization toggles.
+- App, setup, protocol, sender kit, sender probe, VST3 sender project, and AAX sender project metadata now report version `2.3.2`.
+- Default versioned installer artifact is now `uMeter-Setup-2.3.2.exe`.
+
+### Fixed
+
+- Loudness clock fan rendering bridges cycle-origin wraps so the twelve-o'clock origin does not show a thin slit.
+
+### Verified
+
+- `dotnet test .\tests\DesktopLoudnessMeter.Tests\DesktopLoudnessMeter.Tests.csproj` with 258 passing tests.
+- `dotnet build .\desktop-loudness-meter.sln`.
+
+## v2.3.0 - 2026-06-26
+
+Source continuity and workspace-control release.
+
+### Added
+
+- Added single-instance desktop launch coordination; secondary launches request activation of the existing app and exit before creating receivers, tray icons, settings writers, or windows.
+- Added inline row-title alias editing from the global source list.
+- Added per-source hide/restore controls plus a global `Show hidden` toggle.
+- Added persistent source ordering controls that survive refreshes and WASAPI hibernation/reconnect when source keys remain stable.
+- Added spectrograph diagnostics around tone localization, oversampling invariance, and sharp renderer bucket mapping.
+
+### Changed
+
+- Same-handle loopback re-registration now reconfigures an existing source instead of closing/recreating it.
+- JUCE sender same-handle restarts no longer emit an intervening `close` packet during sample-rate/channel reconfiguration.
+- Temporary handle loss and analyzer warmup no longer blank existing waveform/spectrum roll buffers.
+- Spectrograph rendering now uses direct bucket-to-row mapping and nearest-neighbor bitmap scaling instead of hidden vertical smoothing/gap filling.
+- Spectrum FFT input now uses raw PCM history instead of the true-peak oversampled waveform buffer, keeping dominant bucket placement stable across true-peak oversampling ratios.
+- App, setup, protocol, sender kit, sender probe, VST3 sender project, and AAX sender project metadata now report version `2.3.0`.
+
+### Verified
+
+- `dotnet test .\tests\DesktopLoudnessMeter.Tests\DesktopLoudnessMeter.Tests.csproj` with 231 passing tests.
+- `dotnet build .\desktop-loudness-meter.sln`.
+- `.\scripts\build-juce-sender.ps1 -Format VST3 -Configuration Debug -RunTests`.
+- `.\build-installer.ps1 -Configuration Release` produced `artifacts\uMeter-Setup-2.3.0.exe` with SHA256 `5C960D7F41969773738928B3B6145B8CED35F9278D838246B64D9995FE977263`.
+
 ## v2.2.8 - 2026-06-21
 
 RfRapid true-peak acceleration release.

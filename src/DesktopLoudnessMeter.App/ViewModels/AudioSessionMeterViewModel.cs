@@ -40,13 +40,21 @@ public sealed class AudioSessionMeterViewModel : ObservableObject
     private IReadOnlyList<double> _rightSpectrumBuckets = EmptyDoubleSamples;
     private long _waveformPlotTick;
     private long _spectrumPlotTick;
+    private long _loudnessClockPlotTick;
     private long _lastWaveformPlotFrameVersion;
     private long _lastSpectrumPlotFrameVersion;
+    private long _lastLoudnessClockPlotFrameVersion;
     private int _resetCount;
     private TruePeakOversampling _truePeakOversampling = TruePeakOversampling.FourX;
     private WaveformDisplayMode _waveformDisplayMode = WaveformDisplayMode.Overall;
     private SpectrumDisplayMode _spectrumDisplayMode = SpectrumDisplayMode.Overall;
     private bool _isInstanceMissing;
+    private bool _isHidden;
+    private int? _orderIndex;
+    private bool _isAliasEditing;
+    private string _aliasEditText = string.Empty;
+    private bool _isReorderDropBefore;
+    private bool _isReorderDropAfter;
 
     public AudioSessionMeterViewModel(SignalSourceSnapshot snapshot)
     {
@@ -64,6 +72,13 @@ public sealed class AudioSessionMeterViewModel : ObservableObject
         ResetCommand = new RelayCommand(_ => RequestReset());
         OpenDetailCommand = new RelayCommand(_ => DetailRequested?.Invoke(this));
         OpenPopupCommand = new RelayCommand(_ => PopupRequested?.Invoke(this));
+        StartAliasEditCommand = new RelayCommand(_ => StartAliasEdit());
+        CommitAliasEditCommand = new RelayCommand(_ => CommitAliasEdit());
+        CancelAliasEditCommand = new RelayCommand(_ => CancelAliasEdit());
+        HideSourceCommand = new RelayCommand(_ => HideRequested?.Invoke(this), _ => !IsHidden);
+        RestoreSourceCommand = new RelayCommand(_ => RestoreRequested?.Invoke(this), _ => IsHidden);
+        MoveUpCommand = new RelayCommand(_ => MoveUpRequested?.Invoke(this));
+        MoveDownCommand = new RelayCommand(_ => MoveDownRequested?.Invoke(this));
     }
 
     public string SourceKey
@@ -261,6 +276,20 @@ public sealed class AudioSessionMeterViewModel : ObservableObject
 
     public ICommand OpenPopupCommand { get; }
 
+    public ICommand StartAliasEditCommand { get; }
+
+    public ICommand CommitAliasEditCommand { get; }
+
+    public ICommand CancelAliasEditCommand { get; }
+
+    public ICommand HideSourceCommand { get; }
+
+    public ICommand RestoreSourceCommand { get; }
+
+    public ICommand MoveUpCommand { get; }
+
+    public ICommand MoveDownCommand { get; }
+
     public event Action<AudioSessionMeterViewModel>? DetailRequested;
 
     public event Action<AudioSessionMeterViewModel>? PopupRequested;
@@ -273,7 +302,17 @@ public sealed class AudioSessionMeterViewModel : ObservableObject
 
     public event Action<AudioSessionMeterViewModel, string?>? AliasChanged;
 
+    public event Action<AudioSessionMeterViewModel>? HideRequested;
+
+    public event Action<AudioSessionMeterViewModel>? RestoreRequested;
+
+    public event Action<AudioSessionMeterViewModel>? MoveUpRequested;
+
+    public event Action<AudioSessionMeterViewModel>? MoveDownRequested;
+
     public string MomentaryLufsText => FormatLufs(_momentaryLufs);
+
+    public double LoudnessClockMomentaryDb => _momentaryLufs ?? double.NaN;
 
     public string ShortTermLufsText => FormatLufs(_shortTermLufs);
 
@@ -331,6 +370,8 @@ public sealed class AudioSessionMeterViewModel : ObservableObject
 
     public long SpectrumPlotTick => _spectrumPlotTick;
 
+    public long LoudnessClockPlotTick => _loudnessClockPlotTick;
+
     public IReadOnlyList<double> LeftSpectrumBuckets => _leftSpectrumBuckets;
 
     public IReadOnlyList<double> RightSpectrumBuckets => _rightSpectrumBuckets;
@@ -347,6 +388,49 @@ public sealed class AudioSessionMeterViewModel : ObservableObject
     {
         get => _isInstanceMissing;
         private set => SetProperty(ref _isInstanceMissing, value);
+    }
+
+    public bool IsHidden
+    {
+        get => _isHidden;
+        private set
+        {
+            if (SetProperty(ref _isHidden, value))
+            {
+                (HideSourceCommand as RelayCommand)?.RaiseCanExecuteChanged();
+                (RestoreSourceCommand as RelayCommand)?.RaiseCanExecuteChanged();
+            }
+        }
+    }
+
+    public int? OrderIndex
+    {
+        get => _orderIndex;
+        private set => SetProperty(ref _orderIndex, value);
+    }
+
+    public bool IsAliasEditing
+    {
+        get => _isAliasEditing;
+        private set => SetProperty(ref _isAliasEditing, value);
+    }
+
+    public string AliasEditText
+    {
+        get => _aliasEditText;
+        set => SetProperty(ref _aliasEditText, value ?? string.Empty);
+    }
+
+    public bool IsReorderDropBefore
+    {
+        get => _isReorderDropBefore;
+        private set => SetProperty(ref _isReorderDropBefore, value);
+    }
+
+    public bool IsReorderDropAfter
+    {
+        get => _isReorderDropAfter;
+        private set => SetProperty(ref _isReorderDropAfter, value);
     }
 
     public event Action<AudioSessionMeterViewModel>? ResetRequested;
@@ -385,21 +469,48 @@ public sealed class AudioSessionMeterViewModel : ObservableObject
         ClearAnalyzerMetrics();
     }
 
+    public void ApplyWorkspaceState(bool isHidden, int? orderIndex)
+    {
+        IsHidden = isHidden;
+        OrderIndex = orderIndex is int value && value >= 0 ? value : null;
+    }
+
+    public void SetReorderDropHint(bool before, bool after)
+    {
+        if (before && after)
+        {
+            after = false;
+        }
+
+        IsReorderDropBefore = before;
+        IsReorderDropAfter = after;
+    }
+
+    public void StartAliasEdit()
+    {
+        AliasEditText = Alias ?? DisplayName;
+        IsAliasEditing = true;
+    }
+
+    public void CommitAliasEdit()
+    {
+        Alias = AliasEditText;
+        IsAliasEditing = false;
+    }
+
+    public void CancelAliasEdit()
+    {
+        AliasEditText = Alias ?? DisplayName;
+        IsAliasEditing = false;
+    }
+
     public void MarkAudioHandleMissing()
     {
         PeakDbText = "handle n/a";
         _hasLivePeak = false;
         DisplayLevel = SmoothLevel(0);
         State = "Source handle missing";
-
-        if (HasAnalyzerMetrics)
-        {
-            ClearAnalyzerMetrics();
-        }
-        else
-        {
-            RefreshPrimaryValueText();
-        }
+        RefreshPrimaryValueText();
     }
 
     public void MarkInstanceNotFound()
@@ -444,17 +555,29 @@ public sealed class AudioSessionMeterViewModel : ObservableObject
         var stereoYChanged = SetMetric(ref _stereoImageY, snapshot.StereoImageY);
         var stereoPointsChanged = SetMetric(ref _stereoImagePoints, snapshot.StereoImagePoints ?? EmptyStereoImagePoints);
         var correlationChanged = SetMetric(ref _correlation, snapshot.Correlation);
-        var waveformChanged = SetMetric(ref _waveformSamples, snapshot.WaveformSamples ?? EmptyDoubleSamples);
-        var leftWaveformChanged = SetMetric(ref _leftWaveformSamples, GetChannelWaveform(snapshot, 0));
-        var rightWaveformChanged = SetMetric(ref _rightWaveformSamples, GetChannelWaveform(snapshot, 1));
-        var spectrumChanged = SetMetric(ref _spectrumBuckets, snapshot.SpectrumBuckets ?? EmptyDoubleSamples);
-        var leftSpectrumChanged = SetMetric(ref _leftSpectrumBuckets, GetChannelSpectrum(snapshot, 0));
-        var rightSpectrumChanged = SetMetric(ref _rightSpectrumBuckets, GetChannelSpectrum(snapshot, 1));
+        var hasWaveformFrame = HasSamples(snapshot.WaveformSamples);
+        var hasSpectrumFrame = HasSamples(snapshot.SpectrumBuckets);
+        var waveformChanged = SetMetric(ref _waveformSamples, GetSamplesOrExisting(snapshot.WaveformSamples, _waveformSamples));
+        var leftWaveformChanged = SetMetric(ref _leftWaveformSamples, GetSamplesOrExisting(GetChannelWaveform(snapshot, 0), _leftWaveformSamples));
+        var rightWaveformChanged = SetMetric(ref _rightWaveformSamples, GetSamplesOrExisting(GetChannelWaveform(snapshot, 1), _rightWaveformSamples));
+        var spectrumChanged = SetMetric(ref _spectrumBuckets, GetSamplesOrExisting(snapshot.SpectrumBuckets, _spectrumBuckets));
+        var leftSpectrumChanged = SetMetric(ref _leftSpectrumBuckets, GetSamplesOrExisting(GetChannelSpectrum(snapshot, 0), _leftSpectrumBuckets));
+        var rightSpectrumChanged = SetMetric(ref _rightSpectrumBuckets, GetSamplesOrExisting(GetChannelSpectrum(snapshot, 1), _rightSpectrumBuckets));
 
         if (momentaryChanged)
         {
             OnPropertyChanged(nameof(MomentaryLufsText));
             OnPropertyChanged(nameof(MomentaryLufsLevel));
+            OnPropertyChanged(nameof(LoudnessClockMomentaryDb));
+        }
+
+        if (snapshot.MomentaryLufs is double momentaryLufs
+            && double.IsFinite(momentaryLufs)
+            && IsFreshPlotFrame(snapshot.PlotFrameVersion, _lastLoudnessClockPlotFrameVersion))
+        {
+            _lastLoudnessClockPlotFrameVersion = snapshot.PlotFrameVersion;
+            _loudnessClockPlotTick++;
+            OnPropertyChanged(nameof(LoudnessClockPlotTick));
         }
 
         if (shortTermChanged)
@@ -510,7 +633,9 @@ public sealed class AudioSessionMeterViewModel : ObservableObject
             OnPropertyChanged(nameof(CorrelationValue));
         }
 
-        if (_waveformSamples.Count > 0 && IsFreshPlotFrame(snapshot.PlotFrameVersion, _lastWaveformPlotFrameVersion))
+        if (hasWaveformFrame
+            && (waveformChanged || leftWaveformChanged || rightWaveformChanged)
+            && IsFreshPlotFrame(snapshot.PlotFrameVersion, _lastWaveformPlotFrameVersion))
         {
             _lastWaveformPlotFrameVersion = snapshot.PlotFrameVersion;
             _waveformPlotTick++;
@@ -532,7 +657,7 @@ public sealed class AudioSessionMeterViewModel : ObservableObject
             OnPropertyChanged(nameof(RightWaveformSamples));
         }
 
-        if (_spectrumBuckets.Count > 0 && IsFreshPlotFrame(snapshot.PlotFrameVersion, _lastSpectrumPlotFrameVersion))
+        if (hasSpectrumFrame && IsFreshPlotFrame(snapshot.PlotFrameVersion, _lastSpectrumPlotFrameVersion))
         {
             _lastSpectrumPlotFrameVersion = snapshot.PlotFrameVersion;
             _spectrumPlotTick++;
@@ -575,11 +700,14 @@ public sealed class AudioSessionMeterViewModel : ObservableObject
         _rightSpectrumBuckets = EmptyDoubleSamples;
         _lastWaveformPlotFrameVersion = -1;
         _lastSpectrumPlotFrameVersion = -1;
+        _lastLoudnessClockPlotFrameVersion = -1;
         _waveformPlotTick++;
         _spectrumPlotTick++;
+        _loudnessClockPlotTick++;
         RefreshPrimaryValueText();
 
         OnPropertyChanged(nameof(MomentaryLufsText));
+        OnPropertyChanged(nameof(LoudnessClockMomentaryDb));
         OnPropertyChanged(nameof(ShortTermLufsText));
         OnPropertyChanged(nameof(IntegratedLufsText));
         OnPropertyChanged(nameof(TruePeakText));
@@ -606,6 +734,7 @@ public sealed class AudioSessionMeterViewModel : ObservableObject
         OnPropertyChanged(nameof(LeftSpectrumBuckets));
         OnPropertyChanged(nameof(RightSpectrumBuckets));
         OnPropertyChanged(nameof(SpectrumPlotTick));
+        OnPropertyChanged(nameof(LoudnessClockPlotTick));
     }
 
     private void RefreshPrimaryValueText()
@@ -685,6 +814,18 @@ public sealed class AudioSessionMeterViewModel : ObservableObject
     private static bool IsFreshPlotFrame(long plotFrameVersion, long lastPlotFrameVersion)
     {
         return plotFrameVersion != lastPlotFrameVersion;
+    }
+
+    private static IReadOnlyList<double> GetSamplesOrExisting(
+        IReadOnlyList<double>? samples,
+        IReadOnlyList<double> existingSamples)
+    {
+        return samples is { Count: > 0 } ? samples : existingSamples;
+    }
+
+    private static bool HasSamples(IReadOnlyList<double>? samples)
+    {
+        return samples is { Count: > 0 };
     }
 
     private bool UpdateTruePeakMax(double? value)

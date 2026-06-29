@@ -1,6 +1,7 @@
 using DesktopLoudnessMeter.App.Audio;
 using DesktopLoudnessMeter.App.Settings;
 using DesktopLoudnessMeter.App.ViewModels;
+using System.IO;
 
 namespace DesktopLoudnessMeter.Tests.ViewModels;
 
@@ -19,6 +20,7 @@ public sealed class DetailWindowViewModelTests
 
         Assert.False(first.IsAlwaysOnTop);
         Assert.True(second.IsAlwaysOnTop);
+        Assert.True(first.IsStereoVisible);
         Assert.False(first.IsWaveformVisible);
         Assert.False(first.IsSpectrumVisible);
         Assert.False(first.IsCollisionVisible);
@@ -42,8 +44,9 @@ public sealed class DetailWindowViewModelTests
 
         viewModel.IsWaveformVisible = true;
 
-        Assert.False(viewModel.IsSpectrumOnlyVisible);
-        Assert.True(viewModel.AreRollsVisible);
+        Assert.True(viewModel.IsSpectrumOnlyVisible);
+        Assert.True(viewModel.IsWaveformOnlyVisible);
+        Assert.False(viewModel.AreRollsVisible);
     }
 
     [Fact]
@@ -112,13 +115,20 @@ public sealed class DetailWindowViewModelTests
         var settings = workspace.GetOrCreateSource("plugin:first");
         settings.PopupWaveformVisible = true;
         settings.PopupSpectrumVisible = true;
+        settings.PopupLoudnessClockVisible = true;
         settings.PopupCollisionVisible = true;
+        settings.PopupStereoVisible = false;
         settings.PopupCollisionSourceKey = "plugin:second";
         settings.CollisionLevelFloorDb = -84;
         settings.CollisionProminenceThresholdDb = 9;
         settings.CollisionRelativeThreshold = 0.3;
+        settings.CollisionFrequencyScale = CollisionFrequencyScale.Logarithmic;
         settings.SpectrumDisplayFloorDb = -160;
         settings.SpectrumDisplayCeilingDb = -18;
+        settings.LoudnessClockMinimumDb = -50;
+        settings.LoudnessClockMaximumDb = -4;
+        settings.LoudnessClockWarningDb = -16;
+        settings.LoudnessClockCycleSeconds = 75;
         settings.PopupStereo = new StereoWorkspaceSettings { ScaleRangeDb = 48 };
         var first = new AudioSessionMeterViewModel(Snapshot("plugin:first", "First", spectrumBuckets: [0.0, 0.4]));
         var second = new AudioSessionMeterViewModel(Snapshot("plugin:second", "Second", spectrumBuckets: [0.0, 0.41]));
@@ -127,13 +137,20 @@ public sealed class DetailWindowViewModelTests
 
         Assert.True(viewModel.IsWaveformVisible);
         Assert.True(viewModel.IsSpectrumVisible);
+        Assert.True(viewModel.IsLoudnessClockVisible);
         Assert.True(viewModel.IsCollisionVisible);
+        Assert.False(viewModel.IsStereoVisible);
         Assert.Equal("plugin:second", viewModel.SelectedFrequencyCollisionSourceKey);
         Assert.Equal(-84, viewModel.CollisionLevelFloorDb);
         Assert.Equal(9, viewModel.CollisionProminenceThresholdDb);
         Assert.Equal(0.3, viewModel.CollisionRelativeThreshold);
+        Assert.Equal(CollisionFrequencyScale.Logarithmic, viewModel.CollisionFrequencyScale);
         Assert.Equal(-160, viewModel.SpectrumDisplayFloorDb);
         Assert.Equal(-18, viewModel.SpectrumDisplayCeilingDb);
+        Assert.Equal(-50, viewModel.LoudnessClockMinimumDb);
+        Assert.Equal(-4, viewModel.LoudnessClockMaximumDb);
+        Assert.Equal(-16, viewModel.LoudnessClockWarningDb);
+        Assert.Equal(75, viewModel.LoudnessClockCycleSeconds);
         Assert.Equal(48, viewModel.StereoSettings.ScaleRangeDb);
     }
 
@@ -147,27 +164,189 @@ public sealed class DetailWindowViewModelTests
 
         viewModel.IsWaveformVisible = true;
         viewModel.IsSpectrumVisible = true;
+        viewModel.IsLoudnessClockVisible = true;
         viewModel.IsCollisionVisible = true;
+        viewModel.IsStereoVisible = false;
         viewModel.SelectedFrequencyCollisionSourceKey = "plugin:second";
         viewModel.CollisionLevelFloorDb = -90;
         viewModel.CollisionProminenceThresholdDb = 10;
         viewModel.CollisionRelativeThreshold = 0.22;
+        viewModel.CollisionFrequencyScale = CollisionFrequencyScale.Logarithmic;
         viewModel.SpectrumDisplayFloorDb = -140;
         viewModel.SpectrumDisplayCeilingDb = -10;
+        viewModel.LoudnessClockMinimumDb = -52;
+        viewModel.LoudnessClockMaximumDb = -2;
+        viewModel.LoudnessClockWarningDb = -11;
+        viewModel.LoudnessClockCycleSeconds = 90;
         viewModel.StereoSettings.TracePersistenceSeconds = 0.2;
 
         var stored = workspace.GetSource("plugin:first");
         Assert.NotNull(stored);
         Assert.True(stored!.PopupWaveformVisible);
         Assert.True(stored.PopupSpectrumVisible);
+        Assert.True(stored.PopupLoudnessClockVisible);
         Assert.True(stored.PopupCollisionVisible);
+        Assert.False(stored.PopupStereoVisible);
         Assert.Equal("plugin:second", stored.PopupCollisionSourceKey);
         Assert.Equal(-90, stored.CollisionLevelFloorDb);
         Assert.Equal(10, stored.CollisionProminenceThresholdDb);
         Assert.Equal(0.22, stored.CollisionRelativeThreshold);
+        Assert.Equal(CollisionFrequencyScale.Logarithmic, stored.CollisionFrequencyScale);
         Assert.Equal(-140, stored.SpectrumDisplayFloorDb);
         Assert.Equal(-10, stored.SpectrumDisplayCeilingDb);
+        Assert.Equal(-52, stored.LoudnessClockMinimumDb);
+        Assert.Equal(-2, stored.LoudnessClockMaximumDb);
+        Assert.Equal(-11, stored.LoudnessClockWarningDb);
+        Assert.Equal(90, stored.LoudnessClockCycleSeconds);
         Assert.Equal(0.2, stored.PopupStereo?.TracePersistenceSeconds);
+    }
+
+    [Fact]
+    public void PopupDetailModulesCanReorderAndPersistPerSource()
+    {
+        var workspace = new UserWorkspaceSettings();
+        var session = new AudioSessionMeterViewModel(Snapshot("plugin:first", "First", spectrumBuckets: [0.0, 0.4]));
+        var viewModel = new DetailWindowViewModel(session, workspaceSettings: workspace);
+
+        viewModel.SpectrumModule.Height = 340;
+        viewModel.MoveDetailModuleTo(viewModel.SpectrumModule, viewModel.StereoModule, insertAfter: false);
+
+        Assert.Equal(
+            [DetailModuleKind.Spectrum, DetailModuleKind.Stereo, DetailModuleKind.Collision, DetailModuleKind.LoudnessClock, DetailModuleKind.Waveform],
+            viewModel.DetailModules
+                .OrderBy(module => module.OrderIndex)
+                .Select(module => module.Kind)
+                .ToArray());
+        var storedModules = workspace.GetSource("plugin:first")!.PopupDetailModules;
+        Assert.NotNull(storedModules);
+        Assert.Equal(DetailModuleKind.Spectrum, storedModules![0].Kind);
+        Assert.Equal(340, storedModules[0].Height);
+    }
+
+    [Fact]
+    public void PopupDetailLayoutCanSaveAndLoadPresetFile()
+    {
+        var path = TemporaryJsonPath();
+        try
+        {
+            var session = new AudioSessionMeterViewModel(Snapshot("plugin:first", "First", spectrumBuckets: [0.0, 0.4]));
+            var viewModel = new DetailWindowViewModel(session);
+
+            session.WaveformDisplayMode = WaveformDisplayMode.Channels;
+            session.SpectrumDisplayMode = SpectrumDisplayMode.Channels;
+            viewModel.IsWaveformVisible = true;
+            viewModel.IsSpectrumVisible = true;
+            viewModel.IsLoudnessClockVisible = true;
+            viewModel.IsStereoVisible = false;
+            viewModel.LoudnessClockMinimumDb = -44;
+            viewModel.LoudnessClockMaximumDb = -6;
+            viewModel.LoudnessClockWarningDb = -12;
+            viewModel.LoudnessClockCycleSeconds = 90;
+            viewModel.SpectrumModule.Height = 350;
+            viewModel.MoveDetailModuleTo(viewModel.SpectrumModule, viewModel.StereoModule, insertAfter: false);
+
+            Assert.True(viewModel.SaveDetailLayout(path));
+
+            session.WaveformDisplayMode = WaveformDisplayMode.Overall;
+            session.SpectrumDisplayMode = SpectrumDisplayMode.Overall;
+            viewModel.IsWaveformVisible = false;
+            viewModel.IsSpectrumVisible = false;
+            viewModel.IsLoudnessClockVisible = false;
+            viewModel.IsStereoVisible = true;
+            viewModel.LoudnessClockMinimumDb = -32;
+            viewModel.LoudnessClockMaximumDb = -4;
+            viewModel.MoveDetailModuleTo(viewModel.StereoModule, viewModel.SpectrumModule, insertAfter: false);
+
+            Assert.True(viewModel.LoadDetailLayout(path));
+
+            Assert.Equal(WaveformDisplayMode.Channels, session.WaveformDisplayMode);
+            Assert.Equal(SpectrumDisplayMode.Channels, session.SpectrumDisplayMode);
+            Assert.True(viewModel.IsWaveformVisible);
+            Assert.True(viewModel.IsSpectrumVisible);
+            Assert.True(viewModel.IsLoudnessClockVisible);
+            Assert.False(viewModel.IsStereoVisible);
+            Assert.Equal(-44, viewModel.LoudnessClockMinimumDb);
+            Assert.Equal(-6, viewModel.LoudnessClockMaximumDb);
+            Assert.Equal(90, viewModel.LoudnessClockCycleSeconds);
+            Assert.Equal(DetailModuleKind.Spectrum, viewModel.DetailModules.OrderBy(module => module.OrderIndex).First().Kind);
+            Assert.Equal(350, viewModel.SpectrumModule.Height);
+        }
+        finally
+        {
+            File.Delete(path);
+        }
+    }
+
+    [Fact]
+    public void InvalidDefaultDetailLayoutFallsBackToBuiltInPopupLayout()
+    {
+        var path = TemporaryJsonPath();
+        try
+        {
+            File.WriteAllText(path, """{"Kind":"bad","SchemaVersion":1}""");
+            var workspace = new UserWorkspaceSettings
+            {
+                LoadDefaultDetailLayoutFromFile = true,
+                DefaultDetailLayoutFile = path
+            };
+            var session = new AudioSessionMeterViewModel(Snapshot("plugin:first", "First"));
+
+            var viewModel = new DetailWindowViewModel(session, workspaceSettings: workspace);
+
+            Assert.Equal(WaveformDisplayMode.Overall, session.WaveformDisplayMode);
+            Assert.Equal(SpectrumDisplayMode.Overall, session.SpectrumDisplayMode);
+            Assert.False(viewModel.IsWaveformVisible);
+            Assert.False(viewModel.IsSpectrumVisible);
+            Assert.False(viewModel.IsLoudnessClockVisible);
+            Assert.Equal(-32, viewModel.LoudnessClockMinimumDb);
+            Assert.Equal(-4, viewModel.LoudnessClockMaximumDb);
+        }
+        finally
+        {
+            File.Delete(path);
+        }
+    }
+
+    [Fact]
+    public void DetailWindowLoudnessClockRangePreservesMinimumSpan()
+    {
+        var viewModel = new DetailWindowViewModel(new AudioSessionMeterViewModel(Snapshot()));
+
+        viewModel.LoudnessClockMinimumDb = -12;
+        viewModel.LoudnessClockMaximumDb = -12;
+
+        Assert.True(viewModel.LoudnessClockMaximumDb > viewModel.LoudnessClockMinimumDb);
+
+        viewModel.LoudnessClockMaximumDb = -80;
+
+        Assert.True(viewModel.LoudnessClockMaximumDb > viewModel.LoudnessClockMinimumDb);
+    }
+
+    [Fact]
+    public void DetailWindowLoudnessClockCycleAndWarningClampToUsableRanges()
+    {
+        var viewModel = new DetailWindowViewModel(new AudioSessionMeterViewModel(Snapshot()));
+
+        Assert.Equal(-32, viewModel.LoudnessClockMinimumDb);
+        Assert.Equal(-4, viewModel.LoudnessClockMaximumDb);
+        Assert.Equal(30, viewModel.LoudnessClockCycleSeconds);
+        Assert.Equal(-12, viewModel.LoudnessClockWarningDb);
+
+        viewModel.LoudnessClockCycleSeconds = 4;
+        Assert.Equal(10, viewModel.LoudnessClockCycleSeconds);
+
+        viewModel.LoudnessClockCycleSeconds = 720;
+        Assert.Equal(600, viewModel.LoudnessClockCycleSeconds);
+
+        viewModel.LoudnessClockMinimumDb = -42;
+        viewModel.LoudnessClockMaximumDb = -18;
+        Assert.Equal(-18, viewModel.LoudnessClockWarningDb);
+
+        viewModel.LoudnessClockWarningDb = -90;
+        Assert.Equal(-42, viewModel.LoudnessClockWarningDb);
+
+        viewModel.LoudnessClockWarningDb = 3;
+        Assert.Equal(-18, viewModel.LoudnessClockWarningDb);
     }
 
     [Fact]
@@ -176,7 +355,8 @@ public sealed class DetailWindowViewModelTests
         var session = new AudioSessionMeterViewModel(Snapshot());
         var viewModel = new DetailWindowViewModel(session);
 
-        Assert.Equal("-120 to 0 dB", viewModel.SpectrumDisplayRangeText);
+        Assert.Equal(CollisionFrequencyScale.Logarithmic, viewModel.CollisionFrequencyScale);
+        Assert.Equal("-96 to -6 dB", viewModel.SpectrumDisplayRangeText);
 
         viewModel.SpectrumDisplayFloorDb = -37.6;
         viewModel.SpectrumDisplayCeilingDb = -40;
@@ -286,6 +466,11 @@ public sealed class DetailWindowViewModelTests
         Assert.Equal(StereoImageDisplaySettings.DefaultAutoScaleFloorDb, settings.AutoScaleFloorDb);
         Assert.Equal(StereoImageDisplaySettings.DefaultAutoScaleSpeedDbPerSecond, settings.AutoScaleSpeedDbPerSecond);
         Assert.Equal(StereoImageDisplaySettings.DefaultTracePersistenceSeconds, settings.TracePersistenceSeconds);
+    }
+
+    private static string TemporaryJsonPath()
+    {
+        return Path.Combine(Path.GetTempPath(), $"umeter-detail-layout-{Guid.NewGuid():N}.json");
     }
 
     private static AudioSessionSnapshot Snapshot(double? momentaryLufs = null)

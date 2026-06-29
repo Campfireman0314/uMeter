@@ -1,6 +1,8 @@
+using System.ComponentModel;
 using System.Windows;
 using DesktopLoudnessMeter.App.Audio;
 using DesktopLoudnessMeter.App.Diagnostics;
+using DesktopLoudnessMeter.App.Infrastructure;
 using DesktopLoudnessMeter.App.Settings;
 using DesktopLoudnessMeter.App.Themes;
 using DesktopLoudnessMeter.App.ViewModels;
@@ -11,6 +13,9 @@ namespace DesktopLoudnessMeter.App;
 
 public partial class App : Application
 {
+    private static readonly TimeSpan ActivationRequestTimeout = TimeSpan.FromMilliseconds(750);
+
+    private SingleInstanceCoordinator? _singleInstanceCoordinator;
     private MainViewModel? _mainViewModel;
     private MainWindow? _mainWindow;
     private LocalLoopbackUdpReceiver? _localLoopbackReceiver;
@@ -18,6 +23,8 @@ public partial class App : Application
     private Forms.NotifyIcon? _trayIcon;
     private Forms.ContextMenuStrip? _trayMenu;
     private Drawing.Icon? _trayIconImage;
+    private TrayExitCoordinator? _trayExitCoordinator;
+    private bool _activationRequestedBeforeWindowReady;
 
     protected override void OnStartup(StartupEventArgs e)
     {
@@ -25,6 +32,21 @@ public partial class App : Application
         RegisterExceptionLogging();
 
         AppLogger.Info("Application startup began.");
+        _singleInstanceCoordinator = SingleInstanceCoordinator.CreateDefault();
+        _singleInstanceCoordinator.ActivationRequested += OnSingleInstanceActivationRequested;
+        var singleInstanceStartup = _singleInstanceCoordinator.Start(ActivationRequestTimeout);
+        if (!singleInstanceStartup.IsPrimary)
+        {
+            AppLogger.Info(singleInstanceStartup.ActivationRequestSent
+                ? "Existing uMeter instance detected; activation requested. Secondary instance exiting."
+                : "Existing uMeter instance detected; activation request could not be delivered. Secondary instance exiting.");
+            _singleInstanceCoordinator.Dispose();
+            _singleInstanceCoordinator = null;
+            Shutdown(0);
+            return;
+        }
+
+        AppLogger.Info("Single-instance ownership acquired for this user session.");
         _workspaceSettings = UserWorkspaceSettings.Load();
         var initialTheme = AppThemes.FindById(_workspaceSettings.ThemeId);
         ThemeManager.Apply(initialTheme);
@@ -51,6 +73,10 @@ public partial class App : Application
         InitializeTrayIcon();
         _mainWindow.Show();
         _mainWindow.Activate();
+        if (_activationRequestedBeforeWindowReady)
+        {
+            ShowMainWindow();
+        }
 
         AppLogger.Info($"Main window shown. Left={_mainWindow.Left:0}, Top={_mainWindow.Top:0}, Width={_mainWindow.Width:0}, Height={_mainWindow.Height:0}, Topmost={_mainWindow.Topmost}.");
     }
@@ -61,6 +87,7 @@ public partial class App : Application
         _localLoopbackReceiver?.Dispose();
         DisposeTrayIcon();
         _mainViewModel?.Dispose();
+        _singleInstanceCoordinator?.Dispose();
         base.OnExit(e);
     }
 
@@ -161,9 +188,17 @@ public partial class App : Application
             ?? [];
     }
 
+    private void OnSingleInstanceActivationRequested()
+    {
+        AppLogger.Info("Activation requested by a secondary launch.");
+        _activationRequestedBeforeWindowReady = true;
+        Dispatcher.BeginInvoke(ShowMainWindow);
+    }
+
     private void InitializeTrayIcon()
     {
         _trayMenu = new Forms.ContextMenuStrip();
+        _trayMenu.Opening += TrayMenu_OnOpening;
         RebuildTrayMenu();
 
         _trayIconImage = LoadTrayIcon();
@@ -171,32 +206,22 @@ public partial class App : Application
         {
             Icon = _trayIconImage,
             Text = "uMeter",
+            ContextMenuStrip = _trayMenu,
             Visible = true
         };
-        _trayIcon.MouseUp += TrayIcon_OnMouseUp;
         _trayIcon.DoubleClick += (_, _) => ShowMainWindow();
     }
 
-    private void TrayIcon_OnMouseUp(object? sender, Forms.MouseEventArgs e)
+    private void TrayMenu_OnOpening(object? sender, CancelEventArgs e)
     {
-        if (e.Button == Forms.MouseButtons.Right)
+        if (Dispatcher.CheckAccess())
         {
-            ShowTrayMenu();
-        }
-    }
-
-    private void ShowTrayMenu()
-    {
-        Dispatcher.Invoke(() =>
-        {
-            if (_trayMenu is null)
-            {
-                return;
-            }
-
             RebuildTrayMenu();
-            _trayMenu.Show(Forms.Cursor.Position);
-        });
+        }
+        else
+        {
+            Dispatcher.Invoke(RebuildTrayMenu);
+        }
     }
 
     private void RebuildTrayMenu()
@@ -237,7 +262,15 @@ public partial class App : Application
 
         _trayMenu.Items.Add(popupMenu);
         _trayMenu.Items.Add(new Forms.ToolStripSeparator());
-        _trayMenu.Items.Add("Exit", null, (_, _) => Dispatcher.Invoke(Shutdown));
+        _trayMenu.Items.Add("Exit", null, (_, _) => RequestTrayExit());
+    }
+
+    private void RequestTrayExit()
+    {
+        _trayExitCoordinator ??= new TrayExitCoordinator(
+            action => Dispatcher.BeginInvoke(action, System.Windows.Threading.DispatcherPriority.ApplicationIdle),
+            () => Shutdown(0));
+        _trayExitCoordinator.RequestExit();
     }
 
     private void ShowMainWindow()
@@ -249,6 +282,7 @@ public partial class App : Application
                 return;
             }
 
+            _activationRequestedBeforeWindowReady = false;
             _mainWindow.Show();
             if (_mainWindow.WindowState == WindowState.Minimized)
             {
@@ -256,6 +290,7 @@ public partial class App : Application
             }
 
             _mainWindow.Activate();
+            _mainWindow.Focus();
         });
     }
 
@@ -284,12 +319,18 @@ public partial class App : Application
         if (_trayIcon is not null)
         {
             _trayIcon.Visible = false;
+            _trayIcon.ContextMenuStrip = null;
             _trayIcon.Dispose();
             _trayIcon = null;
         }
 
-        _trayMenu?.Dispose();
-        _trayMenu = null;
+        if (_trayMenu is not null)
+        {
+            _trayMenu.Opening -= TrayMenu_OnOpening;
+            _trayMenu.Dispose();
+            _trayMenu = null;
+        }
+        _trayExitCoordinator = null;
         _trayIconImage?.Dispose();
         _trayIconImage = null;
     }

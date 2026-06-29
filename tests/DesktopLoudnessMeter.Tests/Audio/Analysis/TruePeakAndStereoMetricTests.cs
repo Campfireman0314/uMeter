@@ -223,6 +223,47 @@ public sealed class TruePeakAndStereoMetricTests
         Assert.Equal(22000, SpectrumScale.MaximumFrequencyHz);
     }
 
+    [Theory]
+    [InlineData(100d)]
+    [InlineData(1000d)]
+    [InlineData(4000d)]
+    [InlineData(12000d)]
+    public void SpectrumDominantBucketTracksSingleToneFrequency(double frequency)
+    {
+        var analyzer = Analyzer();
+
+        analyzer.Process(Sine(seconds: 0.2, leftAmplitude: 0.7, rightAmplitude: 0.7, frequency: frequency));
+
+        var spectrum = analyzer.Snapshot.SpectrumBuckets!;
+        var dominantBucket = DominantBucket(spectrum);
+        var expectedBucket = ExpectedSpectrumBucket(frequency, SampleRate);
+
+        Assert.InRange(dominantBucket, expectedBucket - 3, expectedBucket + 3);
+        Assert.True(CountBucketsWithinDecibelsOfPeak(spectrum, decibelsBelowPeak: 20) <= 12);
+    }
+
+    [Fact]
+    public void SpectrumDominantBucketIsStableAcrossTruePeakOversampling()
+    {
+        var samples = Sine(seconds: 0.2, leftAmplitude: 0.7, rightAmplitude: 0.7, frequency: 1000);
+        var twoX = new PcmMetricAnalyzer(new PcmMetricAnalyzerOptions(SampleRate, 2, 2));
+        var fourX = new PcmMetricAnalyzer(new PcmMetricAnalyzerOptions(SampleRate, 2, 4));
+        var eightX = new PcmMetricAnalyzer(new PcmMetricAnalyzerOptions(SampleRate, 2, 8));
+
+        twoX.Process(samples);
+        fourX.Process(samples);
+        eightX.Process(samples);
+
+        var dominantBuckets = new[]
+        {
+            DominantBucket(twoX.Snapshot.SpectrumBuckets!),
+            DominantBucket(fourX.Snapshot.SpectrumBuckets!),
+            DominantBucket(eightX.Snapshot.SpectrumBuckets!)
+        };
+
+        Assert.True(dominantBuckets.Max() - dominantBuckets.Min() <= 1);
+    }
+
     [Fact]
     public void WaveformRollUsesOversampledDisplayBuffer()
     {
@@ -280,6 +321,35 @@ public sealed class TruePeakAndStereoMetricTests
     private static PcmMetricAnalyzer Analyzer()
     {
         return new PcmMetricAnalyzer(new PcmMetricAnalyzerOptions(SampleRate, 2, 4));
+    }
+
+    private static int DominantBucket(IReadOnlyList<double> spectrum)
+    {
+        var dominantBucket = 0;
+        for (var index = 1; index < spectrum.Count; index++)
+        {
+            if (spectrum[index] > spectrum[dominantBucket])
+            {
+                dominantBucket = index;
+            }
+        }
+
+        return dominantBucket;
+    }
+
+    private static int ExpectedSpectrumBucket(double frequency, int sampleRate)
+    {
+        var minimumMel = SpectrumScale.HertzToMel(SpectrumScale.MinimumFrequencyHz);
+        var maximumMel = SpectrumScale.HertzToMel(Math.Min(SpectrumScale.MaximumFrequencyHz, sampleRate * 0.49));
+        var ratio = (SpectrumScale.HertzToMel(frequency) - minimumMel) / (maximumMel - minimumMel);
+        return (int)Math.Round(ratio * (SpectrumScale.BucketCount - 1));
+    }
+
+    private static int CountBucketsWithinDecibelsOfPeak(IReadOnlyList<double> spectrum, double decibelsBelowPeak)
+    {
+        var peak = spectrum.Max();
+        var threshold = Math.Max(0, peak - (decibelsBelowPeak / 200));
+        return spectrum.Count(bucket => bucket >= threshold);
     }
 
     private static NativeRfRapidTruePeakEstimator? TryCreateNativeTruePeakEstimator(

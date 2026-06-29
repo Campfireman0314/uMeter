@@ -1,4 +1,5 @@
 using System.Collections.ObjectModel;
+using System.IO;
 using DesktopLoudnessMeter.App.Audio;
 using System.Windows.Input;
 using System.Windows.Threading;
@@ -31,8 +32,18 @@ public sealed class MainViewModel : ObservableObject, IDisposable
     private const double DefaultCollisionRelativeThreshold = 0.18;
     private const double SpectrumDisplayMinimumDb = -200;
     private const double SpectrumDisplayMaximumDb = 0;
-    private const double SpectrumDisplayDefaultFloorDb = -120;
+    private const double SpectrumDisplayDefaultFloorDb = -96;
+    private const double SpectrumDisplayDefaultCeilingDb = -6;
     private const double SpectrumDisplayMinimumSpanDb = 6;
+    private const double LoudnessClockMinimumLimitDb = -120;
+    private const double LoudnessClockMaximumLimitDb = 0;
+    private const double LoudnessClockDefaultMinimumDb = -32;
+    private const double LoudnessClockDefaultMaximumDb = -4;
+    private const double LoudnessClockDefaultWarningDb = -12;
+    private const double LoudnessClockMinimumSpanDb = 6;
+    private const double LoudnessClockMinimumCycleSeconds = 10;
+    private const double LoudnessClockMaximumCycleSeconds = 600;
+    private const double LoudnessClockDefaultCycleSeconds = 30;
     private static readonly FrequencyCollisionSourceOption AllCollisionSourcesOption = new("__global__", "Global", isAllSources: true);
     private static readonly TimeSpan NormalRefreshInterval = TimeSpan.FromMilliseconds(33);
     private static readonly TimeSpan EcoRefreshInterval = TimeSpan.FromMilliseconds(100);
@@ -57,6 +68,9 @@ public sealed class MainViewModel : ObservableObject, IDisposable
     private RecentEventFilterOption _selectedRecentEventFilter;
     private int _maxRecentEventEntries = DefaultMaxRecentEventEntries;
     private string? _eventOutputFolder;
+    private bool _loadDefaultDetailLayoutFromFile;
+    private string? _defaultDetailLayoutFile;
+    private string _defaultDetailLayoutStatusText = "Built-in default detail layout is active.";
     private string _statusText = "Waiting for audio sources";
     private MeterDisplayMode _selectedDisplayMode = MeterDisplayMode.Peak;
     private bool _truePeakEnabled;
@@ -67,16 +81,21 @@ public sealed class MainViewModel : ObservableObject, IDisposable
     private double _collisionLevelFloorDb = DefaultCollisionLevelFloorDb;
     private double _collisionProminenceThresholdDb = DefaultCollisionProminenceThresholdDb;
     private double _collisionRelativeThreshold = DefaultCollisionRelativeThreshold;
+    private CollisionFrequencyScale _collisionFrequencyScale = CollisionFrequencyScale.Logarithmic;
     private double _spectrumDisplayFloorDb = SpectrumDisplayDefaultFloorDb;
-    private double _spectrumDisplayCeilingDb = SpectrumDisplayMaximumDb;
+    private double _spectrumDisplayCeilingDb = SpectrumDisplayDefaultCeilingDb;
+    private double _loudnessClockMinimumDb = LoudnessClockDefaultMinimumDb;
+    private double _loudnessClockMaximumDb = LoudnessClockDefaultMaximumDb;
+    private double _loudnessClockWarningDb = LoudnessClockDefaultWarningDb;
+    private double _loudnessClockCycleSeconds = LoudnessClockDefaultCycleSeconds;
     private IReadOnlyList<FrequencyCollisionSourceOption> _frequencyCollisionSourceOptions = [AllCollisionSourcesOption];
     private IReadOnlyList<FrequencyCollisionBand> _frequencyCollisionBands = Array.Empty<FrequencyCollisionBand>();
     private bool _isAlwaysOnTop = true;
-    private bool _isInlineWaveformVisible;
-    private bool _isInlineSpectrumVisible;
-    private bool _isInlineCollisionVisible;
+    private bool _showHiddenSources;
     private AudioSessionMeterViewModel? _selectedDetailSession;
     private readonly RelayCommand _switchDetailSessionCommand;
+    private readonly RelayCommand _moveSourceUpCommand;
+    private readonly RelayCommand _moveSourceDownCommand;
 
     public MainViewModel(
         ISignalSourceMeterService sourceMeterService,
@@ -102,8 +121,11 @@ public sealed class MainViewModel : ObservableObject, IDisposable
         _selectFolder = selectFolder ?? (_ => null);
         _maxRecentEventEntries = ClampMaxRecentEventEntries(_workspaceSettings.MaxRecentEventEntries ?? DefaultMaxRecentEventEntries);
         _eventOutputFolder = NormalizeOptionalText(_workspaceSettings.EventOutputFolder);
+        _loadDefaultDetailLayoutFromFile = _workspaceSettings.LoadDefaultDetailLayoutFromFile;
+        _defaultDetailLayoutFile = NormalizeOptionalText(_workspaceSettings.DefaultDetailLayoutFile);
         _workspaceSettings.MaxRecentEventEntries = _maxRecentEventEntries;
         _workspaceSettings.EventOutputFolder = _eventOutputFolder;
+        _workspaceSettings.DefaultDetailLayoutFile = _defaultDetailLayoutFile;
         RefreshInterval = refreshInterval ?? NormalRefreshInterval;
         RefreshLabel = FormatRefreshLabel(RefreshInterval);
         _selectedRecentEventFilter = RecentEventFilterOptions[0];
@@ -124,9 +146,26 @@ public sealed class MainViewModel : ObservableObject, IDisposable
         SelectThemeCommand = new RelayCommand(SelectTheme);
         _selectFrequencyCollisionSourceCommand = new RelayCommand(SelectFrequencyCollisionSource);
         _switchDetailSessionCommand = new RelayCommand(SwitchDetailSession, CanSwitchDetailSession);
+        _moveSourceUpCommand = new RelayCommand(MoveSourceUp, CanMoveSourceUp);
+        _moveSourceDownCommand = new RelayCommand(MoveSourceDown, CanMoveSourceDown);
         _forgetSelectedSourceCommand = new RelayCommand(_ => ForgetSelectedSource(), _ => SelectedDetailSession is not null);
         _selectEventOutputFolderCommand = new RelayCommand(_ => SelectEventOutputFolder());
+        InlineDetailModules =
+        [
+            InlineStereoModule,
+            InlineCollisionModule,
+            InlineLoudnessClockModule,
+            InlineWaveformModule,
+            InlineSpectrumModule
+        ];
+        ApplyDetailModuleLayouts(InlineDetailModules, null);
+        foreach (var module in InlineDetailModules)
+        {
+            module.PropertyChanged += InlineDetailModuleOnPropertyChanged;
+        }
+
         InlineStereoSettings.PropertyChanged += InlineStereoSettingsOnPropertyChanged;
+        RefreshDefaultDetailLayoutStatus();
     }
 
     public ObservableCollection<AudioSessionMeterViewModel> Sessions { get; } = [];
@@ -134,6 +173,18 @@ public sealed class MainViewModel : ObservableObject, IDisposable
     public ObservableCollection<RecentEventViewModel> RecentEvents { get; } = [];
 
     public ObservableCollection<RecentEventViewModel> VisibleRecentEvents { get; } = [];
+
+    public DetailModuleViewModel InlineStereoModule { get; } = new(DetailModuleKind.Stereo, "Stereo image", isVisible: true);
+
+    public DetailModuleViewModel InlineCollisionModule { get; } = new(DetailModuleKind.Collision, "Frequency collision", isVisible: false);
+
+    public DetailModuleViewModel InlineLoudnessClockModule { get; } = new(DetailModuleKind.LoudnessClock, "Clock", isVisible: false);
+
+    public DetailModuleViewModel InlineWaveformModule { get; } = new(DetailModuleKind.Waveform, "Waveform", isVisible: false);
+
+    public DetailModuleViewModel InlineSpectrumModule { get; } = new(DetailModuleKind.Spectrum, "Spectrum", isVisible: false);
+
+    public IReadOnlyList<DetailModuleViewModel> InlineDetailModules { get; }
 
     public IReadOnlyList<RecentEventFilterOption> RecentEventFilterOptions { get; } =
     [
@@ -216,6 +267,46 @@ public sealed class MainViewModel : ObservableObject, IDisposable
         ? "Not selected"
         : EventOutputFolder;
 
+    public bool LoadDefaultDetailLayoutFromFile
+    {
+        get => _loadDefaultDetailLayoutFromFile;
+        set
+        {
+            if (SetProperty(ref _loadDefaultDetailLayoutFromFile, value))
+            {
+                _workspaceSettings.LoadDefaultDetailLayoutFromFile = value;
+                _workspaceSettings.Save();
+                RefreshDefaultDetailLayoutStatus();
+            }
+        }
+    }
+
+    public string? DefaultDetailLayoutFile
+    {
+        get => _defaultDetailLayoutFile;
+        set
+        {
+            var next = NormalizeOptionalText(value);
+            if (SetProperty(ref _defaultDetailLayoutFile, next))
+            {
+                _workspaceSettings.DefaultDetailLayoutFile = next;
+                _workspaceSettings.Save();
+                OnPropertyChanged(nameof(DefaultDetailLayoutFileDisplayText));
+                RefreshDefaultDetailLayoutStatus();
+            }
+        }
+    }
+
+    public string DefaultDetailLayoutFileDisplayText => string.IsNullOrWhiteSpace(DefaultDetailLayoutFile)
+        ? "Not selected"
+        : DefaultDetailLayoutFile;
+
+    public string DefaultDetailLayoutStatusText
+    {
+        get => _defaultDetailLayoutStatusText;
+        private set => SetProperty(ref _defaultDetailLayoutStatusText, value);
+    }
+
     public IReadOnlyList<MeterDisplayMode> DisplayModeOptions { get; } =
     [
         MeterDisplayMode.Peak,
@@ -239,6 +330,12 @@ public sealed class MainViewModel : ObservableObject, IDisposable
     [
         WaveformDisplayMode.Overall,
         WaveformDisplayMode.Channels
+    ];
+
+    public IReadOnlyList<CollisionFrequencyScale> CollisionFrequencyScaleOptions { get; } =
+    [
+        CollisionFrequencyScale.Logarithmic,
+        CollisionFrequencyScale.Mel
     ];
 
     public IReadOnlyList<AppTheme> ThemeOptions => AppThemes.All;
@@ -379,6 +476,23 @@ public sealed class MainViewModel : ObservableObject, IDisposable
 
     public string CollisionRelativeThresholdText => $"{CollisionRelativeThreshold:P0}";
 
+    public CollisionFrequencyScale CollisionFrequencyScale
+    {
+        get => _collisionFrequencyScale;
+        set
+        {
+            if (SetProperty(ref _collisionFrequencyScale, value))
+            {
+                OnPropertyChanged(nameof(CollisionFrequencyScaleText));
+                ClearCollisionEventState();
+                SaveSelectedDetailPreferences();
+                RefreshFrequencyCollisions();
+            }
+        }
+    }
+
+    public string CollisionFrequencyScaleText => CollisionFrequencyScale.ToDisplayLabel();
+
     public double SpectrumDisplayFloorDb
     {
         get => _spectrumDisplayFloorDb;
@@ -414,6 +528,82 @@ public sealed class MainViewModel : ObservableObject, IDisposable
     }
 
     public string SpectrumDisplayRangeText => $"{SpectrumDisplayFloorDb:0} to {SpectrumDisplayCeilingDb:0} dB";
+
+    public double LoudnessClockMinimumDb
+    {
+        get => _loudnessClockMinimumDb;
+        set
+        {
+            var next = Math.Clamp(
+                RoundLoudnessClockDb(value),
+                LoudnessClockMinimumLimitDb,
+                LoudnessClockMaximumDb - LoudnessClockMinimumSpanDb);
+            if (SetProperty(ref _loudnessClockMinimumDb, next))
+            {
+                CoerceLoudnessClockWarningToRange();
+                OnPropertyChanged(nameof(LoudnessClockRangeText));
+                SaveSelectedDetailPreferences();
+            }
+        }
+    }
+
+    public double LoudnessClockMaximumDb
+    {
+        get => _loudnessClockMaximumDb;
+        set
+        {
+            var next = Math.Clamp(
+                RoundLoudnessClockDb(value),
+                LoudnessClockMinimumDb + LoudnessClockMinimumSpanDb,
+                LoudnessClockMaximumLimitDb);
+            if (SetProperty(ref _loudnessClockMaximumDb, next))
+            {
+                CoerceLoudnessClockWarningToRange();
+                OnPropertyChanged(nameof(LoudnessClockRangeText));
+                SaveSelectedDetailPreferences();
+            }
+        }
+    }
+
+    public string LoudnessClockRangeText => $"{LoudnessClockMinimumDb:0} to {LoudnessClockMaximumDb:0} LUFS";
+
+    public double LoudnessClockWarningDb
+    {
+        get => _loudnessClockWarningDb;
+        set
+        {
+            var next = Math.Clamp(
+                RoundLoudnessClockDb(value),
+                LoudnessClockMinimumDb,
+                LoudnessClockMaximumDb);
+            if (SetProperty(ref _loudnessClockWarningDb, next))
+            {
+                OnPropertyChanged(nameof(LoudnessClockWarningText));
+                SaveSelectedDetailPreferences();
+            }
+        }
+    }
+
+    public string LoudnessClockWarningText => $"{LoudnessClockWarningDb:0} LUFS";
+
+    public double LoudnessClockCycleSeconds
+    {
+        get => _loudnessClockCycleSeconds;
+        set
+        {
+            var next = Math.Clamp(
+                RoundLoudnessClockCycleSeconds(value),
+                LoudnessClockMinimumCycleSeconds,
+                LoudnessClockMaximumCycleSeconds);
+            if (SetProperty(ref _loudnessClockCycleSeconds, next))
+            {
+                OnPropertyChanged(nameof(LoudnessClockCycleText));
+                SaveSelectedDetailPreferences();
+            }
+        }
+    }
+
+    public string LoudnessClockCycleText => $"{LoudnessClockCycleSeconds:0} s";
 
     public string SelectedFrequencyCollisionSourceDisplayName => SelectedFrequencyCollisionSource.DisplayName;
 
@@ -452,55 +642,66 @@ public sealed class MainViewModel : ObservableObject, IDisposable
         set => SetProperty(ref _isAlwaysOnTop, value);
     }
 
+    public bool IsInlineStereoVisible
+    {
+        get => InlineStereoModule.IsVisible;
+        set => InlineStereoModule.IsVisible = value;
+    }
+
     public bool IsInlineWaveformVisible
     {
-        get => _isInlineWaveformVisible;
-        set
-        {
-            if (SetProperty(ref _isInlineWaveformVisible, value))
-            {
-                NotifyInlineRollVisibilityChanged();
-                SaveSelectedDetailPreferences();
-            }
-        }
+        get => InlineWaveformModule.IsVisible;
+        set => InlineWaveformModule.IsVisible = value;
     }
 
     public bool IsInlineSpectrumVisible
     {
-        get => _isInlineSpectrumVisible;
-        set
-        {
-            if (SetProperty(ref _isInlineSpectrumVisible, value))
-            {
-                NotifyInlineRollVisibilityChanged();
-                SaveSelectedDetailPreferences();
-            }
-        }
+        get => InlineSpectrumModule.IsVisible;
+        set => InlineSpectrumModule.IsVisible = value;
+    }
+
+    public bool IsInlineLoudnessClockVisible
+    {
+        get => InlineLoudnessClockModule.IsVisible;
+        set => InlineLoudnessClockModule.IsVisible = value;
     }
 
     public bool IsInlineCollisionVisible
     {
-        get => _isInlineCollisionVisible;
+        get => InlineCollisionModule.IsVisible;
+        set => InlineCollisionModule.IsVisible = value;
+    }
+
+    public bool IsInlineWaveformOnlyVisible => IsInlineWaveformVisible;
+
+    public bool IsInlineSpectrumOnlyVisible => IsInlineSpectrumVisible;
+
+    public bool AreInlineRollsVisible => false;
+
+    public bool ShowHiddenSources
+    {
+        get => _showHiddenSources;
         set
         {
-            if (SetProperty(ref _isInlineCollisionVisible, value))
+            if (SetProperty(ref _showHiddenSources, value))
             {
-                SaveSelectedDetailPreferences();
-                RefreshFrequencyCollisionOptions();
-                RefreshFrequencyCollisions();
+                RefreshNow();
+                OnPropertyChanged(nameof(ShowHiddenSourcesText));
             }
         }
     }
 
-    public bool IsInlineWaveformOnlyVisible => IsInlineWaveformVisible && !IsInlineSpectrumVisible;
+    public string ShowHiddenSourcesText => ShowHiddenSources ? "Showing hidden" : "Hidden filtered";
 
-    public bool IsInlineSpectrumOnlyVisible => IsInlineSpectrumVisible && !IsInlineWaveformVisible;
-
-    public bool AreInlineRollsVisible => IsInlineWaveformVisible && IsInlineSpectrumVisible;
+    public bool HasHiddenSources => _preferencesBySourceKey.Values.Any(preferences => preferences.IsHidden);
 
     public double InlineWaveformOnlyPanelMinHeight => RollGroupMinHeight(SelectedDetailSession?.IsChannelWaveformVisible == true);
 
+    public double InlineWaveformOnlyPanelDisplayMinHeight => IsInlineWaveformVisible ? InlineWaveformOnlyPanelMinHeight : 0;
+
     public double InlineSpectrumOnlyPanelMinHeight => RollGroupMinHeight(SelectedDetailSession?.IsChannelSpectrumVisible == true);
+
+    public double InlineSpectrumOnlyPanelDisplayMinHeight => IsInlineSpectrumVisible ? InlineSpectrumOnlyPanelMinHeight : 0;
 
     public double InlineWaveformOnlyPanelDefaultHeight => InlineWaveformOnlyPanelMinHeight;
 
@@ -530,12 +731,93 @@ public sealed class MainViewModel : ObservableObject, IDisposable
 
     public ICommand ForgetSelectedSourceCommand => _forgetSelectedSourceCommand;
 
+    public ICommand MoveSourceUpCommand => _moveSourceUpCommand;
+
+    public ICommand MoveSourceDownCommand => _moveSourceDownCommand;
+
     public IReadOnlyList<AudioSessionMeterViewModel> DetailSwitchTargets =>
         Sessions
             .Where(IsDetailSwitchTarget)
             .ToArray();
 
     public bool HasDetailSwitchTargets => Sessions.Any(IsDetailSwitchTarget);
+
+    public void MoveSourceTo(AudioSessionMeterViewModel source, AudioSessionMeterViewModel target)
+    {
+        MoveSourceTo(source, target, insertAfter: false);
+    }
+
+    public void MoveSourceTo(AudioSessionMeterViewModel source, AudioSessionMeterViewModel target, bool insertAfter)
+    {
+        if (ReferenceEquals(source, target))
+        {
+            return;
+        }
+
+        var currentIndex = Sessions.IndexOf(source);
+        var targetIndex = Sessions.IndexOf(target);
+        if (currentIndex < 0 || targetIndex < 0)
+        {
+            return;
+        }
+
+        var insertionIndex = targetIndex + (insertAfter ? 1 : 0);
+        MoveSourceToIndex(source, insertionIndex);
+    }
+
+    public void MoveSourceToIndex(AudioSessionMeterViewModel source, int insertionIndex)
+    {
+        var currentIndex = Sessions.IndexOf(source);
+        if (currentIndex < 0)
+        {
+            return;
+        }
+
+        insertionIndex = Math.Clamp(insertionIndex, 0, Sessions.Count);
+        if (currentIndex < insertionIndex)
+        {
+            insertionIndex--;
+        }
+
+        if (insertionIndex == currentIndex)
+        {
+            return;
+        }
+
+        Sessions.Move(currentIndex, insertionIndex);
+        PersistCurrentSourceOrder();
+        RaiseMoveCommandStateChanged();
+    }
+
+    public void MoveInlineDetailModuleTo(DetailModuleViewModel source, DetailModuleViewModel target, bool insertAfter)
+    {
+        if (ReferenceEquals(source, target)
+            || !InlineDetailModules.Contains(source)
+            || !InlineDetailModules.Contains(target))
+        {
+            return;
+        }
+
+        _isApplyingWorkspacePreferences = true;
+        try
+        {
+            MoveDetailModule(InlineDetailModules, source, target, insertAfter);
+        }
+        finally
+        {
+            _isApplyingWorkspacePreferences = false;
+        }
+
+        SaveSelectedDetailPreferences();
+    }
+
+    public void ClearInlineDetailModuleDropHints()
+    {
+        foreach (var module in InlineDetailModules)
+        {
+            module.SetReorderDropHint(before: false, after: false);
+        }
+    }
 
     public AudioSessionMeterViewModel? SelectedDetailSession
     {
@@ -579,6 +861,43 @@ public sealed class MainViewModel : ObservableObject, IDisposable
         private set => SetProperty(ref _statusText, value);
     }
 
+    public bool SaveInlineDetailLayout(string? path)
+    {
+        if (SelectedDetailSession is null)
+        {
+            StatusText = "Open an inline detail panel before saving its layout.";
+            return false;
+        }
+
+        if (DetailLayoutPresetStore.Save(path, CreateInlineDetailLayoutPreset(), out var error))
+        {
+            StatusText = $"Saved inline detail layout: {Path.GetFileName(path)}";
+            return true;
+        }
+
+        StatusText = $"Layout save failed: {error}";
+        return false;
+    }
+
+    public bool LoadInlineDetailLayout(string? path)
+    {
+        if (SelectedDetailSession is null)
+        {
+            StatusText = "Open an inline detail panel before loading its layout.";
+            return false;
+        }
+
+        if (!DetailLayoutPresetStore.TryLoad(path, out var preset, out var error))
+        {
+            StatusText = $"Layout load failed: {error}";
+            return false;
+        }
+
+        ApplyInlineDetailLayoutPreset(preset, persist: true);
+        StatusText = $"Loaded inline detail layout: {Path.GetFileName(path)}";
+        return true;
+    }
+
     public void RefreshNow()
     {
         try
@@ -614,6 +933,10 @@ public sealed class MainViewModel : ObservableObject, IDisposable
         }
 
         InlineStereoSettings.PropertyChanged -= InlineStereoSettingsOnPropertyChanged;
+        foreach (var module in InlineDetailModules)
+        {
+            module.PropertyChanged -= InlineDetailModuleOnPropertyChanged;
+        }
     }
 
     private void Reconcile(IReadOnlyList<SignalSourceSnapshot> snapshots)
@@ -628,13 +951,6 @@ public sealed class MainViewModel : ObservableObject, IDisposable
             if (existingByKey.TryGetValue(snapshot.SourceKey, out var existing)
                 || TryFindRecoverableRow(snapshot, seenKeys, out existing))
             {
-                var wasTracked = Sessions.Contains(existing);
-                if (!wasTracked)
-                {
-                    Sessions.Add(existing);
-                    activeRowsChanged = true;
-                }
-
                 var previousKey = existing.SourceKey;
                 existing.Update(snapshot);
                 if (!string.Equals(previousKey, existing.SourceKey, StringComparison.Ordinal))
@@ -642,12 +958,27 @@ public sealed class MainViewModel : ObservableObject, IDisposable
                     ClearRecentEventState(previousKey);
                 }
 
+                var preferences = GetOrCreatePreferences(existing.SourceKey);
+                existing.ApplyWorkspaceState(preferences.IsHidden, preferences.OrderIndex);
+                var shouldTrack = ShouldDisplaySource(preferences);
+                var wasTracked = Sessions.Contains(existing);
+                if (shouldTrack && !wasTracked)
+                {
+                    Sessions.Add(existing);
+                    activeRowsChanged = true;
+                }
+                else if (!shouldTrack && wasTracked)
+                {
+                    Sessions.Remove(existing);
+                    activeRowsChanged = true;
+                }
+
                 _missingTicksByKey.Remove(previousKey);
                 ApplyTruePeakOversampling(existing, existing.TruePeakOversampling, persist: false);
                 ApplyWaveformDisplayMode(existing, existing.WaveformDisplayMode, persist: false);
                 ApplySpectrumDisplayMode(existing, existing.SpectrumDisplayMode, persist: false);
                 matchedRows.Add(existing);
-                if (!wasTracked || !string.Equals(previousKey, existing.SourceKey, StringComparison.Ordinal))
+                if (shouldTrack && (!wasTracked || !string.Equals(previousKey, existing.SourceKey, StringComparison.Ordinal)))
                 {
                     AddRecentEvent(
                         RecentEventKind.Source,
@@ -656,7 +987,10 @@ public sealed class MainViewModel : ObservableObject, IDisposable
                         ReadoutSeverity.Normal);
                 }
 
-                TrackMeasurementEvents(existing, snapshot, isNewSource: !wasTracked);
+                if (shouldTrack)
+                {
+                    TrackMeasurementEvents(existing, snapshot, isNewSource: !wasTracked);
+                }
             }
             else
             {
@@ -668,6 +1002,7 @@ public sealed class MainViewModel : ObservableObject, IDisposable
                 try
                 {
                     created.Alias = preferences.Alias;
+                    created.ApplyWorkspaceState(preferences.IsHidden, preferences.OrderIndex);
                     var targetOversampling = preferences.TruePeakOversampling ?? SelectedTruePeakOversampling;
                     if (created.TruePeakOversampling == targetOversampling)
                     {
@@ -689,14 +1024,22 @@ public sealed class MainViewModel : ObservableObject, IDisposable
                 ApplyWaveformDisplayMode(created, created.WaveformDisplayMode, persist: false);
                 ApplySpectrumDisplayMode(created, created.SpectrumDisplayMode, persist: false);
                 matchedRows.Add(created);
-                Sessions.Add(created);
-                activeRowsChanged = true;
-                AddRecentEvent(
-                    RecentEventKind.Source,
-                    "Source appeared",
-                    created.DisplayTitle,
-                    ReadoutSeverity.Normal);
-                TrackMeasurementEvents(created, snapshot, isNewSource: true);
+                var shouldDisplay = ShouldDisplaySource(preferences);
+                if (shouldDisplay)
+                {
+                    Sessions.Add(created);
+                    activeRowsChanged = true;
+                    AddRecentEvent(
+                        RecentEventKind.Source,
+                        "Source appeared",
+                        created.DisplayTitle,
+                        ReadoutSeverity.Normal);
+                }
+
+                if (shouldDisplay)
+                {
+                    TrackMeasurementEvents(created, snapshot, isNewSource: true);
+                }
             }
 
             seenKeys.Add(snapshot.SourceKey);
@@ -734,6 +1077,7 @@ public sealed class MainViewModel : ObservableObject, IDisposable
 
         SortSessions();
         RefreshDisplayNameCollisions();
+        OnPropertyChanged(nameof(HasHiddenSources));
         if (activeRowsChanged)
         {
             NotifyDetailSwitchTargetsChanged();
@@ -792,7 +1136,8 @@ public sealed class MainViewModel : ObservableObject, IDisposable
             selectedComparison.IsAllSources,
             CollisionLevelFloorDb,
             CollisionProminenceThresholdDb,
-            CollisionRelativeThreshold);
+            CollisionRelativeThreshold,
+            CollisionFrequencyScale);
         SetFrequencyCollisionBands(bands);
         TrackCollisionEvent(selected, selectedComparison, bands);
     }
@@ -819,6 +1164,123 @@ public sealed class MainViewModel : ObservableObject, IDisposable
         {
             EventOutputFolder = selectedFolder;
         }
+    }
+
+    private void RefreshDefaultDetailLayoutStatus()
+    {
+        if (!LoadDefaultDetailLayoutFromFile)
+        {
+            DefaultDetailLayoutStatusText = "Built-in default detail layout is active.";
+            return;
+        }
+
+        if (string.IsNullOrWhiteSpace(DefaultDetailLayoutFile))
+        {
+            DefaultDetailLayoutStatusText = "Choose a detail layout file or built-in defaults will be used.";
+            return;
+        }
+
+        DefaultDetailLayoutStatusText = DetailLayoutPresetStore.TryLoad(DefaultDetailLayoutFile, out _, out var error)
+            ? "Default detail layout file is valid."
+            : $"Invalid layout file: {error}. Built-in defaults will be used.";
+    }
+
+    private DetailLayoutPreset? LoadDefaultDetailLayoutPreset()
+    {
+        if (DetailLayoutPresetStore.TryLoadDefault(_workspaceSettings, out var preset, out var error))
+        {
+            DefaultDetailLayoutStatusText = "Default detail layout file is valid.";
+            return preset;
+        }
+
+        if (LoadDefaultDetailLayoutFromFile)
+        {
+            DefaultDetailLayoutStatusText = string.IsNullOrWhiteSpace(error)
+                ? "Choose a detail layout file or built-in defaults will be used."
+                : $"Invalid layout file: {error}. Built-in defaults will be used.";
+        }
+
+        return null;
+    }
+
+    private DetailLayoutPreset CreateInlineDetailLayoutPreset()
+    {
+        var selected = SelectedDetailSession;
+        return new DetailLayoutPreset
+        {
+            WaveformDisplayMode = selected?.WaveformDisplayMode ?? WaveformDisplayMode.Overall,
+            SpectrumDisplayMode = selected?.SpectrumDisplayMode ?? SpectrumDisplayMode.Overall,
+            StereoVisible = IsInlineStereoVisible,
+            WaveformVisible = IsInlineWaveformVisible,
+            SpectrumVisible = IsInlineSpectrumVisible,
+            LoudnessClockVisible = IsInlineLoudnessClockVisible,
+            CollisionVisible = IsInlineCollisionVisible,
+            CollisionSourceKey = SelectedFrequencyCollisionSourceKey == AllCollisionSourcesOption.SourceKey
+                ? null
+                : SelectedFrequencyCollisionSourceKey,
+            CollisionLevelFloorDb = CollisionLevelFloorDb,
+            CollisionProminenceThresholdDb = CollisionProminenceThresholdDb,
+            CollisionRelativeThreshold = CollisionRelativeThreshold,
+            CollisionFrequencyScale = CollisionFrequencyScale,
+            SpectrumDisplayFloorDb = SpectrumDisplayFloorDb,
+            SpectrumDisplayCeilingDb = SpectrumDisplayCeilingDb,
+            LoudnessClockMinimumDb = LoudnessClockMinimumDb,
+            LoudnessClockMaximumDb = LoudnessClockMaximumDb,
+            LoudnessClockWarningDb = LoudnessClockWarningDb,
+            LoudnessClockCycleSeconds = LoudnessClockCycleSeconds,
+            Stereo = StereoWorkspaceSettings.FromSettings(InlineStereoSettings),
+            Modules = InlineDetailModules.OrderBy(module => module.OrderIndex).Select(module => module.ToLayout()).ToList()
+        };
+    }
+
+    private void ApplyInlineDetailLayoutPreset(DetailLayoutPreset preset, bool persist)
+    {
+        if (SelectedDetailSession is not { } selected)
+        {
+            return;
+        }
+
+        preset.Normalize();
+        _isApplyingWorkspacePreferences = true;
+        try
+        {
+            selected.WaveformDisplayMode = preset.WaveformDisplayMode;
+            selected.SpectrumDisplayMode = preset.SpectrumDisplayMode;
+            IsInlineStereoVisible = preset.StereoVisible;
+            IsInlineWaveformVisible = preset.WaveformVisible;
+            IsInlineSpectrumVisible = preset.SpectrumVisible;
+            IsInlineLoudnessClockVisible = preset.LoudnessClockVisible;
+            IsInlineCollisionVisible = preset.CollisionVisible;
+            CollisionLevelFloorDb = preset.CollisionLevelFloorDb;
+            CollisionProminenceThresholdDb = preset.CollisionProminenceThresholdDb;
+            CollisionRelativeThreshold = preset.CollisionRelativeThreshold;
+            CollisionFrequencyScale = preset.CollisionFrequencyScale;
+            SpectrumDisplayFloorDb = preset.SpectrumDisplayFloorDb;
+            SpectrumDisplayCeilingDb = preset.SpectrumDisplayCeilingDb;
+            LoudnessClockMinimumDb = preset.LoudnessClockMinimumDb;
+            LoudnessClockMaximumDb = preset.LoudnessClockMaximumDb;
+            LoudnessClockWarningDb = preset.LoudnessClockWarningDb;
+            LoudnessClockCycleSeconds = preset.LoudnessClockCycleSeconds;
+            preset.CloneStereo().ApplyTo(InlineStereoSettings);
+            ApplyDetailModuleLayouts(InlineDetailModules, preset.Modules);
+            SelectedFrequencyCollisionSource = FindFrequencyCollisionSourceOption(
+                preset.CollisionSourceKey ?? AllCollisionSourcesOption.SourceKey);
+        }
+        finally
+        {
+            _isApplyingWorkspacePreferences = false;
+        }
+
+        if (persist)
+        {
+            SaveSelectedDetailPreferences();
+        }
+
+        RefreshFrequencyCollisionOptions();
+        RefreshFrequencyCollisions();
+        NotifyInlineRollVisibilityChanged();
+        NotifyInlineRollLayoutChanged();
+        NotifyInlineDetailModuleVisibilityChanged();
     }
 
     private bool SetFrequencyCollisionOptions(IReadOnlyList<FrequencyCollisionSourceOption> options)
@@ -980,7 +1442,7 @@ public sealed class MainViewModel : ObservableObject, IDisposable
         AddRecentEvent(
             RecentEventKind.Collision,
             "Possible overlap",
-            $"{selected.DisplayTitle} vs {selectedComparison.DisplayName}: {FormatCollisionRange(strongestBand)}",
+            $"{selected.DisplayTitle} vs {selectedComparison.DisplayName}: {FormatCollisionRange(strongestBand, CollisionFrequencyScale)}",
             ReadoutSeverity.Warm);
     }
 
@@ -1043,17 +1505,9 @@ public sealed class MainViewModel : ObservableObject, IDisposable
         return (int)Math.Round(Math.Clamp(ratio, 0, 1) * 32, MidpointRounding.AwayFromZero);
     }
 
-    private static string FormatCollisionRange(FrequencyCollisionBand band)
+    private static string FormatCollisionRange(FrequencyCollisionBand band, CollisionFrequencyScale frequencyScale)
     {
-        return $"{FormatFrequencyLabel(RatioToDisplayFrequency(band.StartRatio))}-{FormatFrequencyLabel(RatioToDisplayFrequency(band.EndRatio))}";
-    }
-
-    private static double RatioToDisplayFrequency(double ratio)
-    {
-        const double minFrequency = 20;
-        const double maxFrequency = 22_000;
-        var clamped = Math.Clamp(ratio, 0, 1);
-        return minFrequency * Math.Pow(maxFrequency / minFrequency, clamped);
+        return $"{FormatFrequencyLabel(CollisionFrequencyScaleMapper.ScaleRatioToFrequency(band.StartRatio, frequencyScale))}-{FormatFrequencyLabel(CollisionFrequencyScaleMapper.ScaleRatioToFrequency(band.EndRatio, frequencyScale))}";
     }
 
     private static string FormatFrequencyLabel(double frequency)
@@ -1158,6 +1612,10 @@ public sealed class MainViewModel : ObservableObject, IDisposable
         session.ResetRequested += ResetSession;
         session.PopupRequested += RowPopupRequested;
         session.AliasChanged += RowAliasChanged;
+        session.HideRequested += RowHideRequested;
+        session.RestoreRequested += RowRestoreRequested;
+        session.MoveUpRequested += RowMoveUpRequested;
+        session.MoveDownRequested += RowMoveDownRequested;
         session.TruePeakOversamplingRequested += ApplyTruePeakOversampling;
         session.WaveformDisplayModeRequested += ApplyWaveformDisplayMode;
         session.SpectrumDisplayModeRequested += ApplySpectrumDisplayMode;
@@ -1169,6 +1627,10 @@ public sealed class MainViewModel : ObservableObject, IDisposable
         session.ResetRequested -= ResetSession;
         session.PopupRequested -= RowPopupRequested;
         session.AliasChanged -= RowAliasChanged;
+        session.HideRequested -= RowHideRequested;
+        session.RestoreRequested -= RowRestoreRequested;
+        session.MoveUpRequested -= RowMoveUpRequested;
+        session.MoveDownRequested -= RowMoveDownRequested;
         session.TruePeakOversamplingRequested -= ApplyTruePeakOversampling;
         session.WaveformDisplayModeRequested -= ApplyWaveformDisplayMode;
         session.SpectrumDisplayModeRequested -= ApplySpectrumDisplayMode;
@@ -1182,6 +1644,109 @@ public sealed class MainViewModel : ObservableObject, IDisposable
     private void RowPopupRequested(AudioSessionMeterViewModel session)
     {
         DetailPopupRequested?.Invoke(session);
+    }
+
+    private void RowHideRequested(AudioSessionMeterViewModel session)
+    {
+        var preferences = GetOrCreatePreferences(session.SourceKey);
+        preferences.IsHidden = true;
+        session.ApplyWorkspaceState(isHidden: true, preferences.OrderIndex);
+        SaveSourcePreferences(session.SourceKey);
+        OnPropertyChanged(nameof(HasHiddenSources));
+        if (!ShowHiddenSources)
+        {
+            Sessions.Remove(session);
+            if (ReferenceEquals(SelectedDetailSession, session))
+            {
+                SelectedDetailSession = null;
+            }
+
+            NotifyDetailSwitchTargetsChanged();
+        }
+    }
+
+    private void RowRestoreRequested(AudioSessionMeterViewModel session)
+    {
+        var preferences = GetOrCreatePreferences(session.SourceKey);
+        preferences.IsHidden = false;
+        session.ApplyWorkspaceState(isHidden: false, preferences.OrderIndex);
+        SaveSourcePreferences(session.SourceKey);
+        OnPropertyChanged(nameof(HasHiddenSources));
+    }
+
+    private void RowMoveUpRequested(AudioSessionMeterViewModel session)
+    {
+        MoveSourceUp(session);
+    }
+
+    private void RowMoveDownRequested(AudioSessionMeterViewModel session)
+    {
+        MoveSourceDown(session);
+    }
+
+    private void MoveSourceUp(object? parameter)
+    {
+        if (parameter is AudioSessionMeterViewModel session)
+        {
+            MoveSource(session, -1);
+        }
+    }
+
+    private bool CanMoveSourceUp(object? parameter)
+    {
+        return parameter is AudioSessionMeterViewModel session && Sessions.IndexOf(session) > 0;
+    }
+
+    private void MoveSourceDown(object? parameter)
+    {
+        if (parameter is AudioSessionMeterViewModel session)
+        {
+            MoveSource(session, 1);
+        }
+    }
+
+    private bool CanMoveSourceDown(object? parameter)
+    {
+        return parameter is AudioSessionMeterViewModel session
+            && Sessions.IndexOf(session) >= 0
+            && Sessions.IndexOf(session) < Sessions.Count - 1;
+    }
+
+    private void MoveSource(AudioSessionMeterViewModel session, int offset)
+    {
+        var currentIndex = Sessions.IndexOf(session);
+        if (currentIndex < 0)
+        {
+            return;
+        }
+
+        var targetIndex = Math.Clamp(currentIndex + offset, 0, Sessions.Count - 1);
+        if (targetIndex == currentIndex)
+        {
+            return;
+        }
+
+        Sessions.Move(currentIndex, targetIndex);
+        PersistCurrentSourceOrder();
+        RaiseMoveCommandStateChanged();
+    }
+
+    private void PersistCurrentSourceOrder()
+    {
+        for (var index = 0; index < Sessions.Count; index++)
+        {
+            var session = Sessions[index];
+            var preferences = GetOrCreatePreferences(session.SourceKey);
+            preferences.OrderIndex = index;
+            session.ApplyWorkspaceState(preferences.IsHidden, preferences.OrderIndex);
+            SaveSourcePreferences(session.SourceKey);
+        }
+    }
+
+    private void RaiseMoveCommandStateChanged()
+    {
+        _moveSourceUpCommand.RaiseCanExecuteChanged();
+        _moveSourceDownCommand.RaiseCanExecuteChanged();
     }
 
     public void RefreshDetailSwitchTargets()
@@ -1329,6 +1894,8 @@ public sealed class MainViewModel : ObservableObject, IDisposable
         OnPropertyChanged(nameof(IsInlineWaveformOnlyVisible));
         OnPropertyChanged(nameof(IsInlineSpectrumOnlyVisible));
         OnPropertyChanged(nameof(AreInlineRollsVisible));
+        OnPropertyChanged(nameof(InlineWaveformOnlyPanelDisplayMinHeight));
+        OnPropertyChanged(nameof(InlineSpectrumOnlyPanelDisplayMinHeight));
     }
 
     private void SelectedDetailSessionOnPropertyChanged(object? sender, PropertyChangedEventArgs args)
@@ -1350,16 +1917,129 @@ public sealed class MainViewModel : ObservableObject, IDisposable
         SaveSelectedDetailPreferences();
     }
 
+    private void InlineDetailModuleOnPropertyChanged(object? sender, PropertyChangedEventArgs args)
+    {
+        if (sender is not DetailModuleViewModel module)
+        {
+            return;
+        }
+
+        if (args.PropertyName is nameof(DetailModuleViewModel.IsVisible))
+        {
+            NotifyInlineDetailModuleVisibilityChanged(module.Kind);
+            if (module.Kind is DetailModuleKind.Waveform or DetailModuleKind.Spectrum)
+            {
+                NotifyInlineRollVisibilityChanged();
+            }
+
+            if (module.Kind is DetailModuleKind.Collision)
+            {
+                RefreshFrequencyCollisionOptions();
+                RefreshFrequencyCollisions();
+            }
+        }
+
+        if (!_isApplyingWorkspacePreferences
+            && (args.PropertyName is nameof(DetailModuleViewModel.IsVisible)
+                or nameof(DetailModuleViewModel.Height)
+                or nameof(DetailModuleViewModel.OrderIndex)))
+        {
+            SaveSelectedDetailPreferences();
+        }
+    }
+
+    private void NotifyInlineDetailModuleVisibilityChanged(DetailModuleKind? kind = null)
+    {
+        if (kind is null or DetailModuleKind.Stereo)
+        {
+            OnPropertyChanged(nameof(IsInlineStereoVisible));
+        }
+
+        if (kind is null or DetailModuleKind.Collision)
+        {
+            OnPropertyChanged(nameof(IsInlineCollisionVisible));
+        }
+
+        if (kind is null or DetailModuleKind.LoudnessClock)
+        {
+            OnPropertyChanged(nameof(IsInlineLoudnessClockVisible));
+        }
+
+        if (kind is null or DetailModuleKind.Waveform)
+        {
+            OnPropertyChanged(nameof(IsInlineWaveformVisible));
+        }
+
+        if (kind is null or DetailModuleKind.Spectrum)
+        {
+            OnPropertyChanged(nameof(IsInlineSpectrumVisible));
+        }
+    }
+
     private void NotifyInlineRollLayoutChanged()
     {
         OnPropertyChanged(nameof(InlineWaveformOnlyPanelMinHeight));
         OnPropertyChanged(nameof(InlineSpectrumOnlyPanelMinHeight));
+        OnPropertyChanged(nameof(InlineWaveformOnlyPanelDisplayMinHeight));
+        OnPropertyChanged(nameof(InlineSpectrumOnlyPanelDisplayMinHeight));
         OnPropertyChanged(nameof(InlineWaveformOnlyPanelDefaultHeight));
         OnPropertyChanged(nameof(InlineSpectrumOnlyPanelDefaultHeight));
         OnPropertyChanged(nameof(InlineWaveformRollGroupMinHeight));
         OnPropertyChanged(nameof(InlineSpectrumRollGroupMinHeight));
         OnPropertyChanged(nameof(InlineRollsPanelMinHeight));
         OnPropertyChanged(nameof(InlineRollsPanelDefaultHeight));
+    }
+
+    private static void ApplyDetailModuleLayouts(
+        IReadOnlyList<DetailModuleViewModel> modules,
+        IEnumerable<DetailModuleLayoutSettings>? layouts)
+    {
+        var layoutByKind = DetailModuleLayoutNormalizer.Normalize(layouts)
+            .ToDictionary(layout => layout.Kind);
+        foreach (var module in modules)
+        {
+            if (layoutByKind.TryGetValue(module.Kind, out var layout))
+            {
+                module.ApplyLayout(layout);
+            }
+        }
+    }
+
+    private static void MoveDetailModule(
+        IReadOnlyList<DetailModuleViewModel> modules,
+        DetailModuleViewModel source,
+        DetailModuleViewModel target,
+        bool insertAfter)
+    {
+        var ordered = modules
+            .OrderBy(module => module.OrderIndex)
+            .ThenBy(module => ModuleSortRank(module.Kind))
+            .ToList();
+        ordered.Remove(source);
+        var targetIndex = ordered.IndexOf(target);
+        if (targetIndex < 0)
+        {
+            return;
+        }
+
+        ordered.Insert(targetIndex + (insertAfter ? 1 : 0), source);
+        for (var index = 0; index < ordered.Count; index++)
+        {
+            ordered[index].OrderIndex = index;
+        }
+    }
+
+    private static int ModuleSortRank(DetailModuleKind kind)
+    {
+        return kind switch
+        {
+            DetailModuleKind.Stereo => 0,
+            DetailModuleKind.Collision => 1,
+            DetailModuleKind.LoudnessClock => 2,
+            DetailModuleKind.Waveform => 3,
+            DetailModuleKind.Spectrum => 4,
+            _ => int.MaxValue
+        };
     }
 
     private static double RollGroupMinHeight(bool channelsVisible)
@@ -1375,6 +2055,29 @@ public sealed class MainViewModel : ObservableObject, IDisposable
         return double.IsFinite(value)
             ? Math.Round(value, 0, MidpointRounding.AwayFromZero)
             : SpectrumDisplayDefaultFloorDb;
+    }
+
+    private static double RoundLoudnessClockDb(double value)
+    {
+        return double.IsFinite(value)
+            ? Math.Round(value, 0, MidpointRounding.AwayFromZero)
+            : LoudnessClockDefaultMinimumDb;
+    }
+
+    private static double RoundLoudnessClockCycleSeconds(double value)
+    {
+        return double.IsFinite(value)
+            ? Math.Round(value, 0, MidpointRounding.AwayFromZero)
+            : LoudnessClockDefaultCycleSeconds;
+    }
+
+    private void CoerceLoudnessClockWarningToRange()
+    {
+        var next = Math.Clamp(LoudnessClockWarningDb, LoudnessClockMinimumDb, LoudnessClockMaximumDb);
+        if (SetProperty(ref _loudnessClockWarningDb, next, nameof(LoudnessClockWarningDb)))
+        {
+            OnPropertyChanged(nameof(LoudnessClockWarningText));
+        }
     }
 
     private static bool FrequencyCollisionBandsEqual(
@@ -1451,11 +2154,23 @@ public sealed class MainViewModel : ObservableObject, IDisposable
     {
         if (!_preferencesBySourceKey.TryGetValue(sourceKey, out var preferences))
         {
-            preferences = SourceRowPreferences.FromWorkspace(_workspaceSettings.GetSource(sourceKey));
+            var workspace = _workspaceSettings.GetSource(sourceKey);
+            preferences = SourceRowPreferences.FromWorkspace(workspace);
+            if (!SourceRowPreferences.HasInlineDetailLayout(workspace)
+                && LoadDefaultDetailLayoutPreset() is { } defaultLayout)
+            {
+                preferences.ApplyInlineDetailLayout(defaultLayout);
+            }
+
             _preferencesBySourceKey[sourceKey] = preferences;
         }
 
         return preferences;
+    }
+
+    private bool ShouldDisplaySource(SourceRowPreferences preferences)
+    {
+        return ShowHiddenSources || !preferences.IsHidden;
     }
 
     private void RowAliasChanged(AudioSessionMeterViewModel session, string? alias)
@@ -1479,8 +2194,10 @@ public sealed class MainViewModel : ObservableObject, IDisposable
         }
 
         var preferences = GetOrCreatePreferences(SelectedDetailSession.SourceKey);
+        preferences.InlineStereoVisible = IsInlineStereoVisible;
         preferences.InlineWaveformVisible = IsInlineWaveformVisible;
         preferences.InlineSpectrumVisible = IsInlineSpectrumVisible;
+        preferences.InlineLoudnessClockVisible = IsInlineLoudnessClockVisible;
         preferences.InlineCollisionVisible = IsInlineCollisionVisible;
         preferences.InlineCollisionSourceKey = SelectedFrequencyCollisionSourceKey == AllCollisionSourcesOption.SourceKey
             ? null
@@ -1488,9 +2205,15 @@ public sealed class MainViewModel : ObservableObject, IDisposable
         preferences.CollisionLevelFloorDb = CollisionLevelFloorDb;
         preferences.CollisionProminenceThresholdDb = CollisionProminenceThresholdDb;
         preferences.CollisionRelativeThreshold = CollisionRelativeThreshold;
+        preferences.CollisionFrequencyScale = CollisionFrequencyScale;
         preferences.SpectrumDisplayFloorDb = SpectrumDisplayFloorDb;
         preferences.SpectrumDisplayCeilingDb = SpectrumDisplayCeilingDb;
+        preferences.LoudnessClockMinimumDb = LoudnessClockMinimumDb;
+        preferences.LoudnessClockMaximumDb = LoudnessClockMaximumDb;
+        preferences.LoudnessClockWarningDb = LoudnessClockWarningDb;
+        preferences.LoudnessClockCycleSeconds = LoudnessClockCycleSeconds;
         preferences.InlineStereo = StereoWorkspaceSettings.FromSettings(InlineStereoSettings);
+        preferences.InlineDetailModules = InlineDetailModules.OrderBy(module => module.OrderIndex).Select(module => module.ToLayout()).ToList();
         SaveSourcePreferences(SelectedDetailSession.SourceKey);
     }
 
@@ -1507,12 +2230,19 @@ public sealed class MainViewModel : ObservableObject, IDisposable
         {
             IsInlineWaveformVisible = preferences.InlineWaveformVisible ?? false;
             IsInlineSpectrumVisible = preferences.InlineSpectrumVisible ?? false;
+            IsInlineLoudnessClockVisible = preferences.InlineLoudnessClockVisible ?? false;
+            IsInlineStereoVisible = preferences.InlineStereoVisible ?? true;
             IsInlineCollisionVisible = preferences.InlineCollisionVisible ?? false;
             CollisionLevelFloorDb = preferences.CollisionLevelFloorDb ?? DefaultCollisionLevelFloorDb;
             CollisionProminenceThresholdDb = preferences.CollisionProminenceThresholdDb ?? DefaultCollisionProminenceThresholdDb;
             CollisionRelativeThreshold = preferences.CollisionRelativeThreshold ?? DefaultCollisionRelativeThreshold;
+            CollisionFrequencyScale = preferences.CollisionFrequencyScale ?? CollisionFrequencyScale.Logarithmic;
             SpectrumDisplayFloorDb = preferences.SpectrumDisplayFloorDb ?? SpectrumDisplayDefaultFloorDb;
-            SpectrumDisplayCeilingDb = preferences.SpectrumDisplayCeilingDb ?? SpectrumDisplayMaximumDb;
+            SpectrumDisplayCeilingDb = preferences.SpectrumDisplayCeilingDb ?? SpectrumDisplayDefaultCeilingDb;
+            LoudnessClockMinimumDb = preferences.LoudnessClockMinimumDb ?? LoudnessClockDefaultMinimumDb;
+            LoudnessClockMaximumDb = preferences.LoudnessClockMaximumDb ?? LoudnessClockDefaultMaximumDb;
+            LoudnessClockWarningDb = preferences.LoudnessClockWarningDb ?? LoudnessClockDefaultWarningDb;
+            LoudnessClockCycleSeconds = preferences.LoudnessClockCycleSeconds ?? LoudnessClockDefaultCycleSeconds;
             if (preferences.InlineStereo is not null)
             {
                 preferences.InlineStereo.ApplyTo(InlineStereoSettings);
@@ -1522,6 +2252,7 @@ public sealed class MainViewModel : ObservableObject, IDisposable
                 InlineStereoSettings.Reset();
             }
 
+            ApplyDetailModuleLayouts(InlineDetailModules, preferences.InlineDetailModules);
             SelectedFrequencyCollisionSourceKey = preferences.InlineCollisionSourceKey ?? AllCollisionSourcesOption.SourceKey;
         }
         finally
@@ -1572,14 +2303,22 @@ public sealed class MainViewModel : ObservableObject, IDisposable
         {
             IsInlineWaveformVisible = false;
             IsInlineSpectrumVisible = false;
+            IsInlineLoudnessClockVisible = false;
+            IsInlineStereoVisible = true;
             IsInlineCollisionVisible = false;
             SelectedFrequencyCollisionSourceKey = AllCollisionSourcesOption.SourceKey;
             CollisionLevelFloorDb = DefaultCollisionLevelFloorDb;
             CollisionProminenceThresholdDb = DefaultCollisionProminenceThresholdDb;
             CollisionRelativeThreshold = DefaultCollisionRelativeThreshold;
+            CollisionFrequencyScale = CollisionFrequencyScale.Logarithmic;
             SpectrumDisplayFloorDb = SpectrumDisplayDefaultFloorDb;
-            SpectrumDisplayCeilingDb = SpectrumDisplayMaximumDb;
+            SpectrumDisplayCeilingDb = SpectrumDisplayDefaultCeilingDb;
+            LoudnessClockMinimumDb = LoudnessClockDefaultMinimumDb;
+            LoudnessClockMaximumDb = LoudnessClockDefaultMaximumDb;
+            LoudnessClockWarningDb = LoudnessClockDefaultWarningDb;
+            LoudnessClockCycleSeconds = LoudnessClockDefaultCycleSeconds;
             InlineStereoSettings.Reset();
+            ApplyDetailModuleLayouts(InlineDetailModules, null);
         }
         finally
         {
@@ -1593,7 +2332,9 @@ public sealed class MainViewModel : ObservableObject, IDisposable
     private void SortSessions()
     {
         var sorted = Sessions
-            .OrderBy(session => SourceKindSortRank(session.SourceKind))
+            .OrderBy(session => session.OrderIndex is null ? 1 : 0)
+            .ThenBy(session => session.OrderIndex ?? int.MaxValue)
+            .ThenBy(session => SourceKindSortRank(session.SourceKind))
             .ThenBy(session => session.EffectiveDisplayName, StringComparer.CurrentCultureIgnoreCase)
             .ThenBy(session => session.SourceKey, StringComparer.Ordinal)
             .ToArray();
@@ -1606,6 +2347,8 @@ public sealed class MainViewModel : ObservableObject, IDisposable
                 Sessions.Move(currentIndex, targetIndex);
             }
         }
+
+        RaiseMoveCommandStateChanged();
     }
 
     private static int SourceKindSortRank(SignalSourceKind kind)
@@ -1623,15 +2366,23 @@ public sealed class MainViewModel : ObservableObject, IDisposable
     {
         public string? Alias { get; set; }
 
+        public bool IsHidden { get; set; }
+
+        public int? OrderIndex { get; set; }
+
         public TruePeakOversampling? TruePeakOversampling { get; set; }
 
         public WaveformDisplayMode WaveformDisplayMode { get; set; } = WaveformDisplayMode.Overall;
 
         public SpectrumDisplayMode SpectrumDisplayMode { get; set; } = SpectrumDisplayMode.Overall;
 
+        public bool? InlineStereoVisible { get; set; }
+
         public bool? InlineWaveformVisible { get; set; }
 
         public bool? InlineSpectrumVisible { get; set; }
+
+        public bool? InlineLoudnessClockVisible { get; set; }
 
         public bool? InlineCollisionVisible { get; set; }
 
@@ -1643,31 +2394,103 @@ public sealed class MainViewModel : ObservableObject, IDisposable
 
         public double? CollisionRelativeThreshold { get; set; }
 
+        public CollisionFrequencyScale? CollisionFrequencyScale { get; set; }
+
         public double? SpectrumDisplayFloorDb { get; set; }
 
         public double? SpectrumDisplayCeilingDb { get; set; }
 
+        public double? LoudnessClockMinimumDb { get; set; }
+
+        public double? LoudnessClockMaximumDb { get; set; }
+
+        public double? LoudnessClockWarningDb { get; set; }
+
+        public double? LoudnessClockCycleSeconds { get; set; }
+
         public StereoWorkspaceSettings? InlineStereo { get; set; }
+
+        public List<DetailModuleLayoutSettings>? InlineDetailModules { get; set; }
+
+        public static bool HasInlineDetailLayout(SourceWorkspaceSettings? workspace)
+        {
+            return workspace is not null
+                && (workspace.WaveformDisplayMode is not null
+                    || workspace.SpectrumDisplayMode is not null
+                    || workspace.InlineStereoVisible is not null
+                    || workspace.InlineWaveformVisible is not null
+                    || workspace.InlineSpectrumVisible is not null
+                    || workspace.InlineLoudnessClockVisible is not null
+                    || workspace.InlineCollisionVisible is not null
+                    || workspace.InlineCollisionSourceKey is not null
+                    || workspace.CollisionLevelFloorDb is not null
+                    || workspace.CollisionAbsoluteThresholdDb is not null
+                    || workspace.CollisionProminenceThresholdDb is not null
+                    || workspace.CollisionRelativeThreshold is not null
+                    || workspace.CollisionFrequencyScale is not null
+                    || workspace.SpectrumDisplayFloorDb is not null
+                    || workspace.SpectrumDisplayCeilingDb is not null
+                    || workspace.LoudnessClockMinimumDb is not null
+                    || workspace.LoudnessClockMaximumDb is not null
+                    || workspace.LoudnessClockWarningDb is not null
+                    || workspace.LoudnessClockCycleSeconds is not null
+                    || workspace.InlineStereo is not null
+                    || workspace.InlineDetailModules is { Count: > 0 });
+        }
 
         public static SourceRowPreferences FromWorkspace(SourceWorkspaceSettings? workspace)
         {
             return new SourceRowPreferences
             {
                 Alias = workspace?.Alias,
+                IsHidden = workspace?.IsHidden ?? false,
+                OrderIndex = workspace?.OrderIndex,
                 TruePeakOversampling = workspace?.TruePeakOversampling,
                 WaveformDisplayMode = workspace?.WaveformDisplayMode ?? WaveformDisplayMode.Overall,
                 SpectrumDisplayMode = workspace?.SpectrumDisplayMode ?? SpectrumDisplayMode.Overall,
+                InlineStereoVisible = workspace?.InlineStereoVisible,
                 InlineWaveformVisible = workspace?.InlineWaveformVisible,
                 InlineSpectrumVisible = workspace?.InlineSpectrumVisible,
+                InlineLoudnessClockVisible = workspace?.InlineLoudnessClockVisible,
                 InlineCollisionVisible = workspace?.InlineCollisionVisible,
                 InlineCollisionSourceKey = workspace?.InlineCollisionSourceKey,
                 CollisionLevelFloorDb = GetCollisionLevelFloorDb(workspace),
                 CollisionProminenceThresholdDb = workspace?.CollisionProminenceThresholdDb,
                 CollisionRelativeThreshold = workspace?.CollisionRelativeThreshold,
+                CollisionFrequencyScale = workspace?.CollisionFrequencyScale,
                 SpectrumDisplayFloorDb = workspace?.SpectrumDisplayFloorDb,
                 SpectrumDisplayCeilingDb = workspace?.SpectrumDisplayCeilingDb,
-                InlineStereo = workspace?.InlineStereo
+                LoudnessClockMinimumDb = workspace?.LoudnessClockMinimumDb,
+                LoudnessClockMaximumDb = workspace?.LoudnessClockMaximumDb,
+                LoudnessClockWarningDb = workspace?.LoudnessClockWarningDb,
+                LoudnessClockCycleSeconds = workspace?.LoudnessClockCycleSeconds,
+                InlineStereo = workspace?.InlineStereo,
+                InlineDetailModules = workspace?.InlineDetailModules
             };
+        }
+
+        public void ApplyInlineDetailLayout(DetailLayoutPreset preset)
+        {
+            WaveformDisplayMode = preset.WaveformDisplayMode;
+            SpectrumDisplayMode = preset.SpectrumDisplayMode;
+            InlineStereoVisible = preset.StereoVisible;
+            InlineWaveformVisible = preset.WaveformVisible;
+            InlineSpectrumVisible = preset.SpectrumVisible;
+            InlineLoudnessClockVisible = preset.LoudnessClockVisible;
+            InlineCollisionVisible = preset.CollisionVisible;
+            InlineCollisionSourceKey = preset.CollisionSourceKey;
+            CollisionLevelFloorDb = preset.CollisionLevelFloorDb;
+            CollisionProminenceThresholdDb = preset.CollisionProminenceThresholdDb;
+            CollisionRelativeThreshold = preset.CollisionRelativeThreshold;
+            CollisionFrequencyScale = preset.CollisionFrequencyScale;
+            SpectrumDisplayFloorDb = preset.SpectrumDisplayFloorDb;
+            SpectrumDisplayCeilingDb = preset.SpectrumDisplayCeilingDb;
+            LoudnessClockMinimumDb = preset.LoudnessClockMinimumDb;
+            LoudnessClockMaximumDb = preset.LoudnessClockMaximumDb;
+            LoudnessClockWarningDb = preset.LoudnessClockWarningDb;
+            LoudnessClockCycleSeconds = preset.LoudnessClockCycleSeconds;
+            InlineStereo = preset.CloneStereo();
+            InlineDetailModules = preset.Modules;
         }
 
         private static double? GetCollisionLevelFloorDb(SourceWorkspaceSettings? workspace)
@@ -1685,19 +2508,29 @@ public sealed class MainViewModel : ObservableObject, IDisposable
         public void ApplyToWorkspace(SourceWorkspaceSettings workspace)
         {
             workspace.Alias = Alias;
+            workspace.IsHidden = IsHidden;
+            workspace.OrderIndex = OrderIndex;
             workspace.TruePeakOversampling = TruePeakOversampling;
             workspace.WaveformDisplayMode = WaveformDisplayMode;
             workspace.SpectrumDisplayMode = SpectrumDisplayMode;
+            workspace.InlineStereoVisible = InlineStereoVisible;
             workspace.InlineWaveformVisible = InlineWaveformVisible;
             workspace.InlineSpectrumVisible = InlineSpectrumVisible;
+            workspace.InlineLoudnessClockVisible = InlineLoudnessClockVisible;
             workspace.InlineCollisionVisible = InlineCollisionVisible;
             workspace.InlineCollisionSourceKey = InlineCollisionSourceKey;
             workspace.CollisionLevelFloorDb = CollisionLevelFloorDb;
             workspace.CollisionProminenceThresholdDb = CollisionProminenceThresholdDb;
             workspace.CollisionRelativeThreshold = CollisionRelativeThreshold;
+            workspace.CollisionFrequencyScale = CollisionFrequencyScale;
             workspace.SpectrumDisplayFloorDb = SpectrumDisplayFloorDb;
             workspace.SpectrumDisplayCeilingDb = SpectrumDisplayCeilingDb;
+            workspace.LoudnessClockMinimumDb = LoudnessClockMinimumDb;
+            workspace.LoudnessClockMaximumDb = LoudnessClockMaximumDb;
+            workspace.LoudnessClockWarningDb = LoudnessClockWarningDb;
+            workspace.LoudnessClockCycleSeconds = LoudnessClockCycleSeconds;
             workspace.InlineStereo = InlineStereo;
+            workspace.InlineDetailModules = InlineDetailModules;
         }
     }
 }

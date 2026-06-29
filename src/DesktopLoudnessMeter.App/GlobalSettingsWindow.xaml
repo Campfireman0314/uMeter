@@ -4,9 +4,9 @@
         Title="Global Settings"
         Icon="Assets/desktop-loudness-meter.ico"
         Width="360"
-        Height="228"
+        Height="334"
         MinWidth="340"
-        MinHeight="220"
+        MinHeight="320"
         WindowStyle="None"
         ResizeMode="NoResize"
         WindowStartupLocation="CenterOwner"
@@ -39,7 +39,7 @@
                                    Text="Global Settings" />
                         <TextBlock FontSize="10"
                                    Foreground="{DynamicResource SubtleTextBrush}"
-                                   Text="Events and output" />
+                                   Text="Events, output, and defaults" />
                     </StackPanel>
 
                     <Button Grid.Column="1"
@@ -53,6 +53,8 @@
             <Grid Grid.Row="1"
                   Margin="14">
                 <Grid.RowDefinitions>
+                    <RowDefinition Height="Auto" />
+                    <RowDefinition Height="14" />
                     <RowDefinition Height="Auto" />
                     <RowDefinition Height="14" />
                     <RowDefinition Height="Auto" />
@@ -111,7 +113,41 @@
                     </Grid>
                 </StackPanel>
 
-                <Grid Grid.Row="4">
+                <StackPanel Grid.Row="4">
+                    <CheckBox Content="Load default detail layout from file"
+                              IsChecked="{Binding LoadDefaultDetailLayoutFromFile, Mode=TwoWay}" />
+                    <Grid Margin="0,6,0,0">
+                        <Grid.ColumnDefinitions>
+                            <ColumnDefinition Width="*" />
+                            <ColumnDefinition Width="8" />
+                            <ColumnDefinition Width="Auto" />
+                        </Grid.ColumnDefinitions>
+                        <Border MinHeight="26"
+                                Padding="8,4"
+                                Background="{DynamicResource PanelAltBrush}"
+                                BorderBrush="{DynamicResource ControlBorderBrush}"
+                                BorderThickness="1"
+                                CornerRadius="4">
+                            <TextBlock VerticalAlignment="Center"
+                                       Foreground="{DynamicResource SubtleTextBrush}"
+                                       FontSize="11"
+                                       Text="{Binding DefaultDetailLayoutFileDisplayText}"
+                                       TextTrimming="CharacterEllipsis" />
+                        </Border>
+                        <Button Grid.Column="2"
+                                MinWidth="72"
+                                Height="26"
+                                Click="DefaultDetailLayoutFileButton_OnClick"
+                                Content="Browse" />
+                    </Grid>
+                    <TextBlock Margin="0,5,0,0"
+                               Foreground="{DynamicResource SubtleTextBrush}"
+                               FontSize="10"
+                               Text="{Binding DefaultDetailLayoutStatusText}"
+                               TextWrapping="Wrap" />
+                </StackPanel>
+
+                <Grid Grid.Row="6">
                     <Grid.ColumnDefinitions>
                         <ColumnDefinition Width="*" />
                         <ColumnDefinition Width="Auto" />

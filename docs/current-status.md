@@ -2,11 +2,11 @@
 
 ## Checkpoint
 
-`v2.2.8` - RfRapid true-peak acceleration, pinned on 2026-06-21.
+`v2.3.4` - draggable detail-graph polish and fixed-height collision analyzer, pinned on 2026-06-27.
 
-This checkpoint builds on the v2.2.7 appearance and window-behavior patch. True-peak reconstruction can now use the optional RfRapid native backend in `DesktopLoudnessMeter.Native.dll`, with managed fallback if the DLL or exports are unavailable. The installer still ships the desktop app plus the `uMeter Sender.vst3` bundle and exposes both the app install folder and VST3 install folder.
+This checkpoint builds on the v2.3.3 UI reliability release. Detail visualization modules can be reordered with steadier drop hints, hidden waveform/spectrograph/clock modules stop live render work, resize grips use the themed handle template, title banners advertise alias editing on hover, and the collision analyzer is restored to its original compact fixed height without a stretch handle. The installer still ships the desktop app plus the `uMeter Sender.vst3` bundle and exposes both the app install folder and VST3 install folder.
 
-The remaining roadmap work after this checkpoint should focus on metering trust fixtures, richer sender reconnect diagnostics, or a deliberately scoped next product feature.
+The remaining roadmap work after this checkpoint should focus on deeper metering trust fixtures, measured Mel-band aggregation experiments, richer sender diagnostics, or a deliberately scoped next product feature.
 
 ## What Works
 
@@ -16,19 +16,23 @@ The remaining roadmap work after this checkpoint should focus on metering trust 
 - JUCE `uMeter Sender` VST3 audio-effect plugin with pass-through audio.
 - Minimal VST3 sender editor with source-name rename while typing and temporary mute.
 - VST3 sender editor shows receiver connection feedback from desktop-app acknowledgements.
+- VST3 sender sample-rate/channel restarts re-register the same handle without an intervening close packet.
 - Host-based VST3 default source names such as `Cubase 7F3A`.
 - Stable persisted plugin source handles and periodic register packets for late desktop-app startup.
 - Plugin rows are removed from the main source list on unload; open detail views show an `Instance not found` overlay until the same instance returns or the view is switched.
+- Only one uMeter desktop instance is allowed per user session; secondary launches request activation of the primary instance and exit.
 - Configurable installer VST3 path, defaulting to `C:\Program Files\VSTPlugins`.
 - Forced standard VST3 mirror install to `C:\Program Files\Common Files\VST3` for Cubase/VST3 host discovery.
 - Plugin receiver port-collision warning in the desktop app.
-- Deterministic source ordering with duplicate-name disambiguation and source identity text.
+- Persistent user source ordering with duplicate-name disambiguation and source identity text.
+- Per-source hide/restore controls with a global `Show hidden` toggle.
 - Audible app rows with duplicate row collapse, self-filtering, and silent active row filtering.
 - Process-loopback capture for per-process PCM metrics on supported Windows builds.
 - Peak/LUFS primary display mode.
 - Global true-peak option shell with 2x, 4x, and 8x ratios.
 - Inline detail view with Back navigation.
 - Per-app pop-up detail windows with independent always-on-top state.
+- Inline and pop-up detail panels can save/load their visualization layout/settings as JSON presets.
 - Pop-up detail windows do not inherit the global window's `Always on top` behavior.
 - Independent stereo image scale settings per pop-up and inline detail view.
 - Stereo image auto-scale controls for range, lower limit, manual top, speed, trace persistence, and reset.
@@ -39,9 +43,9 @@ The remaining roadmap work after this checkpoint should focus on metering trust 
 - Polar stereo fan sample dots.
 - Correlation arrow in the `[-1, 1]` range.
 - Global and per-detail reset actions.
-- Detail/app rows retain once-seen process audio handles until the source process exits.
+- Detail/app rows retain once-seen process audio handles until the source process exits and keep existing graph history during temporary handle loss.
 - Per-source analysis preferences survive reconnect while the app is running when the source key is stable.
-- Hide-to-tray main window behavior with tray restore, pop-up-app, and exit menu actions.
+- Hide-to-tray main window behavior with tray restore, pop-up-app, and exit menu actions through the native tray context-menu flow.
 - Custom app/tray icon assets.
 - Custom styling for buttons, combo boxes, checkboxes, scrollbars, and selectable app themes.
 - Persisted selected theme under %APPDATA%\uMeter\settings.json.
@@ -58,19 +62,21 @@ The remaining roadmap work after this checkpoint should focus on metering trust 
 - Waveform display uses the selected true-peak oversampling ratio for its display buffer.
 - Waveform display uses dBFS scale markings and a smoother curve without averaging away plotted extrema.
 - Spectrum display uses a horizontally rolling, Mel-scaled, 320-bin FFT-derived display from 20 Hz to 22 kHz.
-- Source aliases can be edited from row, inline detail, and pop-up detail naming bars.
+- Source aliases can be edited from the global row title, inline detail, and pop-up detail naming bars.
 - Per-source analysis preferences persist through the user workspace when the source key is stable.
-- Frequency collision analyzer compares prominent spectrum overlap between sources and highlights similar frequency ranges.
-- Collision analyzer options include source selection, `Level floor`, `Prominence`, and `Match tolerance`.
+- Frequency collision analyzer compares prominent spectrum overlap between sources and highlights similar frequency ranges in a fixed-height compact panel.
+- Collision analyzer options include source selection, `Scale` (`Logarithmic` by default, or `Mel`), `Level floor`, `Prominence`, and `Match tolerance`.
 - Collision analyzer single-value sliders support double-click numeric entry.
 - Global Recent Events strip shows a bounded, filterable view of source lifecycle, true-peak max, and loudness-jump events.
 - Recent Events can include conservative `Possible overlap` entries from enabled detail collision analysis.
-- Global settings expose maximum retained event entries and an event output folder selector.
-- Spectrograph display range can be adjusted from `-200 to 0 dB` with a themed two-thumb dB slider, defaulting to `-120 to 0 dB`.
+- Global settings expose maximum retained event entries, an event output folder selector, and optional default detail-layout preset loading with validation and built-in fallback.
+- Spectrograph display range can be adjusted from `-200 to 0 dB` with a themed two-thumb dB slider, defaulting to `-96 to -6 dB`.
+- Optional loudness clock display with configurable range, warning level, cycle duration, fan fill, scan-line position, time scale markers, hover readout, and over-maximum danger coloring.
 - Spectrum bitmap rendering tolerates transient WPF read/write lock conflicts without terminating the app.
 - Waveform and spectrum controls share a deferred render-update scheduler so property churn coalesces into one queued UI render callback per control.
 - Waveform, spectrum, and collision controls share static plot-background cache invalidation logic.
-- Spectrograph rendering uses a soft visual floor and light neighboring-bin smoothing so low-energy history stays readable without mutating stored spectrum levels.
+- Spectrograph rendering uses a soft visual floor, nearest-neighbor bitmap scaling, and direct bucket-to-row mapping so render smoothing does not exaggerate frequency leakage.
+- Spectrum FFT input uses raw PCM history while waveform display continues to use true-peak oversampled display samples.
 - Spectrum FFT and true-peak reconstruction can use the optional `DesktopLoudnessMeter.Native.dll` RfRapid C++ accelerator, with automatic managed fallback.
 - Crash/startup logging under `%LOCALAPPDATA%\uMeter`.
 - Installer with visible app install path, shortcut options, VST3 install path, uninstall registration, and quiet mode.
@@ -115,13 +121,13 @@ Latest verified status:
 
 - App build: clean.
 - Native build: Release passed after adding the true-peak RfRapid exports.
-- Tests: 206 passing.
+- Tests: 275 passing.
 - Benchmark: RfRapid true-peak 8x processed the local 30 s stereo benchmark at about `4.44 Mframes/s` versus about `1.95 Mframes/s` for managed reconstruction, with matching peak output.
 - JUCE VST3 native CTest: Debug passed.
 - JUCE VST3 Release build: passed through installer packaging.
 - Format: not rerun for this checkpoint.
-- Installer build: `artifacts\uMeter-Setup-2.2.8.exe` generated successfully.
-- Installer SHA256: `2A13E0580AC5858FC5890F9599FE16A54C1FFE96E8079AB5047394D9B5DDC89E`.
+- Installer build: not rerun for this checkpoint; packaging defaults now target `artifacts\uMeter-Setup-2.3.4.exe`.
+- Installer SHA256: not generated for this checkpoint.
 - Installer payload: desktop app, native DSP DLL, and bundled `uMeter Sender.vst3` generated by the packaging script.
 
 ## Installer Notes
@@ -129,7 +135,7 @@ Latest verified status:
 - Default app install folder: `%LOCALAPPDATA%\Programs\uMeter`.
 - Default VST3 install folder: `C:\Program Files\VSTPlugins`.
 - Standard VST3 mirror folder: `C:\Program Files\Common Files\VST3`.
-- Default artifacts: `artifacts\uMeter.Setup.exe` and `artifacts\uMeter-Setup-2.2.8.exe`.
+- Default artifacts: `artifacts\uMeter.Setup.exe` and `artifacts\uMeter-Setup-2.3.4.exe`.
 - Quiet install supports `--install-dir`, `--vst-dir`, `--no-vst`, `--no-desktop-shortcut`, `--no-start-menu-shortcut`, and `--no-shortcuts`.
 - Installing the VST3 sender into Program Files may trigger UAC elevation.
 - Uninstall cleanup relaunches elevated when protected app or VST3 locations need administrator permission.
@@ -144,7 +150,7 @@ Suggested release commit:
 cd D:\GitRepo\desktop-loudness-meter
 git status --short
 git add .
-git commit -m "Release uMeter v2.2.8"
+git commit -m "Release uMeter v2.3.4"
 git push
 ```
 
@@ -154,6 +160,10 @@ Before committing, review generated folders and build outputs are still ignored 
 
 - `README.md` - project overview, run commands, roadmap.
 - `CHANGELOG.md` - version history.
+- docs/v2.3.4-release.md - v2.3.4 release notes.
+- docs/v2.3.3-release.md - v2.3.3 release notes.
+- docs/v2.3.2-release.md - v2.3.2 release notes.
+- docs/v2.3.0-release.md - v2.3.0 release notes.
 - docs/v2.2.8-release.md - v2.2.8 release notes.
 - docs/v2.2.7-release.md - v2.2.7 release notes.
 - docs/v2.2.6-release.md - v2.2.6 release notes.

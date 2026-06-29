@@ -89,6 +89,22 @@ ReceivedPacket readPacketWithSenderUntilType (juce::DatagramSocket& socket, cons
     throw std::runtime_error ("expected packet type did not arrive");
 }
 
+juce::var readUntilRegisterWithoutClose (juce::DatagramSocket& socket, int attempts)
+{
+    for (auto attempt = 0; attempt < attempts; ++attempt)
+    {
+        auto packet = parsePacket (readPacket (socket, 1000));
+        const auto type = property (packet, "type");
+        expect (type != "close", "same-handle sender restart must not emit close before register");
+        if (type == "register")
+        {
+            return packet;
+        }
+    }
+
+    throw std::runtime_error ("expected register packet did not arrive");
+}
+
 void waitUntilConnected (const dlm::LoopbackSender& sender)
 {
     for (auto attempt = 0; attempt < 100; ++attempt)
@@ -194,10 +210,47 @@ void senderReportsConnectedAfterReceiverAck()
 
     sender.stop();
 }
+
+void sameHandleRestartDoesNotEmitCloseBeforeReregister()
+{
+    juce::DatagramSocket receiver;
+    expect (receiver.bindToPort (0, "127.0.0.1"), "test UDP receiver should bind");
+
+    dlm::LoopbackSender sender;
+    dlm::LoopbackSenderConfig config;
+    config.handle = "juce-vst3-reconfigure-test";
+    config.displayName = "Reconfigure Test";
+    config.sampleRate = 48000;
+    config.channels = 2;
+    config.port = receiver.getBoundPort();
+    config.heartbeatIntervalMs = 25;
+    config.registerIntervalMs = 25;
+
+    sender.start (config);
+
+    const auto initialRegistration = readUntilType (receiver, "register", 3);
+    expect (property (initialRegistration, "handle") == config.handle, "initial register handle mismatch");
+
+    auto restartedConfig = config;
+    restartedConfig.sampleRate = 44100;
+    restartedConfig.channels = 1;
+    sender.start (restartedConfig);
+
+    const auto restartedRegistration = readUntilRegisterWithoutClose (receiver, 5);
+    expect (property (restartedRegistration, "handle") == config.handle, "restarted register handle mismatch");
+    expect (property (restartedRegistration, "sampleRate") == "44100", "restarted register sample rate mismatch");
+    expect (property (restartedRegistration, "channels") == "1", "restarted register channel count mismatch");
+
+    sender.stop();
+
+    const auto close = readUntilType (receiver, "close", 5);
+    expect (property (close, "handle") == config.handle, "explicit stop close handle mismatch");
+}
 }
 
 void runLoopbackSenderTests()
 {
     senderEmitsLifecyclePacketsFromWorker();
     senderReportsConnectedAfterReceiverAck();
+    sameHandleRestartDoesNotEmitCloseBeforeReregister();
 }

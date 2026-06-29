@@ -88,14 +88,15 @@ internal static class ThemedDrawing
     public static Color SpectrumPixel(Color accent, Color warm, double value)
     {
         value = Math.Clamp(value, 0, 1);
+        var track = Color.FromRgb(17, 20, 25);
         var veil = Color.FromRgb(238, 241, 245);
-        var low = Blend(veil, accent, 0.34);
+        var low = Blend(track, accent, 0.28);
         var mid = Blend(veil, accent, 0.72);
         var high = Blend(warm, Color.FromRgb(255, 248, 230), 0.28);
         var color = value < 0.72
             ? Blend(low, mid, value / 0.72)
             : Blend(mid, high, (value - 0.72) / 0.28);
-        var alpha = (byte)Math.Round(64 + (value * 154));
+        var alpha = (byte)Math.Round(20 + (Math.Pow(value, 0.72) * 198));
         return WithAlpha(color, alpha);
     }
 
@@ -108,6 +109,7 @@ internal static class ThemedDrawing
             PlotColorRole.Subtle => ("SubtleTextBrush", Color.FromRgb(174, 183, 194)),
             PlotColorRole.Signal => ("SignalBrush", Color.FromRgb(46, 196, 182)),
             PlotColorRole.SpectrumWarm => ("SpectrumWarmBrush", Color.FromRgb(255, 176, 0)),
+            PlotColorRole.Danger => ("DangerBrush", Color.FromRgb(255, 70, 92)),
             PlotColorRole.Text => ("TextBrush", Color.FromRgb(244, 247, 250)),
             PlotColorRole.ControlPressed => ("ControlPressedBrush", Color.FromRgb(53, 65, 77)),
             _ => ("SignalBrush", Color.FromRgb(46, 196, 182))
@@ -131,6 +133,7 @@ internal enum PlotColorRole
     Subtle,
     Signal,
     SpectrumWarm,
+    Danger,
     Text,
     ControlPressed
 }

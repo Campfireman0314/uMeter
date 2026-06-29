@@ -1,5 +1,8 @@
 using System.Windows;
+using System.Windows.Controls;
+using System.Windows.Controls.Primitives;
 using System.Windows.Media;
+using System.Windows.Shapes;
 
 namespace DesktopLoudnessMeter.App.Themes;
 
@@ -44,23 +47,76 @@ public static class ThemeManager
 
     private static void InvalidateOpenWindows(Application application)
     {
+        var visited = new HashSet<DependencyObject>();
         foreach (Window window in application.Windows)
         {
-            InvalidateVisualTree(window);
+            InvalidateVisualTree(window, visited);
         }
     }
 
-    private static void InvalidateVisualTree(DependencyObject dependencyObject)
+    private static void InvalidateVisualTree(DependencyObject dependencyObject, ISet<DependencyObject> visited)
     {
+        if (!visited.Add(dependencyObject))
+        {
+            return;
+        }
+
+        RefreshResourceBackedProperties(dependencyObject);
+
         if (dependencyObject is UIElement element)
         {
             element.InvalidateVisual();
         }
 
-        var children = VisualTreeHelper.GetChildrenCount(dependencyObject);
-        for (var index = 0; index < children; index++)
+        if (dependencyObject is Visual or System.Windows.Media.Media3D.Visual3D)
         {
-            InvalidateVisualTree(VisualTreeHelper.GetChild(dependencyObject, index));
+            var children = VisualTreeHelper.GetChildrenCount(dependencyObject);
+            for (var index = 0; index < children; index++)
+            {
+                InvalidateVisualTree(VisualTreeHelper.GetChild(dependencyObject, index), visited);
+            }
+        }
+
+        foreach (var child in LogicalTreeHelper.GetChildren(dependencyObject).OfType<DependencyObject>())
+        {
+            InvalidateVisualTree(child, visited);
+        }
+
+        if (dependencyObject is Popup { Child: { } popupChild })
+        {
+            InvalidateVisualTree(popupChild, visited);
+        }
+    }
+
+    private static void RefreshResourceBackedProperties(DependencyObject dependencyObject)
+    {
+        if (dependencyObject is Control control)
+        {
+            control.InvalidateProperty(Control.BackgroundProperty);
+            control.InvalidateProperty(Control.ForegroundProperty);
+            control.InvalidateProperty(Control.BorderBrushProperty);
+        }
+
+        if (dependencyObject is TextBlock textBlock)
+        {
+            textBlock.InvalidateProperty(TextBlock.ForegroundProperty);
+        }
+
+        if (dependencyObject is Border border)
+        {
+            border.InvalidateProperty(Border.BackgroundProperty);
+            border.InvalidateProperty(Border.BorderBrushProperty);
+        }
+
+        if (dependencyObject is Panel panel)
+        {
+            panel.InvalidateProperty(Panel.BackgroundProperty);
+        }
+
+        if (dependencyObject is Shape shape)
+        {
+            shape.InvalidateProperty(Shape.FillProperty);
+            shape.InvalidateProperty(Shape.StrokeProperty);
         }
     }
 }

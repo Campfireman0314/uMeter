@@ -14,7 +14,8 @@ internal static class FrequencyCollisionAnalyzer
         bool compareAllComparisons,
         double levelFloorDb,
         double prominenceThresholdDb,
-        double relativeThreshold)
+        double relativeThreshold,
+        CollisionFrequencyScale frequencyScale)
     {
         var active = sessions
             .Where(session => !session.IsInstanceMissing && session.SpectrumBuckets.Count > 0)
@@ -44,7 +45,7 @@ internal static class FrequencyCollisionAnalyzer
 
         var collisions = new double[bucketCount];
         AnalyzeFocus(focus, comparisons, bucketCount, levelFloorDb, prominenceThresholdDb, relativeThreshold, collisions);
-        return CompactBands(collisions);
+        return CompactBands(collisions, frequencyScale);
     }
 
     private static void AnalyzeFocus(
@@ -195,7 +196,9 @@ internal static class FrequencyCollisionAnalyzer
         return Math.Clamp((decibels - DisplayFloorDb) / DisplayRangeDb, 0, 1);
     }
 
-    private static IReadOnlyList<FrequencyCollisionBand> CompactBands(IReadOnlyList<double> collisions)
+    private static IReadOnlyList<FrequencyCollisionBand> CompactBands(
+        IReadOnlyList<double> collisions,
+        CollisionFrequencyScale frequencyScale)
     {
         List<FrequencyCollisionBand>? bands = null;
         var start = -1;
@@ -226,8 +229,8 @@ internal static class FrequencyCollisionAnalyzer
 
             bands ??= [];
             bands.Add(new FrequencyCollisionBand(
-                (double)start / collisions.Count,
-                (double)index / collisions.Count,
+                CollisionFrequencyScaleMapper.BucketRatioToScaleRatio((double)start / collisions.Count, frequencyScale),
+                CollisionFrequencyScaleMapper.BucketRatioToScaleRatio((double)index / collisions.Count, frequencyScale),
                 Math.Clamp(strongest, 0, 1)));
             start = -1;
             strongest = 0;

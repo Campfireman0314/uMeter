@@ -52,13 +52,13 @@ The first AAX pass uses the same JUCE `AudioProcessor` and native sender code as
 Build VST3:
 
 ```powershell
-.\scripts\build-juce-sender.ps1 -Format VST3 -Configuration Release -JuceDir E:\JUCE
+.\scripts\build-juce-sender.ps1 -Format VST3 -Configuration Release
 ```
 
 Build AAX:
 
 ```powershell
-.\scripts\build-juce-sender.ps1 -Format AAX -Configuration Release -JuceDir E:\JUCE -AaxSdkDir <path-to-aax-sdk>
+.\scripts\build-juce-sender.ps1 -Format AAX -Configuration Release -AaxSdkDir <path-to-aax-sdk>
 ```
 
-If the JUCE checkout already carries a usable bundled AAX SDK path, `-AaxSdkDir` can be omitted. A distributable AAX build still needs Avid/PACE signing, validation, and Pro Tools smoke testing.
+The helper resolves JUCE from `-JuceDir`, `JUCE_DIR`, `JUCE_ROOT`, or common local paths such as `C:\JUCE`. If the JUCE checkout already carries a usable bundled AAX SDK path, `-AaxSdkDir` can be omitted. A distributable AAX build still needs Avid/PACE signing, validation, and Pro Tools smoke testing.
