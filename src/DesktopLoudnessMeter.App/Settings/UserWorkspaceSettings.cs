@@ -9,6 +9,7 @@ namespace DesktopLoudnessMeter.App.Settings;
 public sealed class UserWorkspaceSettings
 {
     private const string SettingsFileName = "settings.json";
+    public const int CurrentSchemaVersion = 1;
 
     private static readonly JsonSerializerOptions JsonOptions = new()
     {
@@ -27,6 +28,8 @@ public sealed class UserWorkspaceSettings
         _saveToDisk = saveToDisk;
     }
 
+    public int SchemaVersion { get; set; } = CurrentSchemaVersion;
+
     public string? ThemeId { get; set; }
 
     public int? MaxRecentEventEntries { get; set; }
@@ -41,23 +44,32 @@ public sealed class UserWorkspaceSettings
 
     public static UserWorkspaceSettings Load()
     {
+        return LoadFromFile(GetSettingsPath(), saveToDisk: true);
+    }
+
+    internal static UserWorkspaceSettings LoadFromFile(string path)
+    {
+        return LoadFromFile(path, saveToDisk: false);
+    }
+
+    private static UserWorkspaceSettings LoadFromFile(string path, bool saveToDisk)
+    {
         try
         {
-            var path = GetSettingsPath();
             if (!File.Exists(path))
             {
-                return new UserWorkspaceSettings(saveToDisk: true);
+                return new UserWorkspaceSettings(saveToDisk);
             }
 
             var json = File.ReadAllText(path);
             var settings = Normalize(JsonSerializer.Deserialize<UserWorkspaceSettings>(json, JsonOptions));
-            settings._saveToDisk = true;
+            settings._saveToDisk = saveToDisk;
             return settings;
         }
         catch (Exception ex)
         {
             AppLogger.Error("Failed to load user workspace settings.", ex);
-            return new UserWorkspaceSettings(saveToDisk: true);
+            return new UserWorkspaceSettings(saveToDisk);
         }
     }
 
@@ -70,15 +82,19 @@ public sealed class UserWorkspaceSettings
 
         try
         {
-            var path = GetSettingsPath();
-            Directory.CreateDirectory(Path.GetDirectoryName(path)!);
-            var json = JsonSerializer.Serialize(Normalize(this), JsonOptions);
-            File.WriteAllText(path, json);
+            SaveToFile(GetSettingsPath());
         }
         catch (Exception ex)
         {
             AppLogger.Error("Failed to save user workspace settings.", ex);
         }
+    }
+
+    internal void SaveToFile(string path)
+    {
+        Directory.CreateDirectory(Path.GetDirectoryName(path)!);
+        var json = JsonSerializer.Serialize(Normalize(this), JsonOptions);
+        File.WriteAllText(path, json);
     }
 
     public SourceWorkspaceSettings? GetSource(string sourceKey)
@@ -104,9 +120,17 @@ public sealed class UserWorkspaceSettings
         Sources.Remove(sourceKey);
     }
 
+    internal static int NormalizeSchemaVersion(int schemaVersion)
+    {
+        return schemaVersion == CurrentSchemaVersion
+            ? schemaVersion
+            : CurrentSchemaVersion;
+    }
+
     private static UserWorkspaceSettings Normalize(UserWorkspaceSettings? settings)
     {
         settings ??= new UserWorkspaceSettings();
+        settings.SchemaVersion = NormalizeSchemaVersion(settings.SchemaVersion);
         settings.MaxRecentEventEntries = settings.MaxRecentEventEntries is int maxEntries
             ? Math.Clamp(maxEntries, 1, 200)
             : null;

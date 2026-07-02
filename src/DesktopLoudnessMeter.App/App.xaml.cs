@@ -2,10 +2,12 @@ using System.ComponentModel;
 using System.Windows;
 using DesktopLoudnessMeter.App.Audio;
 using DesktopLoudnessMeter.App.Diagnostics;
+using DesktopLoudnessMeter.App.Host;
 using DesktopLoudnessMeter.App.Infrastructure;
 using DesktopLoudnessMeter.App.Settings;
 using DesktopLoudnessMeter.App.Themes;
 using DesktopLoudnessMeter.App.ViewModels;
+using DesktopLoudnessMeter.App.WebView;
 using Drawing = System.Drawing;
 using Forms = System.Windows.Forms;
 
@@ -14,16 +16,31 @@ namespace DesktopLoudnessMeter.App;
 public partial class App : Application
 {
     private static readonly TimeSpan ActivationRequestTimeout = TimeSpan.FromMilliseconds(750);
+    internal const string TrayShowMenuText = "Show uMeter";
+    internal const string TrayShowNativeUiMenuText = "Show Native UI";
+    internal const string TrayPopupMenuText = "Pop-up App...";
+    internal const string TrayExitMenuText = "Exit";
+
+    internal static IReadOnlyList<string> NormalTrayMenuTexts { get; } =
+    [
+        TrayShowMenuText,
+        TrayShowNativeUiMenuText,
+        TrayPopupMenuText,
+        TrayExitMenuText
+    ];
 
     private SingleInstanceCoordinator? _singleInstanceCoordinator;
     private MainViewModel? _mainViewModel;
     private MainWindow? _mainWindow;
     private LocalLoopbackUdpReceiver? _localLoopbackReceiver;
+    private ISignalSourceMeterService? _sourceMeterService;
     private UserWorkspaceSettings? _workspaceSettings;
     private Forms.NotifyIcon? _trayIcon;
     private Forms.ContextMenuStrip? _trayMenu;
     private Drawing.Icon? _trayIconImage;
     private TrayExitCoordinator? _trayExitCoordinator;
+    private AppWindowRouter? _windowRouter;
+    private WebViewShellWindow? _webViewShellWindow;
     private bool _activationRequestedBeforeWindowReady;
 
     protected override void OnStartup(StartupEventArgs e)
@@ -51,8 +68,9 @@ public partial class App : Application
         var initialTheme = AppThemes.FindById(_workspaceSettings.ThemeId);
         ThemeManager.Apply(initialTheme);
 
+        _sourceMeterService = CreateSignalSourceService(out var sourceWarningText);
         _mainViewModel = new MainViewModel(
-            CreateSignalSourceService(out var sourceWarningText),
+            _sourceMeterService,
             sourceWarningText: sourceWarningText,
             selectedTheme: initialTheme,
             themeSelected: theme =>
@@ -65,25 +83,23 @@ public partial class App : Application
         _mainViewModel.DetailPopupRequested += OpenDetailPopup;
         _mainViewModel.RefreshNow();
 
-        _mainWindow = new MainWindow
-        {
-            DataContext = _mainViewModel
-        };
-        MainWindow = _mainWindow;
+        _windowRouter = new AppWindowRouter(
+            showWebViewPrimary: OpenWebViewShell,
+            showNativeUi: OpenNativeUi);
         InitializeTrayIcon();
-        _mainWindow.Show();
-        _mainWindow.Activate();
+        _windowRouter.ShowStartupWindow();
         if (_activationRequestedBeforeWindowReady)
         {
-            ShowMainWindow();
+            _windowRouter.RestoreFromSecondaryActivation();
         }
 
-        AppLogger.Info($"Main window shown. Left={_mainWindow.Left:0}, Top={_mainWindow.Top:0}, Width={_mainWindow.Width:0}, Height={_mainWindow.Height:0}, Topmost={_mainWindow.Topmost}.");
+        AppLogger.Info("WebView shell startup target shown.");
     }
 
     protected override void OnExit(ExitEventArgs e)
     {
         AppLogger.Info($"Application exiting with code {e.ApplicationExitCode}.");
+        _webViewShellWindow?.Close();
         _localLoopbackReceiver?.Dispose();
         DisposeTrayIcon();
         _mainViewModel?.Dispose();
@@ -150,34 +166,9 @@ public partial class App : Application
         {
             DataContext = new DetailWindowViewModel(session, GetActiveDetailSwitchTargets, _workspaceSettings)
         };
-        PositionDetailPopup(window, _mainWindow);
+        DetailPopupPlacement.PositionNearOwner(window, _mainWindow);
         window.Show();
         window.Activate();
-    }
-
-    private static void PositionDetailPopup(Window popup, Window? mainWindow)
-    {
-        if (mainWindow?.IsVisible != true)
-        {
-            popup.WindowStartupLocation = WindowStartupLocation.CenterScreen;
-            return;
-        }
-
-        popup.WindowStartupLocation = WindowStartupLocation.Manual;
-        var mainWidth = mainWindow.ActualWidth > 0 ? mainWindow.ActualWidth : mainWindow.Width;
-        var mainHeight = mainWindow.ActualHeight > 0 ? mainWindow.ActualHeight : mainWindow.Height;
-        var popupWidth = popup.Width > 0 ? popup.Width : 460;
-        var popupHeight = popup.Height > 0 ? popup.Height : 840;
-        popup.Left = ClampToVirtualScreen(mainWindow.Left + ((mainWidth - popupWidth) / 2), popupWidth, isHorizontal: true);
-        popup.Top = ClampToVirtualScreen(mainWindow.Top + ((mainHeight - popupHeight) / 2), popupHeight, isHorizontal: false);
-    }
-
-    private static double ClampToVirtualScreen(double value, double length, bool isHorizontal)
-    {
-        var minimum = isHorizontal ? SystemParameters.VirtualScreenLeft : SystemParameters.VirtualScreenTop;
-        var span = isHorizontal ? SystemParameters.VirtualScreenWidth : SystemParameters.VirtualScreenHeight;
-        var maximum = Math.Max(minimum, minimum + span - length);
-        return Math.Clamp(value, minimum, maximum);
     }
 
     private IReadOnlyList<AudioSessionMeterViewModel> GetActiveDetailSwitchTargets()
@@ -192,7 +183,7 @@ public partial class App : Application
     {
         AppLogger.Info("Activation requested by a secondary launch.");
         _activationRequestedBeforeWindowReady = true;
-        Dispatcher.BeginInvoke(ShowMainWindow);
+        Dispatcher.BeginInvoke(() => _windowRouter?.RestoreFromSecondaryActivation());
     }
 
     private void InitializeTrayIcon()
@@ -209,7 +200,7 @@ public partial class App : Application
             ContextMenuStrip = _trayMenu,
             Visible = true
         };
-        _trayIcon.DoubleClick += (_, _) => ShowMainWindow();
+        _trayIcon.DoubleClick += (_, _) => _windowRouter?.RestoreFromTray();
     }
 
     private void TrayMenu_OnOpening(object? sender, CancelEventArgs e)
@@ -232,9 +223,10 @@ public partial class App : Application
         }
 
         _trayMenu.Items.Clear();
-        _trayMenu.Items.Add("Show uMeter", null, (_, _) => ShowMainWindow());
+        _trayMenu.Items.Add(TrayShowMenuText, null, (_, _) => _windowRouter?.RestoreFromTray());
+        _trayMenu.Items.Add(TrayShowNativeUiMenuText, null, (_, _) => _windowRouter?.OpenNativeUi());
 
-        var popupMenu = new Forms.ToolStripMenuItem("Pop-up App...");
+        var popupMenu = new Forms.ToolStripMenuItem(TrayPopupMenuText);
         var sessions = _mainViewModel?.Sessions.ToArray() ?? [];
         if (sessions.Length == 0)
         {
@@ -262,7 +254,7 @@ public partial class App : Application
 
         _trayMenu.Items.Add(popupMenu);
         _trayMenu.Items.Add(new Forms.ToolStripSeparator());
-        _trayMenu.Items.Add("Exit", null, (_, _) => RequestTrayExit());
+        _trayMenu.Items.Add(TrayExitMenuText, null, (_, _) => RequestTrayExit());
     }
 
     private void RequestTrayExit()
@@ -273,13 +265,22 @@ public partial class App : Application
         _trayExitCoordinator.RequestExit();
     }
 
-    private void ShowMainWindow()
+    public void OpenNativeUi()
     {
         Dispatcher.Invoke(() =>
         {
-            if (_mainWindow is null)
+            if (_mainViewModel is null)
             {
                 return;
+            }
+
+            if (_mainWindow is null)
+            {
+                _mainWindow = new MainWindow
+                {
+                    DataContext = _mainViewModel
+                };
+                _mainWindow.Closed += (_, _) => _mainWindow = null;
             }
 
             _activationRequestedBeforeWindowReady = false;
@@ -291,6 +292,41 @@ public partial class App : Application
 
             _mainWindow.Activate();
             _mainWindow.Focus();
+        });
+    }
+
+    public void OpenWebViewShell()
+    {
+        Dispatcher.Invoke(() =>
+        {
+            if (_mainViewModel is null)
+            {
+                return;
+            }
+
+            if (_webViewShellWindow is { IsVisible: true } visibleWindow)
+            {
+                MainWindow = visibleWindow;
+                if (visibleWindow.WindowState == WindowState.Minimized)
+                {
+                    visibleWindow.WindowState = WindowState.Normal;
+                }
+
+                visibleWindow.Show();
+                visibleWindow.Activate();
+                visibleWindow.Focus();
+                _activationRequestedBeforeWindowReady = false;
+                return;
+            }
+
+            _mainViewModel.RefreshNow();
+            _webViewShellWindow = WebViewShellWindow.Create(_mainViewModel, OpenNativeUi, workspaceSettings: _workspaceSettings);
+            _webViewShellWindow.Closed += (_, _) => _webViewShellWindow = null;
+            MainWindow = _webViewShellWindow;
+            _webViewShellWindow.Show();
+            _webViewShellWindow.Activate();
+            _webViewShellWindow.Focus();
+            _activationRequestedBeforeWindowReady = false;
         });
     }
 

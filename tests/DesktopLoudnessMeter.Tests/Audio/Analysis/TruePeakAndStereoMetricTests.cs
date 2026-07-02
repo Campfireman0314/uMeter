@@ -303,6 +303,21 @@ public sealed class TruePeakAndStereoMetricTests
         Assert.Null(analyzer.Snapshot.ChannelWaveformSamples);
     }
 
+    [Fact]
+    public void MonoAnalyzerLeavesStereoOnlyMetricsUnavailable()
+    {
+        var analyzer = new PcmMetricAnalyzer(new PcmMetricAnalyzerOptions(SampleRate, 1, 4));
+        analyzer.Process(MonoSine(seconds: 0.2, amplitude: 0.5));
+
+        Assert.NotNull(analyzer.Snapshot.Rms100MsDb);
+        Assert.NotNull(analyzer.Snapshot.TruePeakDb);
+        Assert.Null(analyzer.Snapshot.Correlation);
+        Assert.Equal(0, analyzer.Snapshot.StereoImageX);
+        Assert.Equal(1, analyzer.Snapshot.StereoImageY);
+        Assert.Null(analyzer.Snapshot.StereoImagePoints);
+        Assert.NotEmpty(analyzer.Snapshot.WaveformSamples!);
+    }
+
     private static PcmMetricAnalyzer Analyzer()
     {
         return new PcmMetricAnalyzer(new PcmMetricAnalyzerOptions(SampleRate, 2, 4));
@@ -371,6 +386,21 @@ public sealed class TruePeakAndStereoMetricTests
             var phase = (2 * Math.PI * frequency * (startFrame + frame) / SampleRate) + phaseRadians;
             samples[frame * 2] = (float)(Math.Sin(phase) * leftAmplitude);
             samples[(frame * 2) + 1] = (float)(Math.Sin(phase) * rightAmplitude);
+        }
+
+        return samples;
+    }
+
+    private static float[] MonoSine(
+        double seconds,
+        double amplitude,
+        double frequency = 1000)
+    {
+        var frames = (int)Math.Round(seconds * SampleRate);
+        var samples = new float[frames];
+        for (var frame = 0; frame < frames; frame++)
+        {
+            samples[frame] = (float)(Math.Sin(2 * Math.PI * frequency * frame / SampleRate) * amplitude);
         }
 
         return samples;

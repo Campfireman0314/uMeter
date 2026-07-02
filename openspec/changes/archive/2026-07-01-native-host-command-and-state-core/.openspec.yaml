@@ -1,0 +1,28 @@
+schema: spec-driven
+kind: change
+profile: consolidated-change
+source_type: feature
+created: 2026-07-01
+status: archived
+consolidates:
+  - 2026-07-01-native-host-chart-settings-command-core
+  - 2026-07-01-native-host-global-settings-command-core
+  - 2026-07-01-native-host-runtime-service-command-core
+  - 2026-07-01-native-host-runtime-state-core
+  - 2026-07-01-native-host-selected-source-command-core
+  - 2026-07-01-native-host-source-order-command-core
+  - 2026-07-01-native-host-source-preference-command-core
+  - 2026-07-01-native-host-source-target-command-core
+gates:
+  readiness:
+    status: pass
+    at: 2026-07-01T23:59:00+08:00
+  verify:
+    status: pass
+    at: 2026-07-01T23:59:00+08:00
+  review:
+    status: pass
+    at: 2026-07-01T23:59:00+08:00
+  archive:
+    status: pass
+    at: 2026-07-01T23:59:00+08:00

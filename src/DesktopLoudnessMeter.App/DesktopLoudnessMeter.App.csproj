@@ -21,6 +21,7 @@
   </PropertyGroup>
 
   <ItemGroup>
+    <PackageReference Include="Microsoft.Web.WebView2" Version="1.0.4022.49" />
     <PackageReference Include="NAudio" Version="2.3.0" />
   </ItemGroup>
 
@@ -40,16 +41,38 @@
     <Resource Include="Assets\desktop-loudness-meter-tray.png" />
   </ItemGroup>
 
-  <ItemGroup Condition="Exists('..\DesktopLoudnessMeter.Native\x64\$(Configuration)\DesktopLoudnessMeter.Native.dll')">
-    <None Include="..\DesktopLoudnessMeter.Native\x64\$(Configuration)\DesktopLoudnessMeter.Native.dll"
-          Link="DesktopLoudnessMeter.Native.dll"
-          CopyToOutputDirectory="PreserveNewest" />
-  </ItemGroup>
+  <PropertyGroup>
+    <WebFrontendProjectDir>..\DesktopLoudnessMeter.Web</WebFrontendProjectDir>
+    <WebFrontendDistDir>$(WebFrontendProjectDir)\dist</WebFrontendDistDir>
+  </PropertyGroup>
 
-  <ItemGroup Condition="!Exists('..\DesktopLoudnessMeter.Native\x64\$(Configuration)\DesktopLoudnessMeter.Native.dll') And Exists('..\DesktopLoudnessMeter.Native\x64\Release\DesktopLoudnessMeter.Native.dll')">
-    <None Include="..\DesktopLoudnessMeter.Native\x64\Release\DesktopLoudnessMeter.Native.dll"
-          Link="DesktopLoudnessMeter.Native.dll"
-          CopyToOutputDirectory="PreserveNewest" />
-  </ItemGroup>
+  <Target Name="BuildWebFrontend" BeforeTargets="BeforeBuild" Condition="Exists('$(WebFrontendProjectDir)\package.json')">
+    <Exec WorkingDirectory="$(WebFrontendProjectDir)" Command="npm ci" Condition="!Exists('$(WebFrontendProjectDir)\node_modules')" />
+    <Exec WorkingDirectory="$(WebFrontendProjectDir)" Command="npm run build" />
+    <ItemGroup>
+      <_WebFrontendDist Include="$(WebFrontendDistDir)\**\*.*" />
+    </ItemGroup>
+    <RemoveDir Directories="$(OutDir)Web" Condition="Exists('$(OutDir)Web')" />
+    <MakeDir Directories="$(OutDir)Web" />
+    <Copy SourceFiles="@(_WebFrontendDist)"
+          DestinationFiles="@(_WebFrontendDist->'$(OutDir)Web\%(RecursiveDir)%(Filename)%(Extension)')"
+          SkipUnchangedFiles="true" />
+  </Target>
+
+  <Target Name="CopyWebFrontendToPublishDirectory"
+          AfterTargets="Publish"
+          DependsOnTargets="BuildWebFrontend"
+          Condition="'$(PublishDir)' != '' And Exists('$(WebFrontendDistDir)\index.html')">
+    <ItemGroup>
+      <_WebFrontendPublishDist Include="$(WebFrontendDistDir)\**\*.*" />
+    </ItemGroup>
+    <RemoveDir Directories="$(PublishDir)Web" Condition="Exists('$(PublishDir)Web')" />
+    <MakeDir Directories="$(PublishDir)Web" />
+    <Copy SourceFiles="@(_WebFrontendPublishDist)"
+          DestinationFiles="@(_WebFrontendPublishDist->'$(PublishDir)Web\%(RecursiveDir)%(Filename)%(Extension)')"
+          SkipUnchangedFiles="true" />
+  </Target>
+
+  <Import Project="..\DesktopLoudnessMeter.Native\DesktopLoudnessMeter.Native.targets" />
 
 </Project>

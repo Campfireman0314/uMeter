@@ -98,6 +98,48 @@ public sealed class LocalLoopbackSignalSourceServiceTests
     }
 
     [Fact]
+    public void RegisterWithSameFormatTouchesSameHandleWithoutResettingMetrics()
+    {
+        var service = CreateService(timeout: TimeSpan.FromSeconds(1));
+        var sourceKey = LocalLoopbackSignalSourceService.BuildSourceKey("plugin-a");
+        service.Ingest(Register("plugin-a", "Lead Vocal", LocalLoopbackSourceKind.Plugin));
+        service.SetChannelWaveformEnabled(sourceKey, SignalSourceKind.Plugin, null, true);
+        service.SetChannelSpectrumEnabled(sourceKey, SignalSourceKind.Plugin, null, true);
+        service.Ingest(Audio("plugin-a", StereoTone(4800, 0.5f, -0.5f)));
+
+        _now += TimeSpan.FromMilliseconds(900);
+        service.Ingest(Register("plugin-a", "Lead Vocal Updated", LocalLoopbackSourceKind.Plugin));
+        _now += TimeSpan.FromMilliseconds(900);
+
+        var source = Assert.Single(service.GetCurrentSources());
+        Assert.Equal(sourceKey, source.SourceKey);
+        Assert.Equal("Lead Vocal Updated", source.DisplayName);
+        Assert.NotNull(source.TruePeakDb);
+        Assert.NotNull(source.ChannelWaveformSamples);
+        Assert.NotNull(source.ChannelSpectrumBuckets);
+    }
+
+    [Fact]
+    public void InvalidAudioPacketsAreIgnoredWithoutCorruptingExistingState()
+    {
+        var service = CreateService();
+        var sourceKey = LocalLoopbackSignalSourceService.BuildSourceKey("plugin-a");
+        service.Ingest(Register("plugin-a", "Lead Vocal", LocalLoopbackSourceKind.Plugin));
+        service.SetChannelWaveformEnabled(sourceKey, SignalSourceKind.Plugin, null, true);
+        service.Ingest(Audio("plugin-a", StereoTone(4800, 0.5f, -0.5f)));
+
+        service.Ingest(new LocalLoopbackPacket(LocalLoopbackPacketType.Audio, "plugin-a", Samples: Array.Empty<float>()));
+        service.Ingest(new LocalLoopbackPacket(LocalLoopbackPacketType.Audio, "plugin-a", Samples: [0.25f]));
+        service.Ingest(Audio("missing-plugin", StereoTone(64, 0.1f, -0.1f)));
+
+        var source = Assert.Single(service.GetCurrentSources());
+        Assert.Equal(sourceKey, source.SourceKey);
+        Assert.Equal(0.5f, source.Peak);
+        Assert.NotNull(source.TruePeakDb);
+        Assert.NotNull(source.ChannelWaveformSamples);
+    }
+
+    [Fact]
     public void HeartbeatTimeoutCloseAndReregisterControlVisibility()
     {
         var service = CreateService(timeout: TimeSpan.FromSeconds(1));

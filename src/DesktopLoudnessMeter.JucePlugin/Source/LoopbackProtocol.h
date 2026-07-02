@@ -12,6 +12,34 @@ public:
     static constexpr const char* protocolVersion = "desktop-loudness-meter.loopback.v1";
     static constexpr int defaultPort = 38173;
 
+    struct PacketTypes
+    {
+        static constexpr const char* registerSource = "register";
+        static constexpr const char* heartbeat = "heartbeat";
+        static constexpr const char* rename = "rename";
+        static constexpr const char* audio = "audio";
+        static constexpr const char* close = "close";
+        static constexpr const char* ack = "ack";
+    };
+
+    struct SourceKinds
+    {
+        static constexpr const char* plugin = "plugin";
+    };
+
+    struct Fields
+    {
+        static constexpr const char* protocol = "protocol";
+        static constexpr const char* type = "type";
+        static constexpr const char* handle = "handle";
+        static constexpr const char* displayName = "displayName";
+        static constexpr const char* sourceKind = "sourceKind";
+        static constexpr const char* sampleRate = "sampleRate";
+        static constexpr const char* channels = "channels";
+        static constexpr const char* sequence = "sequence";
+        static constexpr const char* samplesBase64 = "samplesBase64";
+    };
+
     static juce::String createHandle();
     static bool isValidHandle (const juce::String& handle);
 

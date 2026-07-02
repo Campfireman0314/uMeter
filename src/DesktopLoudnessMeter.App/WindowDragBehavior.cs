@@ -27,7 +27,7 @@ internal static class WindowDragBehavior
 
         try
         {
-            window.DragMove();
+            BeginDragMove(window);
             e.Handled = true;
         }
         catch (InvalidOperationException)
@@ -36,7 +36,17 @@ internal static class WindowDragBehavior
         }
     }
 
-    private static void ToggleWindowState(Window window)
+    public static void BeginDragMove(Window window)
+    {
+        if (window.WindowState == WindowState.Maximized)
+        {
+            RestoreForDrag(window);
+        }
+
+        window.DragMove();
+    }
+
+    public static void ToggleWindowState(Window window)
     {
         window.WindowState = window.WindowState == WindowState.Maximized
             ? WindowState.Normal
@@ -61,11 +71,34 @@ internal static class WindowDragBehavior
         window.Top = mouseOnScreen.Y - Math.Min(mouseInWindow.Y, 32);
     }
 
+    private static void RestoreForDrag(Window window)
+    {
+        var mouseOnScreen = ToDeviceIndependentPoint(window, GetCursorPosition());
+        var restoreBounds = window.RestoreBounds;
+        var restoredWidth = Math.Max(window.MinWidth, restoreBounds.Width);
+        var restoredHeight = Math.Max(window.MinHeight, restoreBounds.Height);
+        var cursorRatio = window.ActualWidth > 0
+            ? Math.Clamp((mouseOnScreen.X - window.Left) / window.ActualWidth, 0.08, 0.92)
+            : 0.5;
+
+        window.WindowState = WindowState.Normal;
+        window.Width = restoredWidth;
+        window.Height = restoredHeight;
+        window.Left = mouseOnScreen.X - (restoredWidth * cursorRatio);
+        window.Top = mouseOnScreen.Y - 16;
+    }
+
     private static Point ToDeviceIndependentPoint(Window window, Point screenPoint)
     {
         var source = PresentationSource.FromVisual(window);
         return source?.CompositionTarget is { } target
             ? target.TransformFromDevice.Transform(screenPoint)
             : screenPoint;
+    }
+
+    private static Point GetCursorPosition()
+    {
+        var position = System.Windows.Forms.Cursor.Position;
+        return new Point(position.X, position.Y);
     }
 }

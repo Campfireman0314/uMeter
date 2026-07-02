@@ -6,6 +6,7 @@ using System.Windows.Threading;
 using System.Diagnostics;
 using System.ComponentModel;
 using DesktopLoudnessMeter.App.Audio.Analysis;
+using DesktopLoudnessMeter.App.Host;
 using DesktopLoudnessMeter.App.Settings;
 using DesktopLoudnessMeter.App.Themes;
 
@@ -48,6 +49,7 @@ public sealed class MainViewModel : ObservableObject, IDisposable
     private static readonly TimeSpan NormalRefreshInterval = TimeSpan.FromMilliseconds(33);
     private static readonly TimeSpan EcoRefreshInterval = TimeSpan.FromMilliseconds(100);
     private readonly ISignalSourceMeterService _sourceMeterService;
+    private readonly DesktopMeterHostController _hostController;
     private readonly DispatcherTimer? _refreshTimer;
     private readonly Dictionary<string, int> _missingTicksByKey = [];
     private readonly Dictionary<string, SourceRowPreferences> _preferencesBySourceKey = [];
@@ -115,6 +117,7 @@ public sealed class MainViewModel : ObservableObject, IDisposable
         _workspaceSettings = workspaceSettings ?? new UserWorkspaceSettings();
         _selectedTheme = selectedTheme ?? AppThemes.Default;
         _sourceWarningText = string.IsNullOrWhiteSpace(sourceWarningText) ? null : sourceWarningText.Trim();
+        _hostController = new DesktopMeterHostController(sourceMeterService, _workspaceSettings, _sourceWarningText);
         _missingRowRetentionTicks = Math.Max(0, missingRowRetentionTicks);
         _isProcessAlive = isProcessAlive ?? IsProcessAlive;
         _now = now ?? (() => DateTimeOffset.Now);
@@ -169,6 +172,13 @@ public sealed class MainViewModel : ObservableObject, IDisposable
     }
 
     public ObservableCollection<AudioSessionMeterViewModel> Sessions { get; } = [];
+
+    public HostSnapshot HostSnapshot
+    {
+        get => _hostController.Snapshot;
+    }
+
+    public DesktopMeterHostController HostController => _hostController;
 
     public ObservableCollection<RecentEventViewModel> RecentEvents { get; } = [];
 
@@ -685,7 +695,11 @@ public sealed class MainViewModel : ObservableObject, IDisposable
         {
             if (SetProperty(ref _showHiddenSources, value))
             {
-                RefreshNow();
+                ExecuteHostCommand(new SetShowHiddenSourcesHostCommand(value));
+                Reconcile(_hostController.LastSourceSnapshots);
+                RefreshFrequencyCollisionOptions();
+                RefreshFrequencyCollisions();
+                StatusText = HostSnapshot.StatusText;
                 OnPropertyChanged(nameof(ShowHiddenSourcesText));
             }
         }
@@ -900,23 +914,39 @@ public sealed class MainViewModel : ObservableObject, IDisposable
 
     public void RefreshNow()
     {
-        try
+        var hostSnapshot = RefreshHostSnapshot();
+        if (!hostSnapshot.StatusText.StartsWith("Refresh failed:", StringComparison.Ordinal))
         {
-            var snapshots = _sourceMeterService.GetCurrentSources();
-            Reconcile(snapshots);
+            Reconcile(_hostController.LastSourceSnapshots);
             RefreshFrequencyCollisionOptions();
             RefreshFrequencyCollisions();
-            StatusText = _sourceWarningText ?? (Sessions.Count switch
-            {
-                0 => "No active audio sources",
-                1 => "1 source tracked",
-                _ => $"{Sessions.Count} sources tracked"
-            });
         }
-        catch (Exception ex)
+
+        StatusText = hostSnapshot.StatusText;
+    }
+
+    private HostSnapshot RefreshHostSnapshot()
+    {
+        SyncShowHiddenSourcesFromHost();
+        var snapshot = _hostController.Refresh();
+        OnPropertyChanged(nameof(HostSnapshot));
+        return snapshot;
+    }
+
+    private void SyncShowHiddenSourcesFromHost()
+    {
+        var showHiddenSources = _hostController.ShowHiddenSources;
+        if (SetProperty(ref _showHiddenSources, showHiddenSources, nameof(ShowHiddenSources)))
         {
-            StatusText = $"Refresh failed: {ex.Message}";
+            OnPropertyChanged(nameof(ShowHiddenSourcesText));
         }
+    }
+
+    private HostCommandResult ExecuteHostCommand(HostCommand command)
+    {
+        var result = _hostController.Execute(command);
+        OnPropertyChanged(nameof(HostSnapshot));
+        return result;
     }
 
     public void Dispose()
@@ -1587,10 +1617,7 @@ public sealed class MainViewModel : ObservableObject, IDisposable
 
     private void ResetAllSessions()
     {
-        if (_sourceMeterService is ISignalSourceResetService resetService)
-        {
-            resetService.ResetAllSources();
-        }
+        ExecuteHostCommand(new ResetAllHostCommand());
 
         foreach (var session in Sessions)
         {
@@ -1600,10 +1627,7 @@ public sealed class MainViewModel : ObservableObject, IDisposable
 
     private void ResetSession(AudioSessionMeterViewModel session)
     {
-        if (_sourceMeterService is ISignalSourceResetService resetService)
-        {
-            resetService.ResetSource(session.SourceKey, session.SourceKind, session.ProcessId);
-        }
+        ExecuteHostCommand(new ResetSourceHostCommand(session.SourceKey, session.SourceKind, session.ProcessId));
     }
 
     private void AttachRowHandlers(AudioSessionMeterViewModel session)
@@ -1651,7 +1675,7 @@ public sealed class MainViewModel : ObservableObject, IDisposable
         var preferences = GetOrCreatePreferences(session.SourceKey);
         preferences.IsHidden = true;
         session.ApplyWorkspaceState(isHidden: true, preferences.OrderIndex);
-        SaveSourcePreferences(session.SourceKey);
+        ExecuteHostCommand(new HideSourceHostCommand(session.SourceKey));
         OnPropertyChanged(nameof(HasHiddenSources));
         if (!ShowHiddenSources)
         {
@@ -1670,7 +1694,7 @@ public sealed class MainViewModel : ObservableObject, IDisposable
         var preferences = GetOrCreatePreferences(session.SourceKey);
         preferences.IsHidden = false;
         session.ApplyWorkspaceState(isHidden: false, preferences.OrderIndex);
-        SaveSourcePreferences(session.SourceKey);
+        ExecuteHostCommand(new RestoreSourceHostCommand(session.SourceKey));
         OnPropertyChanged(nameof(HasHiddenSources));
     }
 
@@ -1727,6 +1751,7 @@ public sealed class MainViewModel : ObservableObject, IDisposable
         }
 
         Sessions.Move(currentIndex, targetIndex);
+        ExecuteHostCommand(new MoveSourceToIndexHostCommand(session.SourceKey, targetIndex));
         PersistCurrentSourceOrder();
         RaiseMoveCommandStateChanged();
     }
@@ -1812,12 +1837,14 @@ public sealed class MainViewModel : ObservableObject, IDisposable
         GetOrCreatePreferences(session.SourceKey).TruePeakOversampling = oversampling;
         if (persist && !_isApplyingWorkspacePreferences)
         {
-            SaveSourcePreferences(session.SourceKey);
+            ExecuteHostCommand(new SetTruePeakOversamplingHostCommand(session.SourceKey, session.SourceKind, session.ProcessId, oversampling));
         }
-
-        if (_sourceMeterService is ISignalSourceAnalysisSettingsService settingsService)
+        else
         {
-            settingsService.SetTruePeakOversampling(session.SourceKey, session.SourceKind, session.ProcessId, (int)oversampling);
+            if (_sourceMeterService is ISignalSourceAnalysisSettingsService settingsService)
+            {
+                settingsService.SetTruePeakOversampling(session.SourceKey, session.SourceKind, session.ProcessId, (int)oversampling);
+            }
         }
     }
 
@@ -1831,16 +1858,18 @@ public sealed class MainViewModel : ObservableObject, IDisposable
         GetOrCreatePreferences(session.SourceKey).SpectrumDisplayMode = displayMode;
         if (persist && !_isApplyingWorkspacePreferences)
         {
-            SaveSourcePreferences(session.SourceKey);
+            ExecuteHostCommand(new SetSpectrumDisplayModeHostCommand(session.SourceKey, session.SourceKind, session.ProcessId, displayMode));
         }
-
-        if (_sourceMeterService is ISignalSourceAnalysisSettingsService settingsService)
+        else
         {
-            settingsService.SetChannelSpectrumEnabled(
-                session.SourceKey,
-                session.SourceKind,
-                session.ProcessId,
-                displayMode == SpectrumDisplayMode.Channels);
+            if (_sourceMeterService is ISignalSourceAnalysisSettingsService settingsService)
+            {
+                settingsService.SetChannelSpectrumEnabled(
+                    session.SourceKey,
+                    session.SourceKind,
+                    session.ProcessId,
+                    displayMode == SpectrumDisplayMode.Channels);
+            }
         }
     }
 
@@ -1876,16 +1905,18 @@ public sealed class MainViewModel : ObservableObject, IDisposable
         GetOrCreatePreferences(session.SourceKey).WaveformDisplayMode = displayMode;
         if (persist && !_isApplyingWorkspacePreferences)
         {
-            SaveSourcePreferences(session.SourceKey);
+            ExecuteHostCommand(new SetWaveformDisplayModeHostCommand(session.SourceKey, session.SourceKind, session.ProcessId, displayMode));
         }
-
-        if (_sourceMeterService is ISignalSourceAnalysisSettingsService settingsService)
+        else
         {
-            settingsService.SetChannelWaveformEnabled(
-                session.SourceKey,
-                session.SourceKind,
-                session.ProcessId,
-                displayMode == WaveformDisplayMode.Channels);
+            if (_sourceMeterService is ISignalSourceAnalysisSettingsService settingsService)
+            {
+                settingsService.SetChannelWaveformEnabled(
+                    session.SourceKey,
+                    session.SourceKind,
+                    session.ProcessId,
+                    displayMode == WaveformDisplayMode.Channels);
+            }
         }
     }
 
@@ -2181,7 +2212,7 @@ public sealed class MainViewModel : ObservableObject, IDisposable
         }
 
         GetOrCreatePreferences(session.SourceKey).Alias = alias;
-        SaveSourcePreferences(session.SourceKey);
+        ExecuteHostCommand(new SetSourceAliasHostCommand(session.SourceKey, alias));
         RefreshDisplayNameCollisions();
         RefreshFrequencyCollisionOptions();
     }
@@ -2280,8 +2311,7 @@ public sealed class MainViewModel : ObservableObject, IDisposable
         }
 
         _preferencesBySourceKey.Remove(session.SourceKey);
-        _workspaceSettings.ForgetSource(session.SourceKey);
-        _workspaceSettings.Save();
+        ExecuteHostCommand(new ForgetSourceHostCommand(session.SourceKey));
         _isApplyingWorkspacePreferences = true;
         try
         {

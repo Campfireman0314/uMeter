@@ -1,0 +1,28 @@
+schema: spec-driven
+kind: change
+profile: consolidated-change
+source_type: feature
+created: 2026-07-01
+status: archived
+consolidates:
+  - 2026-06-30-native-host-source-list-projection-core
+  - 2026-07-01-native-host-aggregate-snapshot-core
+  - 2026-07-01-native-host-collision-projection-core
+  - 2026-07-01-native-host-detail-module-projection-core
+  - 2026-07-01-native-host-recent-events-core
+  - 2026-07-01-native-host-selected-detail-shell-core
+  - 2026-07-01-native-host-selected-detail-snapshot-core
+  - 2026-07-01-native-host-snapshot-chrome-projection-core
+gates:
+  readiness:
+    status: pass_with_warnings
+    at: 2026-07-01T23:59:00+08:00
+  verify:
+    status: pass_with_warnings
+    at: 2026-07-01T23:59:00+08:00
+  review:
+    status: pass_with_warnings
+    at: 2026-07-01T23:59:00+08:00
+  archive:
+    status: pass
+    at: 2026-07-01T23:59:00+08:00

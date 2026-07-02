@@ -14,11 +14,7 @@ public sealed class LocalLoopbackSignalSourceService :
     private readonly object _lock = new();
     private readonly Func<DateTimeOffset> _clock;
     private readonly TimeSpan _sourceTimeout;
-    private readonly Dictionary<string, SourceState> _sourcesByHandle = [];
-    private readonly Dictionary<string, int> _truePeakOversamplingByHandle = [];
-    private readonly Dictionary<string, bool> _channelWaveformEnabledByHandle = [];
-    private readonly Dictionary<string, bool> _channelSpectrumEnabledByHandle = [];
-    private PcmAnalysisPerformanceMode _performanceMode = PcmAnalysisPerformanceMode.Normal;
+    private readonly NativeSourceIngestCore _core = new();
     private bool _isDisposed;
 
     public LocalLoopbackSignalSourceService()
@@ -46,27 +42,24 @@ public sealed class LocalLoopbackSignalSourceService :
                 return;
             }
 
-            RemoveExpiredSources(_clock());
+            var now = _clock();
+            RemoveExpiredSources(now);
             switch (packet.Type)
             {
                 case LocalLoopbackPacketType.Register:
-                    Register(packet);
+                    Register(packet, now);
                     break;
                 case LocalLoopbackPacketType.Heartbeat:
-                    Touch(packet.Handle);
+                    _core.Heartbeat(packet.Handle, ToMilliseconds(now));
                     break;
                 case LocalLoopbackPacketType.Rename:
-                    Rename(packet);
+                    _core.Rename(packet.Handle, NormalizeDisplayName(packet.DisplayName, packet.Handle), ToMilliseconds(now));
                     break;
                 case LocalLoopbackPacketType.Audio:
-                    ProcessAudio(packet);
+                    ProcessAudio(packet, now);
                     break;
                 case LocalLoopbackPacketType.Close:
-                    if (_sourcesByHandle.Remove(packet.Handle, out var source))
-                    {
-                        source.Dispose();
-                    }
-
+                    _core.Close(packet.Handle);
                     break;
                 case LocalLoopbackPacketType.Ack:
                     break;
@@ -79,7 +72,7 @@ public sealed class LocalLoopbackSignalSourceService :
         lock (_lock)
         {
             RemoveExpiredSources(_clock());
-            return _sourcesByHandle.Values
+            return _core.GetSnapshots()
                 .OrderBy(source => source.DisplayName, StringComparer.CurrentCultureIgnoreCase)
                 .ThenBy(source => source.Handle, StringComparer.Ordinal)
                 .Select(CreateSnapshot)
@@ -96,9 +89,9 @@ public sealed class LocalLoopbackSignalSourceService :
 
         lock (_lock)
         {
-            if (_sourcesByHandle.TryGetValue(handle, out var source))
+            if (!_isDisposed)
             {
-                source.Reset();
+                _core.ResetSource(handle);
             }
         }
     }
@@ -107,9 +100,9 @@ public sealed class LocalLoopbackSignalSourceService :
     {
         lock (_lock)
         {
-            foreach (var source in _sourcesByHandle.Values)
+            if (!_isDisposed)
             {
-                source.Reset();
+                _core.ResetAll();
             }
         }
     }
@@ -124,10 +117,9 @@ public sealed class LocalLoopbackSignalSourceService :
 
         lock (_lock)
         {
-            _truePeakOversamplingByHandle[handle] = oversampling;
-            if (_sourcesByHandle.TryGetValue(handle, out var source))
+            if (!_isDisposed)
             {
-                source.SetTruePeakOversampling(oversampling);
+                _core.SetTruePeakOversampling(handle, oversampling);
             }
         }
     }
@@ -141,10 +133,9 @@ public sealed class LocalLoopbackSignalSourceService :
 
         lock (_lock)
         {
-            _channelWaveformEnabledByHandle[handle] = enabled;
-            if (_sourcesByHandle.TryGetValue(handle, out var source))
+            if (!_isDisposed)
             {
-                source.SetChannelWaveformEnabled(enabled);
+                _core.SetChannelWaveformEnabled(handle, enabled);
             }
         }
     }
@@ -158,10 +149,9 @@ public sealed class LocalLoopbackSignalSourceService :
 
         lock (_lock)
         {
-            _channelSpectrumEnabledByHandle[handle] = enabled;
-            if (_sourcesByHandle.TryGetValue(handle, out var source))
+            if (!_isDisposed)
             {
-                source.SetChannelSpectrumEnabled(enabled);
+                _core.SetChannelSpectrumEnabled(handle, enabled);
             }
         }
     }
@@ -170,15 +160,9 @@ public sealed class LocalLoopbackSignalSourceService :
     {
         lock (_lock)
         {
-            if (_performanceMode == mode)
+            if (!_isDisposed)
             {
-                return;
-            }
-
-            _performanceMode = mode;
-            foreach (var source in _sourcesByHandle.Values)
-            {
-                source.SetPerformanceMode(mode);
+                _core.SetPerformanceMode(mode);
             }
         }
     }
@@ -187,84 +171,49 @@ public sealed class LocalLoopbackSignalSourceService :
     {
         lock (_lock)
         {
-            _isDisposed = true;
-            foreach (var source in _sourcesByHandle.Values)
+            if (_isDisposed)
             {
-                source.Dispose();
+                return;
             }
 
-            _sourcesByHandle.Clear();
+            _isDisposed = true;
+            _core.Dispose();
         }
     }
 
-    private void Register(LocalLoopbackPacket packet)
+    private void Register(LocalLoopbackPacket packet, DateTimeOffset timestamp)
     {
         if (packet.SampleRate is not int sampleRate || packet.Channels is not int channels)
         {
             return;
         }
 
-        if (_sourcesByHandle.TryGetValue(packet.Handle, out var source))
-        {
-            source.Reconfigure(
-                NormalizeDisplayName(packet.DisplayName, packet.Handle),
-                NormalizeSourceKind(packet.SourceKind),
-                sampleRate,
-                channels,
-                _clock());
-            return;
-        }
-
-        _sourcesByHandle[packet.Handle] = new SourceState(
+        _core.Register(
             packet.Handle,
             NormalizeDisplayName(packet.DisplayName, packet.Handle),
-            NormalizeSourceKind(packet.SourceKind),
+            (int)NormalizeSourceKind(packet.SourceKind),
             sampleRate,
             channels,
-            GetTruePeakOversampling(packet.Handle),
-            GetChannelWaveformEnabled(packet.Handle),
-            GetChannelSpectrumEnabled(packet.Handle),
-            _performanceMode,
-            _clock());
+            ToMilliseconds(timestamp));
     }
 
-    private void Touch(string handle)
+    private void ProcessAudio(LocalLoopbackPacket packet, DateTimeOffset timestamp)
     {
-        if (_sourcesByHandle.TryGetValue(handle, out var source))
-        {
-            source.Touch(_clock());
-        }
-    }
-
-    private void Rename(LocalLoopbackPacket packet)
-    {
-        if (_sourcesByHandle.TryGetValue(packet.Handle, out var source))
-        {
-            source.DisplayName = NormalizeDisplayName(packet.DisplayName, packet.Handle);
-            source.Touch(_clock());
-        }
-    }
-
-    private void ProcessAudio(LocalLoopbackPacket packet)
-    {
-        if (!_sourcesByHandle.TryGetValue(packet.Handle, out var source)
-            || packet.Samples is null
-            || packet.Samples.Count == 0
-            || packet.Samples.Count % source.Channels != 0)
+        if (packet.Samples is null || packet.Samples.Count == 0)
         {
             return;
         }
 
-        source.Process(packet.Samples);
-        source.Touch(_clock());
+        _core.Process(packet.Handle, packet.Samples, ToMilliseconds(timestamp));
     }
 
-    private SignalSourceSnapshot CreateSnapshot(SourceState source)
+    private SignalSourceSnapshot CreateSnapshot(NativeSourceIngestCore.NativeSourceSnapshot source)
     {
-        var metrics = source.Snapshot;
+        var metrics = source.Metrics;
+        var sourceKind = ToSignalSourceKind(source.SourceKind);
         return new SignalSourceSnapshot(
             BuildSourceKey(source.Handle),
-            source.SourceKind,
+            sourceKind,
             null,
             source.DisplayName,
             source.Peak,
@@ -294,26 +243,7 @@ public sealed class LocalLoopbackSignalSourceService :
             return;
         }
 
-        foreach (var source in _sourcesByHandle.Values.Where(source => now - source.LastSeenAt > _sourceTimeout).ToArray())
-        {
-            source.Dispose();
-            _sourcesByHandle.Remove(source.Handle);
-        }
-    }
-
-    private int GetTruePeakOversampling(string handle)
-    {
-        return _truePeakOversamplingByHandle.GetValueOrDefault(handle, 4);
-    }
-
-    private bool GetChannelWaveformEnabled(string handle)
-    {
-        return _channelWaveformEnabledByHandle.GetValueOrDefault(handle);
-    }
-
-    private bool GetChannelSpectrumEnabled(string handle)
-    {
-        return _channelSpectrumEnabledByHandle.GetValueOrDefault(handle);
+        _core.RemoveExpired(ToMilliseconds(now), (long)_sourceTimeout.TotalMilliseconds);
     }
 
     private static bool TryGetHandle(string sourceKey, out string handle)
@@ -333,6 +263,13 @@ public sealed class LocalLoopbackSignalSourceService :
         return sourceKind == LocalLoopbackSourceKind.Plugin ? SignalSourceKind.Plugin : SignalSourceKind.LocalLoopback;
     }
 
+    private static SignalSourceKind ToSignalSourceKind(int sourceKind)
+    {
+        return Enum.IsDefined(typeof(SignalSourceKind), sourceKind)
+            ? (SignalSourceKind)sourceKind
+            : SignalSourceKind.Unknown;
+    }
+
     private static string NormalizeDisplayName(string? displayName, string handle)
     {
         return string.IsNullOrWhiteSpace(displayName) ? handle : displayName.Trim();
@@ -346,174 +283,8 @@ public sealed class LocalLoopbackSignalSourceService :
         }
     }
 
-    private sealed class SourceState : IDisposable
+    private static long ToMilliseconds(DateTimeOffset timestamp)
     {
-        private PcmMetricAnalyzer _analyzer;
-        private int _truePeakOversampling;
-        private bool _channelWaveformEnabled;
-        private bool _channelSpectrumEnabled;
-        private PcmAnalysisPerformanceMode _performanceMode;
-
-        public SourceState(
-            string handle,
-            string displayName,
-            SignalSourceKind sourceKind,
-            int sampleRate,
-            int channels,
-            int truePeakOversampling,
-            bool channelWaveformEnabled,
-            bool channelSpectrumEnabled,
-            PcmAnalysisPerformanceMode performanceMode,
-            DateTimeOffset lastSeenAt)
-        {
-            Handle = handle;
-            DisplayName = displayName;
-            SourceKind = sourceKind;
-            SampleRate = sampleRate;
-            Channels = channels;
-            _truePeakOversampling = truePeakOversampling;
-            _channelWaveformEnabled = channelWaveformEnabled;
-            _channelSpectrumEnabled = channelSpectrumEnabled;
-            _performanceMode = performanceMode;
-            _analyzer = CreateAnalyzer(sampleRate, channels, truePeakOversampling, channelWaveformEnabled, channelSpectrumEnabled, performanceMode);
-            LastSeenAt = lastSeenAt;
-        }
-
-        public string Handle { get; }
-
-        public string DisplayName { get; set; }
-
-        public SignalSourceKind SourceKind { get; set; }
-
-        public int SampleRate { get; private set; }
-
-        public int Channels { get; private set; }
-
-        public DateTimeOffset LastSeenAt { get; private set; }
-
-        public float Peak { get; private set; }
-
-        public PcmMetricsSnapshot Snapshot => _analyzer.Snapshot;
-
-        public void Touch(DateTimeOffset timestamp)
-        {
-            LastSeenAt = timestamp;
-        }
-
-        public void Reconfigure(
-            string displayName,
-            SignalSourceKind sourceKind,
-            int sampleRate,
-            int channels,
-            DateTimeOffset timestamp)
-        {
-            DisplayName = displayName;
-            SourceKind = sourceKind;
-            LastSeenAt = timestamp;
-
-            if (SampleRate == sampleRate && Channels == channels)
-            {
-                return;
-            }
-
-            SampleRate = sampleRate;
-            Channels = channels;
-            Peak = 0;
-            var previousAnalyzer = _analyzer;
-            _analyzer = CreateAnalyzer(
-                sampleRate,
-                channels,
-                _truePeakOversampling,
-                _channelWaveformEnabled,
-                _channelSpectrumEnabled,
-                _performanceMode);
-            previousAnalyzer.Dispose();
-        }
-
-        public void Process(IReadOnlyList<float> samples)
-        {
-            var sampleArray = samples as float[] ?? samples.ToArray();
-            Peak = CalculatePeak(sampleArray);
-            _analyzer.Process(sampleArray);
-        }
-
-        public void Reset()
-        {
-            Peak = 0;
-            _analyzer.Reset();
-        }
-
-        public void SetTruePeakOversampling(int oversampling)
-        {
-            if (_truePeakOversampling == oversampling)
-            {
-                return;
-            }
-
-            _truePeakOversampling = oversampling;
-            Peak = 0;
-            var previousAnalyzer = _analyzer;
-            _analyzer = CreateAnalyzer(SampleRate, Channels, oversampling, _channelWaveformEnabled, _channelSpectrumEnabled, _performanceMode);
-            previousAnalyzer.Dispose();
-        }
-
-        public void SetChannelWaveformEnabled(bool enabled)
-        {
-            _channelWaveformEnabled = enabled;
-            _analyzer.SetChannelWaveformEnabled(enabled);
-        }
-
-        public void SetChannelSpectrumEnabled(bool enabled)
-        {
-            _channelSpectrumEnabled = enabled;
-            _analyzer.SetChannelSpectrumEnabled(enabled);
-        }
-
-        public void SetPerformanceMode(PcmAnalysisPerformanceMode mode)
-        {
-            if (_performanceMode == mode)
-            {
-                return;
-            }
-
-            _performanceMode = mode;
-            _analyzer.SetPerformanceMode(mode);
-        }
-
-        private static PcmMetricAnalyzer CreateAnalyzer(
-            int sampleRate,
-            int channels,
-            int truePeakOversampling,
-            bool channelWaveformEnabled,
-            bool channelSpectrumEnabled,
-            PcmAnalysisPerformanceMode performanceMode)
-        {
-            var analyzer = new PcmMetricAnalyzer(new PcmMetricAnalyzerOptions(sampleRate, channels, truePeakOversampling));
-            analyzer.SetChannelWaveformEnabled(channelWaveformEnabled);
-            analyzer.SetChannelSpectrumEnabled(channelSpectrumEnabled);
-            analyzer.SetPerformanceMode(performanceMode);
-            return analyzer;
-        }
-
-        private static float CalculatePeak(IReadOnlyList<float> samples)
-        {
-            var peak = 0f;
-            foreach (var sample in samples)
-            {
-                if (!float.IsFinite(sample))
-                {
-                    continue;
-                }
-
-                peak = Math.Max(peak, Math.Abs(sample));
-            }
-
-            return PeakMath.ClampPeak(peak);
-        }
-
-        public void Dispose()
-        {
-            _analyzer.Dispose();
-        }
+        return timestamp.ToUnixTimeMilliseconds();
     }
 }

@@ -7,6 +7,36 @@ public static class LocalLoopbackProtocol
 {
     public const string ProtocolVersion = "desktop-loudness-meter.loopback.v1";
 
+    public static class PacketTypes
+    {
+        public const string Register = "register";
+        public const string Heartbeat = "heartbeat";
+        public const string Rename = "rename";
+        public const string Audio = "audio";
+        public const string Close = "close";
+        public const string Ack = "ack";
+    }
+
+    public static class SourceKinds
+    {
+        public const string Loopback = "loopback";
+        public const string LocalLoopback = "local-loopback";
+        public const string Plugin = "plugin";
+    }
+
+    public static class Fields
+    {
+        public const string Protocol = "protocol";
+        public const string Type = "type";
+        public const string Handle = "handle";
+        public const string DisplayName = "displayName";
+        public const string SourceKind = "sourceKind";
+        public const string SampleRate = "sampleRate";
+        public const string Channels = "channels";
+        public const string Sequence = "sequence";
+        public const string SamplesBase64 = "samplesBase64";
+    }
+
     private static readonly JsonSerializerOptions JsonOptions = new()
     {
         PropertyNamingPolicy = JsonNamingPolicy.CamelCase
@@ -21,7 +51,7 @@ public static class LocalLoopbackProtocol
     {
         return Encode(new WirePacket
         {
-            Type = "register",
+            Type = PacketTypes.Register,
             Handle = handle,
             DisplayName = displayName,
             SourceKind = ToWireSourceKind(sourceKind),
@@ -34,7 +64,7 @@ public static class LocalLoopbackProtocol
     {
         return Encode(new WirePacket
         {
-            Type = "heartbeat",
+            Type = PacketTypes.Heartbeat,
             Handle = handle
         });
     }
@@ -43,7 +73,7 @@ public static class LocalLoopbackProtocol
     {
         return Encode(new WirePacket
         {
-            Type = "rename",
+            Type = PacketTypes.Rename,
             Handle = handle,
             DisplayName = displayName
         });
@@ -53,7 +83,7 @@ public static class LocalLoopbackProtocol
     {
         return Encode(new WirePacket
         {
-            Type = "audio",
+            Type = PacketTypes.Audio,
             Handle = handle,
             Sequence = sequence,
             SamplesBase64 = EncodeSamples(samples)
@@ -64,7 +94,7 @@ public static class LocalLoopbackProtocol
     {
         return Encode(new WirePacket
         {
-            Type = "close",
+            Type = PacketTypes.Close,
             Handle = handle
         });
     }
@@ -73,7 +103,7 @@ public static class LocalLoopbackProtocol
     {
         return Encode(new WirePacket
         {
-            Type = "ack",
+            Type = PacketTypes.Ack,
             Handle = handle
         });
     }
@@ -199,31 +229,31 @@ public static class LocalLoopbackProtocol
     {
         type = value?.Trim().ToLowerInvariant() switch
         {
-            "register" => LocalLoopbackPacketType.Register,
-            "heartbeat" => LocalLoopbackPacketType.Heartbeat,
-            "rename" => LocalLoopbackPacketType.Rename,
-            "audio" => LocalLoopbackPacketType.Audio,
-            "close" => LocalLoopbackPacketType.Close,
-            "ack" => LocalLoopbackPacketType.Ack,
+            PacketTypes.Register => LocalLoopbackPacketType.Register,
+            PacketTypes.Heartbeat => LocalLoopbackPacketType.Heartbeat,
+            PacketTypes.Rename => LocalLoopbackPacketType.Rename,
+            PacketTypes.Audio => LocalLoopbackPacketType.Audio,
+            PacketTypes.Close => LocalLoopbackPacketType.Close,
+            PacketTypes.Ack => LocalLoopbackPacketType.Ack,
             _ => default
         };
         return value is not null
-            && (type != default || string.Equals(value.Trim(), "register", StringComparison.OrdinalIgnoreCase));
+            && (type != default || string.Equals(value.Trim(), PacketTypes.Register, StringComparison.OrdinalIgnoreCase));
     }
 
     private static LocalLoopbackSourceKind ParseSourceKind(string? value)
     {
         return value?.Trim().ToLowerInvariant() switch
         {
-            "plugin" => LocalLoopbackSourceKind.Plugin,
-            "loopback" or "local-loopback" => LocalLoopbackSourceKind.Loopback,
+            SourceKinds.Plugin => LocalLoopbackSourceKind.Plugin,
+            SourceKinds.Loopback or SourceKinds.LocalLoopback => LocalLoopbackSourceKind.Loopback,
             _ => LocalLoopbackSourceKind.Loopback
         };
     }
 
     private static string ToWireSourceKind(LocalLoopbackSourceKind sourceKind)
     {
-        return sourceKind == LocalLoopbackSourceKind.Plugin ? "plugin" : "loopback";
+        return sourceKind == LocalLoopbackSourceKind.Plugin ? SourceKinds.Plugin : SourceKinds.Loopback;
     }
 
     private static bool IsSupportedSampleRate(int? sampleRate)

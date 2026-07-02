@@ -1,0 +1,19 @@
+schema: spec-driven
+kind: change
+profile: lean-change
+source_type: feature
+created: 2026-07-01
+status: archived
+gates:
+  readiness:
+    status: pass
+    at: 2026-07-01T18:48:50+08:00
+  verify:
+    status: pass
+    at: 2026-07-01T18:55:59+08:00
+  review:
+    status: pass
+    at: 2026-07-01T18:56:10+08:00
+  archive:
+    status: pass
+    at: 2026-07-01T18:56:20+08:00

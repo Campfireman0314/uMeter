@@ -45,6 +45,14 @@ int intProperty (const juce::var& value, const char* name)
     return static_cast<int> (object->getProperty (name));
 }
 
+juce::MemoryBlock utf8Block (const juce::String& text)
+{
+    juce::MemoryBlock block;
+    const auto* utf8 = text.toRawUTF8();
+    block.append (utf8, static_cast<std::size_t> (std::strlen (utf8)));
+    return block;
+}
+
 void generatedHandlesAreProtocolSafe()
 {
     const auto handle = dlm::LoopbackProtocol::createHandle();
@@ -69,11 +77,23 @@ void registerHeartbeatRenameAndCloseUseV1Shape()
     expect (intProperty (registration, "channels") == 2, "register channel count mismatch");
 
     expect (property (parseJson (dlm::LoopbackProtocol::encodeHeartbeat (handle)), "type") == "heartbeat", "heartbeat type mismatch");
-    expect (property (parseJson (dlm::LoopbackProtocol::encodeRename (handle, "Drum Bus")), "displayName") == "Drum Bus", "rename display name mismatch");
+    expect (property (parseJson (dlm::LoopbackProtocol::encodeHeartbeat (handle)), "protocol") == "desktop-loudness-meter.loopback.v1", "heartbeat protocol mismatch");
+    expect (property (parseJson (dlm::LoopbackProtocol::encodeHeartbeat (handle)), "handle") == handle, "heartbeat handle mismatch");
+
+    const auto rename = parseJson (dlm::LoopbackProtocol::encodeRename (handle, "Drum Bus"));
+    expect (property (rename, "protocol") == "desktop-loudness-meter.loopback.v1", "rename protocol mismatch");
+    expect (property (rename, "type") == "rename", "rename type mismatch");
+    expect (property (rename, "handle") == handle, "rename handle mismatch");
+    expect (property (rename, "displayName") == "Drum Bus", "rename display name mismatch");
+
     expect (property (parseJson (dlm::LoopbackProtocol::encodeClose (handle)), "type") == "close", "close type mismatch");
+    expect (property (parseJson (dlm::LoopbackProtocol::encodeClose (handle)), "protocol") == "desktop-loudness-meter.loopback.v1", "close protocol mismatch");
+    expect (property (parseJson (dlm::LoopbackProtocol::encodeClose (handle)), "handle") == handle, "close handle mismatch");
 
     const auto ack = dlm::LoopbackProtocol::encodeAck (handle);
+    expect (property (parseJson (ack), "protocol") == "desktop-loudness-meter.loopback.v1", "ack protocol mismatch");
     expect (property (parseJson (ack), "type") == "ack", "ack type mismatch");
+    expect (property (parseJson (ack), "handle") == handle, "ack handle mismatch");
     expect (dlm::LoopbackProtocol::isAckForHandle (ack.getData(), static_cast<int> (ack.getSize()), handle), "ack should match its handle");
     expect (! dlm::LoopbackProtocol::isAckForHandle (ack.getData(), static_cast<int> (ack.getSize()), "other-handle"), "ack should reject other handles");
 }
@@ -90,6 +110,23 @@ void audioUsesLittleEndianFloatBase64()
     expect (intProperty (packet, "sequence") == 42, "audio sequence mismatch");
     expect (property (packet, "samplesBase64") == expectedBase64, "audio payload should be little-endian float32 base64");
 }
+
+void ackMatchingRejectsInvalidPackets()
+{
+    const juce::String handle = "juce-vst3-ack";
+    const auto wrongProtocol = utf8Block ("{\"protocol\":\"wrong\",\"type\":\"ack\",\"handle\":\"juce-vst3-ack\"}");
+    const auto wrongType = utf8Block ("{\"protocol\":\"desktop-loudness-meter.loopback.v1\",\"type\":\"heartbeat\",\"handle\":\"juce-vst3-ack\"}");
+    const auto wrongHandle = utf8Block ("{\"protocol\":\"desktop-loudness-meter.loopback.v1\",\"type\":\"ack\",\"handle\":\"other\"}");
+    const auto invalidJson = utf8Block ("not-json");
+    const juce::MemoryBlock empty;
+
+    expect (! dlm::LoopbackProtocol::isAckForHandle (wrongProtocol.getData(), static_cast<int> (wrongProtocol.getSize()), handle), "ack should reject wrong protocol");
+    expect (! dlm::LoopbackProtocol::isAckForHandle (wrongType.getData(), static_cast<int> (wrongType.getSize()), handle), "ack should reject wrong type");
+    expect (! dlm::LoopbackProtocol::isAckForHandle (wrongHandle.getData(), static_cast<int> (wrongHandle.getSize()), handle), "ack should reject wrong handle");
+    expect (! dlm::LoopbackProtocol::isAckForHandle (invalidJson.getData(), static_cast<int> (invalidJson.getSize()), handle), "ack should reject invalid JSON");
+    expect (! dlm::LoopbackProtocol::isAckForHandle (nullptr, 0, handle), "ack should reject null data");
+    expect (! dlm::LoopbackProtocol::isAckForHandle (empty.getData(), static_cast<int> (empty.getSize()), handle), "ack should reject empty data");
+}
 }
 
 void runLoopbackProtocolTests()
@@ -97,4 +134,5 @@ void runLoopbackProtocolTests()
     generatedHandlesAreProtocolSafe();
     registerHeartbeatRenameAndCloseUseV1Shape();
     audioUsesLittleEndianFloatBase64();
+    ackMatchingRejectsInvalidPackets();
 }

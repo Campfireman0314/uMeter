@@ -10,3 +10,7 @@ TestResults/
 *.suo
 *.nupkg
 *.log
+*.tsbuildinfo
+node_modules/
+dist/
+coverage/

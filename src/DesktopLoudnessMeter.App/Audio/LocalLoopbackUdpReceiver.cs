@@ -1,5 +1,6 @@
 using System.Net;
 using System.Net.Sockets;
+using DesktopLoudnessMeter.App.Audio.Analysis;
 using DesktopLoudnessMeter.App.Diagnostics;
 using DesktopLoudnessMeter.Protocol;
 
@@ -52,6 +53,25 @@ public sealed class LocalLoopbackUdpReceiver : IDisposable
         }
     }
 
+    internal static bool RouteReceivedPacket(
+        IPAddress remoteAddress,
+        ReadOnlySpan<byte> bytes,
+        Action<LocalLoopbackPacket> ingest,
+        out string? ackHandle)
+    {
+        ackHandle = null;
+        if (!IPAddress.IsLoopback(remoteAddress)
+            || !NativeLoopbackProtocol.TryDecode(bytes, out var packet)
+            || packet.Type == LocalLoopbackPacketType.Ack)
+        {
+            return false;
+        }
+
+        ingest(packet);
+        ackHandle = packet.Handle;
+        return true;
+    }
+
     public void Dispose()
     {
         if (_isDisposed)
@@ -83,18 +103,13 @@ public sealed class LocalLoopbackUdpReceiver : IDisposable
             while (!_stop.IsCancellationRequested)
             {
                 var received = await _udpClient.ReceiveAsync(_stop.Token).ConfigureAwait(false);
-                if (!IPAddress.IsLoopback(received.RemoteEndPoint.Address))
+                if (RouteReceivedPacket(
+                    received.RemoteEndPoint.Address,
+                    received.Buffer,
+                    _sourceService.Ingest,
+                    out var ackHandle))
                 {
-                    continue;
-                }
-
-                if (LocalLoopbackProtocol.TryDecode(received.Buffer, out var packet))
-                {
-                    if (packet.Type != LocalLoopbackPacketType.Ack)
-                    {
-                        _sourceService.Ingest(packet);
-                        await SendAckAsync(packet.Handle, received.RemoteEndPoint).ConfigureAwait(false);
-                    }
+                    await SendAckAsync(ackHandle!, received.RemoteEndPoint).ConfigureAwait(false);
                 }
             }
         }
@@ -116,7 +131,7 @@ public sealed class LocalLoopbackUdpReceiver : IDisposable
     {
         try
         {
-            var bytes = LocalLoopbackProtocol.EncodeAck(handle);
+            var bytes = NativeLoopbackProtocol.EncodeAck(handle);
             await _udpClient.SendAsync(bytes, bytes.Length, remoteEndPoint).ConfigureAwait(false);
         }
         catch (Exception ex) when (ex is SocketException or ObjectDisposedException or InvalidOperationException)

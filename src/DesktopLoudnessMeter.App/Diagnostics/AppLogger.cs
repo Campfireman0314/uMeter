@@ -18,6 +18,12 @@ public static class AppLogger
         Write("INFO", message);
     }
 
+    [Conditional("DEBUG")]
+    public static void DebugInfo(string message)
+    {
+        Write("DEBUG", message);
+    }
+
     public static void Error(string message, Exception exception)
     {
         Write("ERROR", $"{message}{Environment.NewLine}{exception}");
@@ -25,6 +31,8 @@ public static class AppLogger
 
     private static void Write(string level, string message)
     {
+        System.Diagnostics.Debug.WriteLine($"uMeter [{level}] {message}");
+
         try
         {
             lock (Sync)
@@ -38,7 +46,7 @@ public static class AppLogger
         }
         catch (Exception ex) when (ex is IOException or UnauthorizedAccessException or NotSupportedException or System.Security.SecurityException)
         {
-            Debug.WriteLine($"uMeter log write failed: {ex.Message}");
+            System.Diagnostics.Debug.WriteLine($"uMeter log write failed: {ex.Message}");
         }
     }
 }

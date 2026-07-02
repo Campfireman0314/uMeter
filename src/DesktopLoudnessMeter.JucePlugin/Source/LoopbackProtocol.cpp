@@ -20,9 +20,9 @@ juce::MemoryBlock toUtf8Block (const juce::String& text)
 
 juce::MemoryBlock simplePacket (const juce::String& type, const juce::String& handle)
 {
-    return toUtf8Block ("{\"protocol\":" + quoted (dlm::LoopbackProtocol::protocolVersion)
-                        + ",\"type\":" + quoted (type)
-                        + ",\"handle\":" + quoted (handle)
+    return toUtf8Block ("{\"" + juce::String (dlm::LoopbackProtocol::Fields::protocol) + "\":" + quoted (dlm::LoopbackProtocol::protocolVersion)
+                        + ",\"" + juce::String (dlm::LoopbackProtocol::Fields::type) + "\":" + quoted (type)
+                        + ",\"" + juce::String (dlm::LoopbackProtocol::Fields::handle) + "\":" + quoted (handle)
                         + "}");
 }
 
@@ -76,27 +76,27 @@ juce::MemoryBlock LoopbackProtocol::encodeRegister (const juce::String& handle,
                                                     int sampleRate,
                                                     int channels)
 {
-    return toUtf8Block ("{\"protocol\":" + quoted (protocolVersion)
-                        + ",\"type\":\"register\""
-                        + ",\"handle\":" + quoted (handle)
-                        + ",\"displayName\":" + quoted (displayName)
-                        + ",\"sourceKind\":\"plugin\""
-                        + ",\"sampleRate\":" + juce::String (sampleRate)
-                        + ",\"channels\":" + juce::String (channels)
+    return toUtf8Block ("{\"" + juce::String (Fields::protocol) + "\":" + quoted (protocolVersion)
+                        + ",\"" + juce::String (Fields::type) + "\":" + quoted (PacketTypes::registerSource)
+                        + ",\"" + juce::String (Fields::handle) + "\":" + quoted (handle)
+                        + ",\"" + juce::String (Fields::displayName) + "\":" + quoted (displayName)
+                        + ",\"" + juce::String (Fields::sourceKind) + "\":" + quoted (SourceKinds::plugin)
+                        + ",\"" + juce::String (Fields::sampleRate) + "\":" + juce::String (sampleRate)
+                        + ",\"" + juce::String (Fields::channels) + "\":" + juce::String (channels)
                         + "}");
 }
 
 juce::MemoryBlock LoopbackProtocol::encodeHeartbeat (const juce::String& handle)
 {
-    return simplePacket ("heartbeat", handle);
+    return simplePacket (PacketTypes::heartbeat, handle);
 }
 
 juce::MemoryBlock LoopbackProtocol::encodeRename (const juce::String& handle, const juce::String& displayName)
 {
-    return toUtf8Block ("{\"protocol\":" + quoted (protocolVersion)
-                        + ",\"type\":\"rename\""
-                        + ",\"handle\":" + quoted (handle)
-                        + ",\"displayName\":" + quoted (displayName)
+    return toUtf8Block ("{\"" + juce::String (Fields::protocol) + "\":" + quoted (protocolVersion)
+                        + ",\"" + juce::String (Fields::type) + "\":" + quoted (PacketTypes::rename)
+                        + ",\"" + juce::String (Fields::handle) + "\":" + quoted (handle)
+                        + ",\"" + juce::String (Fields::displayName) + "\":" + quoted (displayName)
                         + "}");
 }
 
@@ -108,22 +108,22 @@ juce::MemoryBlock LoopbackProtocol::encodeAudio (const juce::String& handle,
     const auto bytes = toLittleEndianFloatBytes (samples, sampleCount);
     const auto encodedSamples = juce::Base64::toBase64 (bytes.data(), bytes.size());
 
-    return toUtf8Block ("{\"protocol\":" + quoted (protocolVersion)
-                        + ",\"type\":\"audio\""
-                        + ",\"handle\":" + quoted (handle)
-                        + ",\"sequence\":" + juce::String (sequence)
-                        + ",\"samplesBase64\":" + quoted (encodedSamples)
+    return toUtf8Block ("{\"" + juce::String (Fields::protocol) + "\":" + quoted (protocolVersion)
+                        + ",\"" + juce::String (Fields::type) + "\":" + quoted (PacketTypes::audio)
+                        + ",\"" + juce::String (Fields::handle) + "\":" + quoted (handle)
+                        + ",\"" + juce::String (Fields::sequence) + "\":" + juce::String (sequence)
+                        + ",\"" + juce::String (Fields::samplesBase64) + "\":" + quoted (encodedSamples)
                         + "}");
 }
 
 juce::MemoryBlock LoopbackProtocol::encodeClose (const juce::String& handle)
 {
-    return simplePacket ("close", handle);
+    return simplePacket (PacketTypes::close, handle);
 }
 
 juce::MemoryBlock LoopbackProtocol::encodeAck (const juce::String& handle)
 {
-    return simplePacket ("ack", handle);
+    return simplePacket (PacketTypes::ack, handle);
 }
 
 bool LoopbackProtocol::isAckForHandle (const void* data, int sizeInBytes, const juce::String& handle)
@@ -141,8 +141,8 @@ bool LoopbackProtocol::isAckForHandle (const void* data, int sizeInBytes, const 
         return false;
     }
 
-    return object->getProperty ("protocol").toString() == protocolVersion
-        && object->getProperty ("type").toString() == "ack"
-        && object->getProperty ("handle").toString() == handle;
+    return object->getProperty (Fields::protocol).toString() == protocolVersion
+        && object->getProperty (Fields::type).toString() == PacketTypes::ack
+        && object->getProperty (Fields::handle).toString() == handle;
 }
 }

@@ -39,7 +39,29 @@ public sealed class PcmMetricAnalyzerContractTests
         Assert.Null(snapshot.StereoImageX);
         Assert.Null(snapshot.StereoImageY);
         Assert.Null(snapshot.Correlation);
+        Assert.Null(snapshot.StereoImagePoints);
+        Assert.Null(snapshot.WaveformSamples);
+        Assert.Null(snapshot.ChannelWaveformSamples);
+        Assert.Null(snapshot.SpectrumBuckets);
+        Assert.Null(snapshot.ChannelSpectrumBuckets);
+        Assert.Equal(0, snapshot.PlotFrameVersion);
         Assert.Equal("DesktopLoudnessMeter.App.Audio.Analysis", typeof(PcmMetricsSnapshot).Namespace);
+    }
+
+    [Fact]
+    public void ProcessSanitizesNonFiniteSamples()
+    {
+        var analyzer = new PcmMetricAnalyzer(new PcmMetricAnalyzerOptions(48000, 2, 4));
+        var samples = Sine(seconds: 0.2, amplitude: 0.25);
+        samples[0] = float.NaN;
+        samples[1] = float.PositiveInfinity;
+        samples[2] = float.NegativeInfinity;
+
+        analyzer.Process(samples);
+
+        Assert.NotNull(analyzer.Snapshot.TruePeakDb);
+        Assert.NotNull(analyzer.Snapshot.Rms100MsDb);
+        Assert.All(analyzer.Snapshot.WaveformSamples!, sample => Assert.True(double.IsFinite(sample)));
     }
 
     [Fact]

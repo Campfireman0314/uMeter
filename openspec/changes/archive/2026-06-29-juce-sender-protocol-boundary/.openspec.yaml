@@ -1,0 +1,19 @@
+schema: spec-driven
+kind: change
+profile: strict-change
+source_type: feature
+created: 2026-06-29
+status: archived
+gates:
+  readiness:
+    status: pass
+    at: 2026-06-29T20:24:52.8683152+08:00
+  verify:
+    status: pass_with_warnings
+    at: 2026-06-29T20:44:05.6064829+08:00
+  review:
+    status: pass
+    at: 2026-06-29T20:46:20.4271789+08:00
+  archive:
+    status: pass
+    at: 2026-06-29T20:47:21.9035010+08:00

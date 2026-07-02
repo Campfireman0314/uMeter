@@ -1,6 +1,6 @@
 namespace DesktopLoudnessMeter.App.ViewModels;
 
-internal static class FrequencyCollisionAnalyzer
+public static class FrequencyCollisionAnalyzer
 {
     private const double DisplayFloorDb = -200;
     private const double DisplayRangeDb = 200;
@@ -44,13 +44,55 @@ internal static class FrequencyCollisionAnalyzer
         }
 
         var collisions = new double[bucketCount];
-        AnalyzeFocus(focus, comparisons, bucketCount, levelFloorDb, prominenceThresholdDb, relativeThreshold, collisions);
+        AnalyzeSpectra(
+            focus.SpectrumBuckets,
+            comparisons.Select(session => session.SpectrumBuckets),
+            bucketCount,
+            levelFloorDb,
+            prominenceThresholdDb,
+            relativeThreshold,
+            collisions);
         return CompactBands(collisions, frequencyScale);
     }
 
-    private static void AnalyzeFocus(
-        AudioSessionMeterViewModel focus,
-        IEnumerable<AudioSessionMeterViewModel> comparisons,
+    internal static IReadOnlyList<FrequencyCollisionBand> AnalyzeSpectra(
+        IReadOnlyList<double>? focus,
+        IEnumerable<IReadOnlyList<double>?> comparisons,
+        double levelFloorDb,
+        double prominenceThresholdDb,
+        double relativeThreshold,
+        CollisionFrequencyScale frequencyScale)
+    {
+        var activeComparisons = comparisons
+            .Where(spectrum => spectrum is { Count: > 0 })
+            .Select(spectrum => spectrum!)
+            .ToArray();
+        if (focus is not { Count: > 0 } || activeComparisons.Length == 0)
+        {
+            return Array.Empty<FrequencyCollisionBand>();
+        }
+
+        var bucketCount = Math.Min(focus.Count, activeComparisons.Min(spectrum => spectrum.Count));
+        if (bucketCount <= 0)
+        {
+            return Array.Empty<FrequencyCollisionBand>();
+        }
+
+        var collisions = new double[bucketCount];
+        AnalyzeSpectra(
+            focus,
+            activeComparisons,
+            bucketCount,
+            levelFloorDb,
+            prominenceThresholdDb,
+            relativeThreshold,
+            collisions);
+        return CompactBands(collisions, frequencyScale);
+    }
+
+    private static void AnalyzeSpectra(
+        IReadOnlyList<double> focus,
+        IEnumerable<IReadOnlyList<double>> comparisons,
         int bucketCount,
         double levelFloorDb,
         double prominenceThresholdDb,
@@ -62,7 +104,7 @@ internal static class FrequencyCollisionAnalyzer
         var safeProminenceThresholdDb = Math.Clamp(prominenceThresholdDb, 0, 48);
         var safeRelativeThreshold = Math.Max(relativeThreshold, 0.001);
         var focusProminence = CalculateProminenceScores(
-            focus.SpectrumBuckets,
+            focus,
             bucketCount,
             safeLevelFloor,
             safeProminenceThresholdDb);
@@ -70,13 +112,13 @@ internal static class FrequencyCollisionAnalyzer
         foreach (var comparison in comparisons)
         {
             var comparisonProminence = CalculateProminenceScores(
-                comparison.SpectrumBuckets,
+                comparison,
                 bucketCount,
                 safeLevelFloor,
                 safeProminenceThresholdDb);
             AnalyzePair(
-                focus.SpectrumBuckets,
-                comparison.SpectrumBuckets,
+                focus,
+                comparison,
                 bucketCount,
                 safeLevelFloor,
                 safeRelativeThreshold,

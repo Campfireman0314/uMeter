@@ -1,5 +1,6 @@
 using DesktopLoudnessMeter.App.Audio;
 using DesktopLoudnessMeter.App.Audio.Analysis;
+using DesktopLoudnessMeter.App.Host;
 using DesktopLoudnessMeter.App.Settings;
 using DesktopLoudnessMeter.App.Themes;
 using DesktopLoudnessMeter.App.ViewModels;
@@ -161,6 +162,26 @@ public sealed class MainViewModelAdvancedControlsTests
 
         Assert.False(workspace.GetSource("plugin:lead")!.IsHidden);
         Assert.False(viewModel.Sessions.Single(row => row.SourceKey == "plugin:lead").IsHidden);
+    }
+
+    [Fact]
+    public void WebHostShowHiddenStateSurvivesViewModelRefresh()
+    {
+        var workspace = new UserWorkspaceSettings();
+        workspace.GetOrCreateSource("plugin:lead").IsHidden = true;
+        var service = new StaticSignalSourceMeterService(
+            [
+                Source("plugin:lead", "Lead", SignalSourceKind.Plugin)
+            ]);
+        var viewModel = new MainViewModel(service, startTimer: false, workspaceSettings: workspace);
+        viewModel.RefreshNow();
+
+        viewModel.HostController.Execute(new SetShowHiddenSourcesHostCommand(true));
+        viewModel.RefreshNow();
+
+        Assert.True(viewModel.ShowHiddenSources);
+        Assert.True(viewModel.HostSnapshot.Settings.ShowHiddenSources);
+        Assert.Equal(["plugin:lead"], viewModel.Sessions.Select(row => row.SourceKey).ToArray());
     }
 
     [Fact]

@@ -19,6 +19,8 @@ Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "DesktopLoudnessMeter.Sender
 EndProject
 Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "DesktopLoudnessMeter.SenderProbe", "src\DesktopLoudnessMeter.SenderProbe\DesktopLoudnessMeter.SenderProbe.csproj", "{4C4448DF-77B3-4A69-BCCA-ACE60B144687}"
 EndProject
+Project("{8BC9CEB8-8B4A-11D0-8D11-00A0C91BC942}") = "DesktopLoudnessMeter.Native", "src\DesktopLoudnessMeter.Native\DesktopLoudnessMeter.Native.vcxproj", "{C7D9D950-9D42-45C2-8B51-78E6F22B85AF}"
+EndProject
 Global
 	GlobalSection(SolutionConfigurationPlatforms) = preSolution
 		Debug|Any CPU = Debug|Any CPU
@@ -101,6 +103,18 @@ Global
 		{4C4448DF-77B3-4A69-BCCA-ACE60B144687}.Release|x64.Build.0 = Release|Any CPU
 		{4C4448DF-77B3-4A69-BCCA-ACE60B144687}.Release|x86.ActiveCfg = Release|Any CPU
 		{4C4448DF-77B3-4A69-BCCA-ACE60B144687}.Release|x86.Build.0 = Release|Any CPU
+		{C7D9D950-9D42-45C2-8B51-78E6F22B85AF}.Debug|Any CPU.ActiveCfg = Debug|x64
+		{C7D9D950-9D42-45C2-8B51-78E6F22B85AF}.Debug|Any CPU.Build.0 = Debug|x64
+		{C7D9D950-9D42-45C2-8B51-78E6F22B85AF}.Debug|x64.ActiveCfg = Debug|x64
+		{C7D9D950-9D42-45C2-8B51-78E6F22B85AF}.Debug|x64.Build.0 = Debug|x64
+		{C7D9D950-9D42-45C2-8B51-78E6F22B85AF}.Debug|x86.ActiveCfg = Debug|x64
+		{C7D9D950-9D42-45C2-8B51-78E6F22B85AF}.Debug|x86.Build.0 = Debug|x64
+		{C7D9D950-9D42-45C2-8B51-78E6F22B85AF}.Release|Any CPU.ActiveCfg = Release|x64
+		{C7D9D950-9D42-45C2-8B51-78E6F22B85AF}.Release|Any CPU.Build.0 = Release|x64
+		{C7D9D950-9D42-45C2-8B51-78E6F22B85AF}.Release|x64.ActiveCfg = Release|x64
+		{C7D9D950-9D42-45C2-8B51-78E6F22B85AF}.Release|x64.Build.0 = Release|x64
+		{C7D9D950-9D42-45C2-8B51-78E6F22B85AF}.Release|x86.ActiveCfg = Release|x64
+		{C7D9D950-9D42-45C2-8B51-78E6F22B85AF}.Release|x86.Build.0 = Release|x64
 	EndGlobalSection
 	GlobalSection(SolutionProperties) = preSolution
 		HideSolutionNode = FALSE
@@ -112,5 +126,6 @@ Global
 		{F30DAE6A-F302-4BAC-A678-498D9A34E537} = {827E0CD3-B72D-47B6-A68D-7590B98EB39B}
 		{22DC3EC8-A73A-4366-B705-065B54BEF15D} = {827E0CD3-B72D-47B6-A68D-7590B98EB39B}
 		{4C4448DF-77B3-4A69-BCCA-ACE60B144687} = {827E0CD3-B72D-47B6-A68D-7590B98EB39B}
+		{C7D9D950-9D42-45C2-8B51-78E6F22B85AF} = {827E0CD3-B72D-47B6-A68D-7590B98EB39B}
 	EndGlobalSection
 EndGlobal

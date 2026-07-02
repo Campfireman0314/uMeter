@@ -27,4 +27,6 @@
     <ProjectReference Include="..\..\src\DesktopLoudnessMeter.SenderProbe\DesktopLoudnessMeter.SenderProbe.csproj" />
   </ItemGroup>
 
+  <Import Project="..\..\src\DesktopLoudnessMeter.Native\DesktopLoudnessMeter.Native.targets" />
+
 </Project>

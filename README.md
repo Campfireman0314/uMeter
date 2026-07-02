@@ -18,7 +18,7 @@ Fast floating Windows desktop meter for seeing which app, DAW, or plugin sender 
 - **Spectrograph:** Horizontally rolling Mel-scaled FFT display from 20 Hz to 22 kHz using raw PCM history, dynamic viewport resolution, adjustable display range, hover frequency readout, sharp bucket rendering, and rollover-stripe protection.
 - **Loudness clock:** Configurable cycle length, loudness range, warning threshold, fan-fill plotting, scan line, time markers, hover readout, and over-range danger coloring.
 - **Collision analyzer:** Prominent spectrum-overlap comparison between sources with source selection, logarithmic/Mel scale, level floor, prominence, match tolerance, frequency cursor marker, and double-click numeric slider entry.
-- **Events and settings:** Recent Events strip for source lifecycle, true-peak max, loudness jumps, and conservative collision overlaps, with type filtering and configurable retained entry count. Global settings cover event history, future event output folder selection, and default detail-layout loading.
+- **Events and settings:** Recent Events strip for source lifecycle, true-peak max, loudness jumps, and conservative collision overlaps, with type filtering and configurable retained entry count. Global settings cover event history, future event output folder selection, and default detail-layout loading. The persisted workspace/settings file is versioned and remains compatible with legacy `%APPDATA%\uMeter\settings.json` data.
 - **Performance and reliability:** Eco mode, hidden graph active gates, deferred render update coalescing, theme refresh across open windows/popups, bitmap-lock retry handling, and optional native RfRapid C++ FFT/true-peak acceleration with managed fallback.
 - **Packaging:** Installer includes the desktop app and `uMeter Sender.vst3`, with app install path, shortcut options, configurable VST3 path, standard VST3 mirror install, quiet mode, and versioned artifacts.
 
@@ -37,6 +37,12 @@ dotnet run --project .\src\DesktopLoudnessMeter.App\DesktopLoudnessMeter.App.csp
 ```
 
 The app automatically falls back to managed FFT and true-peak reconstruction if `DesktopLoudnessMeter.Native.dll` is not present or cannot be loaded.
+
+`DesktopLoudnessMeter.Native.dll` is the Windows-verified native DSP boundary. The MSBuild helper writes the DLL to `src\DesktopLoudnessMeter.Native\x64\<Configuration>\`, and managed app, test, and benchmark projects import the native copy target so the DLL lands beside the final process.
+
+The native project also has a CMake build entry for the future cross-platform C++ Core boundary. Treat that as a reserved macOS/Linux verification path until `macos-readiness` runs on an appropriate host; Windows MSBuild remains the verified path today.
+
+The Windows WebView shell consumes a HostBridge v1 JSON DTO boundary above the native WebView2 message channel. The settings/workspace DTO now includes `schemaVersion`, while `UserWorkspaceSettings` remains the owner of persisted schema normalization and legacy compatibility.
 
 ## Validate
 
@@ -103,7 +109,7 @@ For mixed-source behavior, duplicate names, and reconnect preference memory, see
 - `src/DesktopLoudnessMeter.SenderKit` - reusable sender-side core for plugin wrappers and diagnostics.
 - `src/DesktopLoudnessMeter.SenderProbe` - DAW-free plugin-style sender probe for local smoke tests.
 - `src/DesktopLoudnessMeter.JucePlugin` - native JUCE VST3 sender plugin.
-- `src/DesktopLoudnessMeter.Native` - optional RfRapid-backed native FFT and true-peak wrapper.
+- `src/DesktopLoudnessMeter.Native` - Windows-verified native DSP DLL and reserved CMake build boundary for future C++ Core reuse.
 - `tests/DesktopLoudnessMeter.Benchmarks` - lightweight local benchmark harness for DSP hot paths.
 - `tests/DesktopLoudnessMeter.Tests` - unit tests for math and view-model reconciliation.
 - `docs/current-status.md` - current release status and remaining known limits.
