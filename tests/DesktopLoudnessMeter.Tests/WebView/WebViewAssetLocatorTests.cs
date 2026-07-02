@@ -42,6 +42,8 @@ public sealed class WebViewAssetLocatorTests
 
         Assert.Contains("WindowStyle=\"None\"", xaml, StringComparison.Ordinal);
         Assert.Contains("ResizeMode=\"CanResize\"", xaml, StringComparison.Ordinal);
+        Assert.Contains("GlassFrameThickness=\"0\"", xaml, StringComparison.Ordinal);
+        Assert.Contains("UseAeroCaptionButtons=\"False\"", xaml, StringComparison.Ordinal);
     }
 
     private static string FindRepositoryRoot()

@@ -72,6 +72,14 @@ describe("AppShell", () => {
     expect(css).not.toMatch(/\.recent-card::after/);
   });
 
+  it("keeps document-level WebView scrollbars hidden", () => {
+    const css = readFileSync(join(process.cwd(), "src", "styles", "app.css"), "utf8");
+
+    expect(css).toMatch(/html,\s*body,\s*#root\s*\{[^}]*overflow:\s*hidden;/s);
+    expect(css).toMatch(/\.app-shell\s*\{[^}]*height:\s*100%;[^}]*overflow:\s*hidden;/s);
+    expect(css).toMatch(/\.global-content\s*\{[^}]*overflow-y:\s*auto;/s);
+  });
+
   it("matches native pointer cursors for disabled controls", () => {
     const css = readFileSync(join(process.cwd(), "src", "styles", "app.css"), "utf8");
 
