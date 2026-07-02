@@ -9,6 +9,8 @@
         MinWidth="380"
         MinHeight="700"
         WindowStartupLocation="CenterScreen"
+        WindowStyle="None"
+        ResizeMode="CanResize"
         Background="#171B22">
     <Grid>
         <wv2:WebView2 x:Name="ShellWebView"

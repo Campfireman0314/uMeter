@@ -29,4 +29,34 @@ public sealed class WebViewAssetLocatorTests
         Assert.Equal(@"C:\uMeter\Web", locator.ResolveWebRootDirectory());
         Assert.Equal("app.umeter.local", locator.ResolveVirtualHostName());
     }
+
+    [Fact]
+    public void WebViewShellUsesFramelessResizableWindowChrome()
+    {
+        var xaml = File.ReadAllText(Path.Combine(
+            FindRepositoryRoot(),
+            "src",
+            "DesktopLoudnessMeter.App",
+            "WebView",
+            "WebViewShellWindow.xaml"));
+
+        Assert.Contains("WindowStyle=\"None\"", xaml, StringComparison.Ordinal);
+        Assert.Contains("ResizeMode=\"CanResize\"", xaml, StringComparison.Ordinal);
+    }
+
+    private static string FindRepositoryRoot()
+    {
+        var directory = new DirectoryInfo(AppContext.BaseDirectory);
+        while (directory is not null)
+        {
+            if (File.Exists(Path.Combine(directory.FullName, "desktop-loudness-meter.sln")))
+            {
+                return directory.FullName;
+            }
+
+            directory = directory.Parent;
+        }
+
+        throw new InvalidOperationException("Repository root could not be found.");
+    }
 }
