@@ -1,0 +1,6 @@
+kind: group
+created: 2026-07-02
+execution_mode: mixed
+suggested_focus: 02-webview-shell-foundation
+active_subchange: 02-webview-shell-foundation
+recommended_order: 02-webview-shell-foundation,03-hostbridge-source-workflows,04-detail-charts-and-settings,05-packaging-native-boundary-and-retirement

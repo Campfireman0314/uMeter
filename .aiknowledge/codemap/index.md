@@ -9,6 +9,7 @@
 | [signal-source-ingest](signal-source-ingest.md) | active | 2026-06-26 | Local loopback source registration, reconfiguration, analyzer ownership, and source snapshots | src/DesktopLoudnessMeter.App/Audio/LocalLoopbackSignalSourceService.cs |
 | [analysis-rendering](analysis-rendering.md) | active | 2026-06-27 | PCM history analysis, adaptive waveform/spectrograph rendering, loudness clock plotting, and frequency collision display mapping | src/DesktopLoudnessMeter.App/Audio/Analysis/RecentSampleWindow.cs |
 | [juce-sender](juce-sender.md) | active | 2026-06-26 | VST3 sender worker lifecycle, UDP loopback packets, ack polling, and restart semantics | src/DesktopLoudnessMeter.JucePlugin/Source/LoopbackSender.cpp |
+| [webview-migration-audit](webview-migration-audit.md) | active | 2026-07-02 | Clean WebView migration parity rules, salvage ledger, HostBridge contract audit, scenario traces, native-boundary baseline, and xUnit guards | docs/webview-migration |
 
 ## Chains
 
