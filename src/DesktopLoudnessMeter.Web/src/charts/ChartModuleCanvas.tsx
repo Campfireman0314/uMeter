@@ -62,6 +62,8 @@ interface ChartModuleCanvasProps {
 
 let loudnessClockHistory = createLoudnessClockHistory(30);
 let loudnessClockCycleSeconds = 30;
+const spectrumRollHistories = new Map<string, SpectrumRollHistory>();
+const spectrumRollMaximumColumns = 320;
 const channelModeOptions = [
   { value: "overall", label: "Overall" },
   { value: "channels", label: "Channels" },
@@ -88,6 +90,17 @@ const waveformDomainSpan = waveformMaximumValue - waveformMinimumValue;
 const waveformMinimumViewportSpan = 0.08;
 const waveformPreferredPlotHeight = 122;
 const waveformDefaultViewport: WaveformViewport = { center: 0, span: waveformDomainSpan };
+const chartTrackColor = "#111419";
+const chartPanelColor = "#20252d";
+const chartBorderColor = "#3a424d";
+const chartSubtleColor = "rgba(174, 183, 194, 0.45)";
+const chartSubtleStrongColor = "rgba(174, 183, 194, 0.7)";
+const chartTextMutedColor = "rgba(174, 183, 194, 0.88)";
+const chartAccentColor = "#2ec4b6";
+const chartWarmColor = "#ffb000";
+const chartDangerColor = "255, 63, 63";
+const spectrumMajorFrequencies = [20, 100, 1000, 4000, 12000, 22000];
+const spectrumMinorFrequencies = [31.5, 50, 63, 250, 500, 2000, 8000, 16000];
 
 export function ChartModuleCanvas({
   detail,
@@ -847,7 +860,9 @@ export function ChartModuleCanvas({
                 </span>
               </>
             ) : null}
-            {data.emptyText ? <span className="chart-empty">{data.emptyText}</span> : null}
+            {data.emptyText && data.kind !== "spectrum" && data.kind !== "collision" && data.kind !== "loudnessClock" ? (
+              <span className="chart-empty">{data.emptyText}</span>
+            ) : null}
           </div>
           <div
             className="chart-module-resize-grip"
@@ -870,11 +885,32 @@ export function ChartModuleCanvas({
 
 type ChartData =
   | { kind: "waveform"; points: Point[]; emptyText: string | null }
-  | { kind: "spectrum"; buckets: readonly number[]; floorDb: number; ceilingDb: number; emptyText: string | null }
+  | {
+      kind: "spectrum";
+      sourceKey: string;
+      frame: number;
+      buckets: readonly number[];
+      floorDb: number;
+      ceilingDb: number;
+      emptyText: string | null;
+    }
   | { kind: "stereo"; points: StereoPoint[]; emptyText: string | null }
-  | { kind: "loudnessClock"; points: Array<{ frame: number; loudness: number; phase: number }>; emptyText: string | null }
+  | {
+      kind: "loudnessClock";
+      minimumDb: number;
+      maximumDb: number;
+      warningDb: number;
+      points: Array<{ frame: number; loudness: number; phase: number }>;
+      emptyText: string | null;
+    }
   | { kind: "collision"; bands: CollisionBandGeometry[]; emptyText: string | null }
   | { kind: "unknown"; emptyText: string };
+
+interface SpectrumRollHistory {
+  frame: number;
+  bucketCount: number;
+  columns: number[][];
+}
 
 interface WaveformViewport {
   center: number;
@@ -908,6 +944,8 @@ export function buildChartData(
     const ceilingDb = sourceSettings?.spectrumDisplayCeilingDb ?? -6;
     return {
       kind,
+      sourceKey: source.sourceKey,
+      frame: source.plotFrameVersion,
       buckets,
       floorDb,
       ceilingDb,
@@ -939,6 +977,9 @@ export function buildChartData(
     const points = loudnessClockHistory.pointsFor(source.sourceKey);
     return {
       kind,
+      minimumDb: sourceSettings?.loudnessClockMinimumDb ?? -32,
+      maximumDb: sourceSettings?.loudnessClockMaximumDb ?? -4,
+      warningDb: sourceSettings?.loudnessClockWarningDb ?? -12,
       points,
       emptyText: points.length === 0 ? "No loudness history" : null,
     };
@@ -959,6 +1000,7 @@ export function buildChartData(
 export function resetChartRuntimeStateForTests(): void {
   loudnessClockCycleSeconds = 30;
   loudnessClockHistory = createLoudnessClockHistory(30);
+  spectrumRollHistories.clear();
 }
 
 function toCollisionScaleLabel(scale: string): string {
@@ -1515,10 +1557,10 @@ function drawChart(
   spectrumViewport: SpectrumViewport,
 ): void {
   context.clearRect(0, 0, width, height);
-  context.fillStyle = "#f7fafb";
+  context.fillStyle = chartTrackColor;
   context.fillRect(0, 0, width, height);
 
-  if (data.emptyText) {
+  if (data.emptyText && data.kind !== "spectrum" && data.kind !== "collision" && data.kind !== "loudnessClock") {
     drawGrid(context, width, height);
     return;
   }
@@ -1526,18 +1568,18 @@ function drawChart(
   if (data.kind === "waveform") {
     drawWaveform(context, width, height, data.points, waveformViewport);
   } else if (data.kind === "spectrum") {
-    drawSpectrum(context, width, height, data.buckets, data.floorDb, data.ceilingDb, spectrumViewport);
+    drawSpectrum(context, width, height, data, spectrumViewport);
   } else if (data.kind === "stereo") {
     drawStereo(context, width, height, data.points);
   } else if (data.kind === "loudnessClock") {
-    drawLoudnessClock(context, width, height, data.points);
+    drawLoudnessClock(context, width, height, data);
   } else if (data.kind === "collision") {
     drawCollision(context, width, height, data.bands);
   }
 }
 
 function drawGrid(context: CanvasRenderingContext2D, width: number, height: number): void {
-  context.strokeStyle = "#d7e0e5";
+  context.strokeStyle = chartSubtleColor;
   context.lineWidth = 1;
   for (let index = 1; index < 4; index += 1) {
     const y = (height / 4) * index;
@@ -1558,8 +1600,8 @@ function drawWaveform(
   drawGrid(context, width, height);
   const viewport = normalizeWaveformViewport(waveformViewport, height);
   const viewportMinimum = viewport.center - viewport.span / 2;
-  context.strokeStyle = "#0f766e";
-  context.lineWidth = 2;
+  context.strokeStyle = chartAccentColor;
+  context.lineWidth = 1.8;
   context.beginPath();
   points.forEach((point, index) => {
     const x = point.x * width;
@@ -1622,70 +1664,296 @@ function drawSpectrum(
   context: CanvasRenderingContext2D,
   width: number,
   height: number,
-  buckets: readonly number[],
-  floorDb: number,
-  ceilingDb: number,
+  data: Extract<ChartData, { kind: "spectrum" }>,
   spectrumViewport: SpectrumViewport,
 ): void {
-  drawGrid(context, width, height);
+  const plot = spectrumPlotRect(width, height);
+  drawSpectrumBackground(context, width, height, plot, spectrumViewport);
+  context.save?.();
+  clipRect(context, plot.left, plot.top, plot.width, plot.height);
+
   const viewport = normalizeSpectrumViewport(spectrumViewport, height);
   const viewportMinimum = viewport.centerMel - viewport.spanMel / 2;
-  const barWidth = Math.max(3, Math.min(18, width / Math.max(1, buckets.length)));
+  const history = updateSpectrumRollHistory(data);
+  const visibleColumns = history.columns.slice(-Math.max(1, Math.floor(plot.width)));
+  const columnWidth = Math.max(1, plot.width / Math.max(1, visibleColumns.length));
+  visibleColumns.forEach((column, columnIndex) => {
+    const x = plot.right - (visibleColumns.length - columnIndex) * columnWidth;
+    column.forEach((displayValue, bucketIndex) => {
+      const bucketRatio = column.length === 1 ? 0 : bucketIndex / (column.length - 1);
+      const bucketMel = spectrumMinimumMel + spectrumMelSpan * bucketRatio;
+      const y = plot.bottom - ((bucketMel - viewportMinimum) / viewport.spanMel) * plot.height;
+      if (y < plot.top - 2 || y > plot.bottom + 2) {
+        return;
+      }
+
+      const rowHeight = Math.max(1, plot.height / Math.max(1, column.length - 1));
+      context.fillStyle = spectrumPixelColor(displayValue);
+      if (columnIndex === 0) {
+        context.fillRect(0, y - rowHeight / 2, 0, Math.max(1, rowHeight + 0.4));
+      }
+      context.fillRect(x, y - rowHeight / 2, Math.max(1, columnWidth + 0.4), Math.max(1, rowHeight + 0.4));
+    });
+  });
+  context.restore?.();
+}
+
+function updateSpectrumRollHistory(data: Extract<ChartData, { kind: "spectrum" }>): SpectrumRollHistory {
+  const existing = spectrumRollHistories.get(data.sourceKey);
+  const bucketCount = data.buckets.length;
+  const history =
+    existing && existing.bucketCount === bucketCount
+      ? existing
+      : { frame: -1, bucketCount, columns: [] };
+
+  if (bucketCount > 0 && history.frame !== data.frame) {
+    history.frame = data.frame;
+    history.columns = [
+      ...history.columns,
+      normalizeSpectrumColumn(data.buckets, data.floorDb, data.ceilingDb),
+    ].slice(-spectrumRollMaximumColumns);
+  }
+
+  spectrumRollHistories.set(data.sourceKey, history);
+  return history;
+}
+
+function normalizeSpectrumColumn(buckets: readonly number[], floorDb: number, ceilingDb: number): number[] {
   const floorLevel = dbToDisplayLevel(Math.min(floorDb, ceilingDb));
   const ceilingLevel = dbToDisplayLevel(Math.max(floorDb, ceilingDb));
   const levelSpan = Math.max(0.000001, ceilingLevel - floorLevel);
-  context.fillStyle = "#2563eb";
-  buckets.forEach((bucket, index) => {
-    const bucketRatio = buckets.length === 1 ? 0 : index / (buckets.length - 1);
-    const bucketMel = spectrumMinimumMel + spectrumMelSpan * bucketRatio;
-    const y = height - ((bucketMel - viewportMinimum) / viewport.spanMel) * height;
-    if (y < -barWidth || y > height + barWidth) {
-      return;
-    }
+  return buckets.map((bucket) => clamp((clamp(bucket, 0, 1) - floorLevel) / levelSpan, 0, 1));
+}
 
-    const displayValue = clamp((clamp(bucket, 0, 1) - floorLevel) / levelSpan, 0, 1);
-    const barLength = Math.max(2, displayValue * width);
-    context.fillRect(0, y - barWidth / 2, barLength, Math.max(1, barWidth - 1));
-  });
+function spectrumPixelColor(value: number): string {
+  const displayValue = clamp(value, 0, 1);
+  const alpha = 0.08 + Math.pow(displayValue, 0.72) * 0.78;
+  if (displayValue > 0.8) {
+    return `rgba(255, 176, 0, ${alpha})`;
+  }
+
+  return `rgba(46, 196, 182, ${alpha})`;
+}
+
+function spectrumPlotRect(width: number, height: number): { left: number; top: number; width: number; height: number; right: number; bottom: number } {
+  const left = 42;
+  const top = 9;
+  const plotWidth = Math.max(1, width - 52);
+  const plotHeight = Math.max(1, height - 20);
+  return {
+    left,
+    top,
+    width: plotWidth,
+    height: plotHeight,
+    right: left + plotWidth,
+    bottom: top + plotHeight,
+  };
+}
+
+function drawSpectrumBackground(
+  context: CanvasRenderingContext2D,
+  width: number,
+  height: number,
+  plot: ReturnType<typeof spectrumPlotRect>,
+  spectrumViewport: SpectrumViewport,
+): void {
+  context.fillStyle = chartTrackColor;
+  context.fillRect(0, 0, width, height);
+  context.strokeStyle = chartBorderColor;
+  context.lineWidth = 1;
+  context.beginPath();
+  context.moveTo(0.5, 0.5);
+  context.lineTo(Math.max(1, width - 0.5), 0.5);
+  context.lineTo(Math.max(1, width - 0.5), Math.max(1, height - 0.5));
+  context.lineTo(0.5, Math.max(1, height - 0.5));
+  context.lineTo(0.5, 0.5);
+  context.stroke();
+
+  const viewport = normalizeSpectrumViewport(spectrumViewport, plot.height);
+  spectrumMinorFrequencies.forEach((frequency) => drawSpectrumFrequencyTick(context, plot, viewport, frequency, false));
+  spectrumMajorFrequencies.forEach((frequency) => drawSpectrumFrequencyTick(context, plot, viewport, frequency, true));
+
+  context.strokeStyle = chartSubtleColor;
+  for (let index = 1; index < 4; index += 1) {
+    const x = plot.left + (plot.width * index) / 4;
+    context.beginPath();
+    context.moveTo(x, plot.top);
+    context.lineTo(x, plot.bottom);
+    context.stroke();
+  }
+}
+
+function drawSpectrumFrequencyTick(
+  context: CanvasRenderingContext2D,
+  plot: ReturnType<typeof spectrumPlotRect>,
+  viewport: SpectrumViewport,
+  frequency: number,
+  major: boolean,
+): void {
+  const y = plot.bottom - ((hertzToMel(frequency) - (viewport.centerMel - viewport.spanMel / 2)) / viewport.spanMel) * plot.height;
+  if (y < plot.top || y > plot.bottom) {
+    return;
+  }
+
+  context.strokeStyle = major ? chartSubtleStrongColor : chartSubtleColor;
+  context.beginPath();
+  context.moveTo(plot.left, y);
+  context.lineTo(plot.right, y);
+  context.stroke();
+  if (major && typeof context.fillText === "function") {
+    context.fillStyle = chartTextMutedColor;
+    context.font = "10px Segoe UI, sans-serif";
+    context.fillText(formatFrequencyAxis(frequency), 7, y - 3);
+  }
+}
+
+function clipRect(context: CanvasRenderingContext2D, left: number, top: number, width: number, height: number): void {
+  if (typeof context.clip !== "function") {
+    return;
+  }
+
+  context.beginPath();
+  context.moveTo(left, top);
+  context.lineTo(left + width, top);
+  context.lineTo(left + width, top + height);
+  context.lineTo(left, top + height);
+  context.lineTo(left, top);
+  context.clip();
+}
+
+function formatFrequencyAxis(frequency: number): string {
+  return frequency >= 1000 ? `${frequency / 1000 >= 10 ? Math.round(frequency / 1000) : frequency / 1000}k` : `${frequency}`;
 }
 
 function drawStereo(context: CanvasRenderingContext2D, width: number, height: number, points: StereoPoint[]): void {
-  drawGrid(context, width, height);
-  context.strokeStyle = "#94a3b8";
-  context.beginPath();
-  context.arc(width / 2, height / 2, Math.min(width, height) * 0.38, 0, Math.PI * 2);
-  context.stroke();
-
-  points.forEach((point) => {
-    context.fillStyle = `rgba(15, 118, 110, ${0.35 + point.intensity * 0.55})`;
+  const centerX = width / 2;
+  const baseY = height - 20;
+  const radius = Math.max(24, Math.min(width / 2 - 14, height - 34));
+  drawFanSurface(context, centerX, baseY, radius);
+  context.strokeStyle = chartSubtleStrongColor;
+  context.lineWidth = 1;
+  [0.33, 0.66, 1].forEach((ratio) => {
     context.beginPath();
-    context.arc(point.x * width, point.y * height, 4 + point.intensity * 4, 0, Math.PI * 2);
+    context.arc(centerX, baseY, radius * ratio, Math.PI, Math.PI * 2);
+    context.stroke();
+  });
+  for (let degrees = 0; degrees <= 180; degrees += 30) {
+    const angle = Math.PI - (Math.PI * degrees) / 180;
+    context.beginPath();
+    context.moveTo(centerX, baseY);
+    context.lineTo(centerX + Math.cos(angle) * radius, baseY - Math.sin(angle) * radius);
+    context.stroke();
+  }
+
+  if (typeof context.fillText === "function") {
+    context.fillStyle = chartTextMutedColor;
+    context.font = "10px Segoe UI, sans-serif";
+    context.fillText("L", centerX - radius - 3, baseY + 13);
+    context.fillText("M", centerX - 4, baseY - radius - 8);
+    context.fillText("R", centerX + radius - 7, baseY + 13);
+  }
+
+  const sourcePoints = points.length > 0 ? points : [{ x: 0.5, y: 0.58, intensity: 0.5 }];
+  sourcePoints.forEach((point) => {
+    const x = centerX + (point.x - 0.5) * 2 * radius;
+    const y = baseY - clamp(1 - point.y, 0.05, 0.98) * radius;
+    const distance = Math.hypot(x - centerX, baseY - y);
+    const clampRatio = distance > radius ? radius / distance : 1;
+    const projectedX = centerX + (x - centerX) * clampRatio;
+    const projectedY = baseY - (baseY - y) * clampRatio;
+    const intensity = clamp(point.intensity, 0, 1);
+    context.fillStyle = `rgba(46, 196, 182, ${0.12 + intensity * 0.28})`;
+    context.beginPath();
+    context.arc(projectedX, projectedY, 7 + intensity * 4, 0, Math.PI * 2);
+    context.fill();
+    context.fillStyle = `rgba(46, 196, 182, ${0.42 + intensity * 0.48})`;
+    context.beginPath();
+    context.arc(projectedX, projectedY, 2.5 + intensity * 2.2, 0, Math.PI * 2);
     context.fill();
   });
+}
+
+function drawFanSurface(context: CanvasRenderingContext2D, centerX: number, baseY: number, radius: number): void {
+  context.beginPath();
+  context.moveTo(centerX, baseY);
+  context.arc(centerX, baseY, radius, Math.PI, Math.PI * 2);
+  context.lineTo(centerX, baseY);
+  context.fillStyle = "rgba(46, 196, 182, 0.12)";
+  context.fill();
+  context.strokeStyle = chartSubtleStrongColor;
+  context.lineWidth = 1;
+  context.stroke();
 }
 
 function drawLoudnessClock(
   context: CanvasRenderingContext2D,
   width: number,
   height: number,
-  points: Array<{ loudness: number; phase: number }>,
+  data: Extract<ChartData, { kind: "loudnessClock" }>,
 ): void {
   const centerX = width / 2;
   const centerY = height / 2;
   const radius = Math.min(width, height) * 0.38;
-  context.strokeStyle = "#94a3b8";
-  context.beginPath();
-  context.arc(centerX, centerY, radius, 0, Math.PI * 2);
-  context.stroke();
+  const innerRadius = radius * 0.18;
+  const minimumDb = data.minimumDb;
+  const maximumDb = data.maximumDb <= minimumDb ? minimumDb + 1 : data.maximumDb;
+  context.strokeStyle = chartSubtleColor;
+  context.lineWidth = 1;
+  [0.25, 0.5, 0.75, 1].forEach((ratio, index) => {
+    context.beginPath();
+    context.arc(centerX, centerY, innerRadius + (radius - innerRadius) * ratio, 0, Math.PI * 2);
+    context.strokeStyle = index === 0 ? chartSubtleStrongColor : chartSubtleColor;
+    context.stroke();
+  });
 
-  context.strokeStyle = "#7c3aed";
-  context.lineWidth = 2;
+  const warningRatio = clamp((data.warningDb - minimumDb) / (maximumDb - minimumDb), 0, 1);
+  if (warningRatio > 0 && warningRatio < 1) {
+    context.strokeStyle = "rgba(255, 176, 0, 0.5)";
+    context.beginPath();
+    context.arc(centerX, centerY, innerRadius + (radius - innerRadius) * warningRatio, 0, Math.PI * 2);
+    context.stroke();
+  }
+
+  context.strokeStyle = chartSubtleStrongColor;
+  for (let index = 0; index < 12; index += 1) {
+    const angle = (index / 12) * Math.PI * 2 - Math.PI / 2;
+    context.beginPath();
+    context.moveTo(centerX + Math.cos(angle) * (radius - 10), centerY + Math.sin(angle) * (radius - 10));
+    context.lineTo(centerX + Math.cos(angle) * radius, centerY + Math.sin(angle) * radius);
+    context.stroke();
+  }
+
+  if (typeof context.fillText === "function") {
+    context.fillStyle = chartTextMutedColor;
+    context.font = "10px Segoe UI, sans-serif";
+    [0, 5, 10, 15, 20, 25].forEach((seconds) => {
+      const angle = (seconds / 30) * Math.PI * 2 - Math.PI / 2;
+      context.fillText(`${seconds}s`, centerX + Math.cos(angle) * (radius - 26) - 6, centerY + Math.sin(angle) * (radius - 26) + 4);
+    });
+    [-32, -25, -18, -11, -4].forEach((mark) => {
+      if (mark < minimumDb || mark > maximumDb) {
+        return;
+      }
+      const markRadius = innerRadius + (radius - innerRadius) * ((mark - minimumDb) / (maximumDb - minimumDb));
+      context.fillText(`${mark}`, centerX + markRadius + 4, centerY - 5);
+    });
+  }
+
+  context.fillStyle = chartPanelColor;
   context.beginPath();
-  points.forEach((point, index) => {
+  context.arc(centerX, centerY, innerRadius, 0, Math.PI * 2);
+  context.fill();
+
+  drawLoudnessFan(context, centerX, centerY, innerRadius, radius, minimumDb, maximumDb, data.warningDb, data.points);
+  context.strokeStyle = chartAccentColor;
+  context.lineWidth = 1.8;
+  context.beginPath();
+  data.points.forEach((point, index) => {
     const angle = point.phase * Math.PI * 2 - Math.PI / 2;
-    const loudnessRatio = Math.max(0.25, Math.min(1, (point.loudness + 60) / 60));
-    const x = centerX + Math.cos(angle) * radius * loudnessRatio;
-    const y = centerY + Math.sin(angle) * radius * loudnessRatio;
+    const loudnessRatio = clamp((point.loudness - minimumDb) / (maximumDb - minimumDb), 0, 1);
+    const pointRadius = innerRadius + (radius - innerRadius) * loudnessRatio;
+    const x = centerX + Math.cos(angle) * pointRadius;
+    const y = centerY + Math.sin(angle) * pointRadius;
     if (index === 0) {
       context.moveTo(x, y);
     } else {
@@ -1695,10 +1963,84 @@ function drawLoudnessClock(
   context.stroke();
 }
 
+function drawLoudnessFan(
+  context: CanvasRenderingContext2D,
+  centerX: number,
+  centerY: number,
+  innerRadius: number,
+  outerRadius: number,
+  minimumDb: number,
+  maximumDb: number,
+  warningDb: number,
+  points: Array<{ loudness: number; phase: number }>,
+): void {
+  if (points.length < 2) {
+    return;
+  }
+
+  for (let index = 1; index < points.length; index += 1) {
+    const first = points[index - 1];
+    const second = points[index];
+    const firstAngle = first.phase * Math.PI * 2 - Math.PI / 2;
+    const secondAngle = second.phase * Math.PI * 2 - Math.PI / 2;
+    if (Math.abs(secondAngle - firstAngle) > Math.PI) {
+      continue;
+    }
+
+    const firstRadius = innerRadius + (outerRadius - innerRadius) * clamp((first.loudness - minimumDb) / (maximumDb - minimumDb), 0, 1);
+    const secondRadius = innerRadius + (outerRadius - innerRadius) * clamp((second.loudness - minimumDb) / (maximumDb - minimumDb), 0, 1);
+    const isWarning = first.loudness >= warningDb || second.loudness >= warningDb;
+    context.fillStyle = isWarning ? "rgba(255, 176, 0, 0.28)" : "rgba(46, 196, 182, 0.18)";
+    context.beginPath();
+    context.moveTo(centerX + Math.cos(firstAngle) * innerRadius, centerY + Math.sin(firstAngle) * innerRadius);
+    context.lineTo(centerX + Math.cos(firstAngle) * firstRadius, centerY + Math.sin(firstAngle) * firstRadius);
+    context.lineTo(centerX + Math.cos(secondAngle) * secondRadius, centerY + Math.sin(secondAngle) * secondRadius);
+    context.lineTo(centerX + Math.cos(secondAngle) * innerRadius, centerY + Math.sin(secondAngle) * innerRadius);
+    context.lineTo(centerX + Math.cos(firstAngle) * innerRadius, centerY + Math.sin(firstAngle) * innerRadius);
+    context.fill();
+  }
+}
+
 function drawCollision(context: CanvasRenderingContext2D, width: number, height: number, bands: CollisionBandGeometry[]): void {
-  drawGrid(context, width, height);
-  bands.forEach((band) => {
-    context.fillStyle = `rgba(220, 38, 38, ${0.22 + band.intensity * 0.5})`;
-    context.fillRect(band.startRatio * width, 0, (band.endRatio - band.startRatio) * width, height);
+  const trackTop = 10.5;
+  const trackHeight = 18;
+  context.strokeStyle = chartBorderColor;
+  context.lineWidth = 1;
+  context.fillStyle = chartTrackColor;
+  context.fillRect(0, 0, width, height);
+  context.beginPath();
+  context.moveTo(0.5, trackTop);
+  context.lineTo(Math.max(1, width - 0.5), trackTop);
+  context.lineTo(Math.max(1, width - 0.5), trackTop + trackHeight);
+  context.lineTo(0.5, trackTop + trackHeight);
+  context.lineTo(0.5, trackTop);
+  context.stroke();
+  [20, 100, 1000, 4000, 12000, 22000].forEach((frequency) => {
+    const ratio = collisionFrequencyRatio(frequency);
+    const x = 0.5 + (width - 1) * ratio;
+    context.strokeStyle = chartSubtleColor;
+    context.beginPath();
+    context.moveTo(x, trackTop);
+    context.lineTo(x, trackTop + trackHeight + 4);
+    context.stroke();
+    if (typeof context.fillText === "function") {
+      context.fillStyle = chartTextMutedColor;
+      context.font = "10px Segoe UI, sans-serif";
+      context.fillText(formatFrequencyAxis(frequency), Math.min(width - 18, Math.max(0, x - 8)), trackTop + trackHeight + 16);
+    }
   });
+
+  bands.forEach((band) => {
+    const intensity = clamp(band.intensity, 0, 1);
+    context.fillStyle = intensity > 0.9
+      ? `rgba(${chartDangerColor}, ${0.34 + intensity * 0.48})`
+      : intensity > 0.72
+      ? `rgba(255, 176, 0, ${0.32 + intensity * 0.5})`
+      : `rgba(46, 196, 182, ${0.24 + intensity * 0.44})`;
+    context.fillRect(band.startRatio * width, trackTop + 2, Math.max(2, (band.endRatio - band.startRatio) * width), trackHeight - 4);
+  });
+}
+
+function collisionFrequencyRatio(frequency: number): number {
+  return clamp((Math.log10(frequency) - Math.log10(20)) / (Math.log10(22000) - Math.log10(20)), 0, 1);
 }
