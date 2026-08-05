@@ -24,7 +24,9 @@ public record SignalSourceSnapshot(
     IReadOnlyList<IReadOnlyList<double>>? ChannelWaveformSamples = null,
     IReadOnlyList<double>? SpectrumBuckets = null,
     IReadOnlyList<IReadOnlyList<double>>? ChannelSpectrumBuckets = null,
-    long PlotFrameVersion = 0)
+    long PlotFrameVersion = 0,
+    SignalLevelMetrics? MidMetrics = null,
+    SignalLevelMetrics? SideMetrics = null)
 {
     public string SourceKindLabel => SourceKind.ToDisplayLabel();
 }

@@ -18,6 +18,7 @@ struct LoopbackSenderConfig
     int port = 38173;
     int heartbeatIntervalMs = 1000;
     int registerIntervalMs = 1000;
+    int transportRecoveryIntervalMs = 5000;
     std::size_t queueCapacity = 64;
     int maxSamplesPerPacket = 8192;
 };
@@ -45,11 +46,12 @@ public:
     LoopbackSenderConnectionState getConnectionState() const noexcept;
     juce::String getConnectionStatusText() const;
     std::uint64_t getDroppedPacketCount() const noexcept;
+    std::uint64_t getTransportGeneration() const noexcept;
 
 private:
     void run() override;
     void stopInternal (bool sendClose);
-    void sendPacket (juce::DatagramSocket& socket, const juce::MemoryBlock& packet, int port) const;
+    bool sendPacket (juce::DatagramSocket& socket, const juce::MemoryBlock& packet, int port) const;
     void pollForAck (juce::DatagramSocket& socket, const juce::String& handle) noexcept;
 
     mutable juce::CriticalSection stateLock;
@@ -60,5 +62,6 @@ private:
     std::atomic<bool> renamePending { false };
     std::atomic<bool> sendCloseOnStop { true };
     std::atomic<double> lastAckReceivedMs { 0.0 };
+    std::atomic<std::uint64_t> transportGeneration { 0 };
 };
 }

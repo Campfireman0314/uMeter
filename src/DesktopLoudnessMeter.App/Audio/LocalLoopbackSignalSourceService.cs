@@ -284,7 +284,9 @@ public sealed class LocalLoopbackSignalSourceService :
             metrics.ChannelWaveformSamples,
             metrics.SpectrumBuckets,
             metrics.ChannelSpectrumBuckets,
-            metrics.PlotFrameVersion);
+            metrics.PlotFrameVersion,
+            metrics.MidMetrics,
+            metrics.SideMetrics);
     }
 
     private void RemoveExpiredSources(DateTimeOffset now)

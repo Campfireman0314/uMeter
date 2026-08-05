@@ -4,9 +4,9 @@
         Title="Global Settings"
         Icon="Assets/desktop-loudness-meter.ico"
         Width="360"
-        Height="334"
+        Height="374"
         MinWidth="340"
-        MinHeight="320"
+        MinHeight="360"
         WindowStyle="None"
         ResizeMode="NoResize"
         WindowStartupLocation="CenterOwner"
@@ -57,6 +57,8 @@
                     <RowDefinition Height="14" />
                     <RowDefinition Height="Auto" />
                     <RowDefinition Height="14" />
+                    <RowDefinition Height="Auto" />
+                    <RowDefinition Height="12" />
                     <RowDefinition Height="Auto" />
                     <RowDefinition Height="*" />
                     <RowDefinition Height="Auto" />
@@ -147,7 +149,11 @@
                                TextWrapping="Wrap" />
                 </StackPanel>
 
-                <Grid Grid.Row="6">
+                <CheckBox Grid.Row="6"
+                          Content="Show hints for detail meters and diagrams"
+                          IsChecked="{Binding EnableDetailHoverHints, Mode=TwoWay}" />
+
+                <Grid Grid.Row="8">
                     <Grid.ColumnDefinitions>
                         <ColumnDefinition Width="*" />
                         <ColumnDefinition Width="Auto" />

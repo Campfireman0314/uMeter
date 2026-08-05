@@ -28,6 +28,15 @@ public sealed class AudioSessionMeterViewModel : ObservableObject
     private double? _truePeakDb;
     private double? _truePeakMaxDb;
     private double? _rms100MsDb;
+    private SignalLevelMetrics? _midMetrics;
+    private SignalLevelMetrics? _sideMetrics;
+    private double? _midTruePeakMaxDb;
+    private double? _sideTruePeakMaxDb;
+    private SignalMeasurementMode _momentaryMeasurementMode;
+    private SignalMeasurementMode _shortTermMeasurementMode;
+    private SignalMeasurementMode _integratedMeasurementMode;
+    private SignalMeasurementMode _truePeakMeasurementMode;
+    private SignalMeasurementMode _rmsMeasurementMode;
     private double? _stereoImageX;
     private double? _stereoImageY;
     private IReadOnlyList<StereoImagePoint> _stereoImagePoints = EmptyStereoImagePoints;
@@ -312,6 +321,75 @@ public sealed class AudioSessionMeterViewModel : ObservableObject
 
     public string MomentaryLufsText => FormatLufs(_momentaryLufs);
 
+    public SignalMeasurementMode MomentaryMeasurementMode
+    {
+        get => _momentaryMeasurementMode;
+        set
+        {
+            if (SetProperty(ref _momentaryMeasurementMode, value))
+            {
+                OnPropertyChanged(nameof(DetailMomentaryLufsText));
+                OnPropertyChanged(nameof(DetailMomentaryLufsLevel));
+                OnPropertyChanged(nameof(DetailMomentaryLufsLabel));
+            }
+        }
+    }
+
+    public SignalMeasurementMode ShortTermMeasurementMode
+    {
+        get => _shortTermMeasurementMode;
+        set
+        {
+            if (SetProperty(ref _shortTermMeasurementMode, value))
+            {
+                OnPropertyChanged(nameof(DetailShortTermLufsText));
+                OnPropertyChanged(nameof(DetailShortTermLufsLevel));
+                OnPropertyChanged(nameof(DetailShortTermLufsLabel));
+            }
+        }
+    }
+
+    public SignalMeasurementMode IntegratedMeasurementMode
+    {
+        get => _integratedMeasurementMode;
+        set
+        {
+            if (SetProperty(ref _integratedMeasurementMode, value))
+            {
+                OnPropertyChanged(nameof(DetailIntegratedLufsText));
+                OnPropertyChanged(nameof(DetailIntegratedLufsLevel));
+                OnPropertyChanged(nameof(DetailIntegratedLufsLabel));
+            }
+        }
+    }
+
+    public SignalMeasurementMode TruePeakMeasurementMode
+    {
+        get => _truePeakMeasurementMode;
+        set
+        {
+            if (SetProperty(ref _truePeakMeasurementMode, value))
+            {
+                NotifyDetailTruePeakChanged();
+                OnPropertyChanged(nameof(DetailTruePeakLabel));
+            }
+        }
+    }
+
+    public SignalMeasurementMode RmsMeasurementMode
+    {
+        get => _rmsMeasurementMode;
+        set
+        {
+            if (SetProperty(ref _rmsMeasurementMode, value))
+            {
+                OnPropertyChanged(nameof(DetailRms100MsText));
+                OnPropertyChanged(nameof(DetailRms100MsLevel));
+                OnPropertyChanged(nameof(DetailRms100MsLabel));
+            }
+        }
+    }
+
     public double LoudnessClockMomentaryDb => _momentaryLufs ?? double.NaN;
 
     public string ShortTermLufsText => FormatLufs(_shortTermLufs);
@@ -345,6 +423,44 @@ public sealed class AudioSessionMeterViewModel : ObservableObject
     public double TruePeakLevel => NormalizeDb(_truePeakDb, -60, 3);
 
     public double Rms100MsLevel => NormalizeDb(_rms100MsDb, -60, 0);
+
+    public string DetailMomentaryLufsText => FormatLufs(GetMetrics(MomentaryMeasurementMode).MomentaryLufs);
+
+    public string DetailMomentaryLufsLabel => FormatDetailLabel("Momentary loudness", MomentaryMeasurementMode);
+
+    public double DetailMomentaryLufsLevel => NormalizeLufs(GetMetrics(MomentaryMeasurementMode).MomentaryLufs);
+
+    public string DetailShortTermLufsText => FormatLufs(GetMetrics(ShortTermMeasurementMode).ShortTermLufs);
+
+    public string DetailShortTermLufsLabel => FormatDetailLabel("Short-term loudness", ShortTermMeasurementMode);
+
+    public double DetailShortTermLufsLevel => NormalizeLufs(GetMetrics(ShortTermMeasurementMode).ShortTermLufs);
+
+    public string DetailIntegratedLufsText => FormatLufs(GetMetrics(IntegratedMeasurementMode).IntegratedLufs);
+
+    public string DetailIntegratedLufsLabel => FormatDetailLabel("Integrated loudness", IntegratedMeasurementMode);
+
+    public double DetailIntegratedLufsLevel => NormalizeLufs(GetMetrics(IntegratedMeasurementMode).IntegratedLufs);
+
+    public string DetailTruePeakText => FormatCompactDb(GetMetrics(TruePeakMeasurementMode).TruePeakDb);
+
+    public string DetailTruePeakLabel => FormatDetailLabel("True-peak level", TruePeakMeasurementMode);
+
+    public string DetailTruePeakMaxText => GetTruePeakMax(TruePeakMeasurementMode) is not double maximum
+        ? "max n/a"
+        : $"max {FormatCompactDb(maximum)}";
+
+    public ReadoutSeverity DetailTruePeakReadoutSeverity => CalculateDbReadoutSeverity(
+        GetDetailTruePeakSeverityValue(),
+        hasValue: true);
+
+    public double DetailTruePeakLevel => NormalizeDb(GetMetrics(TruePeakMeasurementMode).TruePeakDb, -60, 3);
+
+    public string DetailRms100MsText => FormatDb(GetMetrics(RmsMeasurementMode).Rms100MsDb);
+
+    public string DetailRms100MsLabel => FormatDetailLabel("100 ms RMS level", RmsMeasurementMode);
+
+    public double DetailRms100MsLevel => NormalizeDb(GetMetrics(RmsMeasurementMode).Rms100MsDb, -60, 0);
 
     public double CorrelationLevel => _correlation is null
         ? 0.5
@@ -551,6 +667,10 @@ public sealed class AudioSessionMeterViewModel : ObservableObject
         var truePeakChanged = SetMetric(ref _truePeakDb, snapshot.TruePeakDb);
         var truePeakMaxChanged = UpdateTruePeakMax(snapshot.TruePeakDb);
         var rmsChanged = SetMetric(ref _rms100MsDb, snapshot.Rms100MsDb);
+        var midMetricsChanged = SetMetric(ref _midMetrics, snapshot.MidMetrics);
+        var sideMetricsChanged = SetMetric(ref _sideMetrics, snapshot.SideMetrics);
+        var midTruePeakMaxChanged = UpdateTruePeakMax(ref _midTruePeakMaxDb, snapshot.MidMetrics?.TruePeakDb);
+        var sideTruePeakMaxChanged = UpdateTruePeakMax(ref _sideTruePeakMaxDb, snapshot.SideMetrics?.TruePeakDb);
         var stereoXChanged = SetMetric(ref _stereoImageX, snapshot.StereoImageX);
         var stereoYChanged = SetMetric(ref _stereoImageY, snapshot.StereoImageY);
         var stereoPointsChanged = SetMetric(ref _stereoImagePoints, snapshot.StereoImagePoints ?? EmptyStereoImagePoints);
@@ -604,6 +724,36 @@ public sealed class AudioSessionMeterViewModel : ObservableObject
         {
             OnPropertyChanged(nameof(Rms100MsText));
             OnPropertyChanged(nameof(Rms100MsLevel));
+        }
+
+        if (momentaryChanged || midMetricsChanged || sideMetricsChanged)
+        {
+            OnPropertyChanged(nameof(DetailMomentaryLufsText));
+            OnPropertyChanged(nameof(DetailMomentaryLufsLevel));
+        }
+
+        if (shortTermChanged || midMetricsChanged || sideMetricsChanged)
+        {
+            OnPropertyChanged(nameof(DetailShortTermLufsText));
+            OnPropertyChanged(nameof(DetailShortTermLufsLevel));
+        }
+
+        if (integratedChanged || midMetricsChanged || sideMetricsChanged)
+        {
+            OnPropertyChanged(nameof(DetailIntegratedLufsText));
+            OnPropertyChanged(nameof(DetailIntegratedLufsLevel));
+        }
+
+        if (truePeakChanged || truePeakMaxChanged || midMetricsChanged || sideMetricsChanged
+            || midTruePeakMaxChanged || sideTruePeakMaxChanged)
+        {
+            NotifyDetailTruePeakChanged();
+        }
+
+        if (rmsChanged || midMetricsChanged || sideMetricsChanged)
+        {
+            OnPropertyChanged(nameof(DetailRms100MsText));
+            OnPropertyChanged(nameof(DetailRms100MsLevel));
         }
 
         if (stereoXChanged || stereoYChanged)
@@ -688,6 +838,10 @@ public sealed class AudioSessionMeterViewModel : ObservableObject
         _truePeakDb = null;
         _truePeakMaxDb = null;
         _rms100MsDb = null;
+        _midMetrics = null;
+        _sideMetrics = null;
+        _midTruePeakMaxDb = null;
+        _sideTruePeakMaxDb = null;
         _stereoImageX = null;
         _stereoImageY = null;
         _stereoImagePoints = EmptyStereoImagePoints;
@@ -721,6 +875,15 @@ public sealed class AudioSessionMeterViewModel : ObservableObject
         OnPropertyChanged(nameof(IntegratedLufsLevel));
         OnPropertyChanged(nameof(TruePeakLevel));
         OnPropertyChanged(nameof(Rms100MsLevel));
+        OnPropertyChanged(nameof(DetailMomentaryLufsText));
+        OnPropertyChanged(nameof(DetailMomentaryLufsLevel));
+        OnPropertyChanged(nameof(DetailShortTermLufsText));
+        OnPropertyChanged(nameof(DetailShortTermLufsLevel));
+        OnPropertyChanged(nameof(DetailIntegratedLufsText));
+        OnPropertyChanged(nameof(DetailIntegratedLufsLevel));
+        NotifyDetailTruePeakChanged();
+        OnPropertyChanged(nameof(DetailRms100MsText));
+        OnPropertyChanged(nameof(DetailRms100MsLevel));
         OnPropertyChanged(nameof(CorrelationLevel));
         OnPropertyChanged(nameof(StereoImageX));
         OnPropertyChanged(nameof(StereoImageY));
@@ -780,6 +943,17 @@ public sealed class AudioSessionMeterViewModel : ObservableObject
         return $"{sign}{value.Value:0.0}dB";
     }
 
+    private static string FormatDetailLabel(string label, SignalMeasurementMode mode)
+    {
+        var marker = mode switch
+        {
+            SignalMeasurementMode.Mid => "M",
+            SignalMeasurementMode.Side => "S",
+            _ => "I"
+        };
+        return $"{label} ({marker})";
+    }
+
     private static double NormalizeLufs(double? value)
     {
         return NormalizeDb(value, -60, 0);
@@ -830,18 +1004,58 @@ public sealed class AudioSessionMeterViewModel : ObservableObject
 
     private bool UpdateTruePeakMax(double? value)
     {
+        return UpdateTruePeakMax(ref _truePeakMaxDb, value);
+    }
+
+    private static bool UpdateTruePeakMax(ref double? maximum, double? value)
+    {
         if (value is null)
         {
             return false;
         }
 
-        if (_truePeakMaxDb is not null && value.Value <= _truePeakMaxDb.Value)
+        if (maximum is not null && value.Value <= maximum.Value)
         {
             return false;
         }
 
-        _truePeakMaxDb = value.Value;
+        maximum = value.Value;
         return true;
+    }
+
+    private SignalLevelMetrics GetMetrics(SignalMeasurementMode mode)
+    {
+        return mode switch
+        {
+            SignalMeasurementMode.Mid => _midMetrics ?? new SignalLevelMetrics(),
+            SignalMeasurementMode.Side => _sideMetrics ?? new SignalLevelMetrics(),
+            _ => new SignalLevelMetrics(_momentaryLufs, _shortTermLufs, _integratedLufs, _truePeakDb, _rms100MsDb)
+        };
+    }
+
+    private double? GetTruePeakMax(SignalMeasurementMode mode)
+    {
+        return mode switch
+        {
+            SignalMeasurementMode.Mid => _midTruePeakMaxDb,
+            SignalMeasurementMode.Side => _sideTruePeakMaxDb,
+            _ => _truePeakMaxDb
+        };
+    }
+
+    private double? GetDetailTruePeakSeverityValue()
+    {
+        var current = GetMetrics(TruePeakMeasurementMode).TruePeakDb;
+        var maximum = GetTruePeakMax(TruePeakMeasurementMode);
+        return current is null ? maximum : maximum is null ? current : Math.Max(current.Value, maximum.Value);
+    }
+
+    private void NotifyDetailTruePeakChanged()
+    {
+        OnPropertyChanged(nameof(DetailTruePeakText));
+        OnPropertyChanged(nameof(DetailTruePeakMaxText));
+        OnPropertyChanged(nameof(DetailTruePeakLevel));
+        OnPropertyChanged(nameof(DetailTruePeakReadoutSeverity));
     }
 
     private double? GetTruePeakSeverityValue()

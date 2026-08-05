@@ -33,6 +33,7 @@ public sealed class DetailWindowViewModel : ObservableObject, IDisposable
     private static readonly FrequencyCollisionSourceOption AllCollisionSourcesOption = new("__global__", "Global", isAllSources: true);
     private readonly Func<IReadOnlyList<AudioSessionMeterViewModel>> _getActiveSessions;
     private readonly UserWorkspaceSettings _workspaceSettings;
+    private readonly MainViewModel? _globalSettingsOwner;
     private readonly RelayCommand _switchSessionCommand;
     private readonly RelayCommand _selectFrequencyCollisionSourceCommand;
     private readonly HashSet<AudioSessionMeterViewModel> _collisionSourceSubscriptions = [];
@@ -59,12 +60,18 @@ public sealed class DetailWindowViewModel : ObservableObject, IDisposable
     public DetailWindowViewModel(
         AudioSessionMeterViewModel session,
         Func<IReadOnlyList<AudioSessionMeterViewModel>>? getActiveSessions = null,
-        UserWorkspaceSettings? workspaceSettings = null)
+        UserWorkspaceSettings? workspaceSettings = null,
+        MainViewModel? globalSettingsOwner = null)
     {
         _session = session;
         _session.PropertyChanged += SessionOnPropertyChanged;
         _getActiveSessions = getActiveSessions ?? (() => Array.Empty<AudioSessionMeterViewModel>());
         _workspaceSettings = workspaceSettings ?? new UserWorkspaceSettings();
+        _globalSettingsOwner = globalSettingsOwner;
+        if (_globalSettingsOwner is not null)
+        {
+            _globalSettingsOwner.PropertyChanged += GlobalSettingsOwnerOnPropertyChanged;
+        }
         StereoSettings = new StereoImageDisplaySettings();
         StereoSettings.PropertyChanged += StereoSettingsOnPropertyChanged;
         ToggleAlwaysOnTopCommand = new RelayCommand(_ => IsAlwaysOnTop = !IsAlwaysOnTop);
@@ -151,6 +158,17 @@ public sealed class DetailWindowViewModel : ObservableObject, IDisposable
         WaveformDisplayMode.Overall,
         WaveformDisplayMode.Channels
     ];
+
+    public IReadOnlyList<SignalMeasurementMode> SignalMeasurementModeOptions { get; } =
+    [
+        SignalMeasurementMode.Overall,
+        SignalMeasurementMode.Mid,
+        SignalMeasurementMode.Side
+    ];
+
+    public bool EnableDetailHoverHints => _globalSettingsOwner?.EnableDetailHoverHints
+        ?? _workspaceSettings.EnableDetailHoverHints
+        ?? true;
 
     public IReadOnlyList<CollisionFrequencyScale> CollisionFrequencyScaleOptions { get; } =
     [
@@ -541,6 +559,11 @@ public sealed class DetailWindowViewModel : ObservableObject, IDisposable
 
         _isDisposed = true;
         _session.PropertyChanged -= SessionOnPropertyChanged;
+        if (_globalSettingsOwner is not null)
+        {
+            _globalSettingsOwner.PropertyChanged -= GlobalSettingsOwnerOnPropertyChanged;
+        }
+
         StereoSettings.PropertyChanged -= StereoSettingsOnPropertyChanged;
         foreach (var module in DetailModules)
         {
@@ -595,7 +618,12 @@ public sealed class DetailWindowViewModel : ObservableObject, IDisposable
         }
 
         if (args.PropertyName is nameof(AudioSessionMeterViewModel.WaveformDisplayMode)
-            or nameof(AudioSessionMeterViewModel.SpectrumDisplayMode))
+            or nameof(AudioSessionMeterViewModel.SpectrumDisplayMode)
+            or nameof(AudioSessionMeterViewModel.MomentaryMeasurementMode)
+            or nameof(AudioSessionMeterViewModel.ShortTermMeasurementMode)
+            or nameof(AudioSessionMeterViewModel.IntegratedMeasurementMode)
+            or nameof(AudioSessionMeterViewModel.TruePeakMeasurementMode)
+            or nameof(AudioSessionMeterViewModel.RmsMeasurementMode))
         {
             SaveWorkspacePreferences();
             NotifyRollLayoutChanged();
@@ -842,6 +870,11 @@ public sealed class DetailWindowViewModel : ObservableObject, IDisposable
             Session.SpectrumDisplayMode = defaultLayout?.SpectrumDisplayMode
                 ?? sourceSettings?.SpectrumDisplayMode
                 ?? Session.SpectrumDisplayMode;
+            Session.MomentaryMeasurementMode = sourceSettings?.MomentaryMeasurementMode ?? SignalMeasurementMode.Overall;
+            Session.ShortTermMeasurementMode = sourceSettings?.ShortTermMeasurementMode ?? SignalMeasurementMode.Overall;
+            Session.IntegratedMeasurementMode = sourceSettings?.IntegratedMeasurementMode ?? SignalMeasurementMode.Overall;
+            Session.TruePeakMeasurementMode = sourceSettings?.TruePeakMeasurementMode ?? SignalMeasurementMode.Overall;
+            Session.RmsMeasurementMode = sourceSettings?.RmsMeasurementMode ?? SignalMeasurementMode.Overall;
             IsStereoVisible = defaultLayout?.StereoVisible ?? sourceSettings?.PopupStereoVisible ?? true;
             IsWaveformVisible = defaultLayout?.WaveformVisible ?? sourceSettings?.PopupWaveformVisible ?? false;
             IsSpectrumVisible = defaultLayout?.SpectrumVisible ?? sourceSettings?.PopupSpectrumVisible ?? false;
@@ -904,6 +937,11 @@ public sealed class DetailWindowViewModel : ObservableObject, IDisposable
         var sourceSettings = _workspaceSettings.GetOrCreateSource(Session.SourceKey);
         sourceSettings.WaveformDisplayMode = Session.WaveformDisplayMode;
         sourceSettings.SpectrumDisplayMode = Session.SpectrumDisplayMode;
+        sourceSettings.MomentaryMeasurementMode = Session.MomentaryMeasurementMode;
+        sourceSettings.ShortTermMeasurementMode = Session.ShortTermMeasurementMode;
+        sourceSettings.IntegratedMeasurementMode = Session.IntegratedMeasurementMode;
+        sourceSettings.TruePeakMeasurementMode = Session.TruePeakMeasurementMode;
+        sourceSettings.RmsMeasurementMode = Session.RmsMeasurementMode;
         sourceSettings.PopupStereoVisible = IsStereoVisible;
         sourceSettings.PopupWaveformVisible = IsWaveformVisible;
         sourceSettings.PopupSpectrumVisible = IsSpectrumVisible;
@@ -925,6 +963,14 @@ public sealed class DetailWindowViewModel : ObservableObject, IDisposable
         sourceSettings.PopupStereo = StereoWorkspaceSettings.FromSettings(StereoSettings);
         sourceSettings.PopupDetailModules = DetailModules.OrderBy(module => module.OrderIndex).Select(module => module.ToLayout()).ToList();
         _workspaceSettings.Save();
+    }
+
+    private void GlobalSettingsOwnerOnPropertyChanged(object? sender, PropertyChangedEventArgs args)
+    {
+        if (args.PropertyName == nameof(MainViewModel.EnableDetailHoverHints))
+        {
+            OnPropertyChanged(nameof(EnableDetailHoverHints));
+        }
     }
 
     private FrequencyCollisionSourceOption FindFrequencyCollisionSourceOption(string sourceKey)

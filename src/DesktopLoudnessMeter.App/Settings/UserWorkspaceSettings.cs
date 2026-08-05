@@ -37,6 +37,8 @@ public sealed class UserWorkspaceSettings
 
     public string? DefaultDetailLayoutFile { get; set; }
 
+    public bool? EnableDetailHoverHints { get; set; }
+
     public Dictionary<string, SourceWorkspaceSettings> Sources { get; set; } = new(StringComparer.Ordinal);
 
     public static UserWorkspaceSettings Load()
@@ -159,6 +161,16 @@ public sealed class SourceWorkspaceSettings
     public WaveformDisplayMode? WaveformDisplayMode { get; set; }
 
     public SpectrumDisplayMode? SpectrumDisplayMode { get; set; }
+
+    public SignalMeasurementMode? MomentaryMeasurementMode { get; set; }
+
+    public SignalMeasurementMode? ShortTermMeasurementMode { get; set; }
+
+    public SignalMeasurementMode? IntegratedMeasurementMode { get; set; }
+
+    public SignalMeasurementMode? TruePeakMeasurementMode { get; set; }
+
+    public SignalMeasurementMode? RmsMeasurementMode { get; set; }
 
     public bool? InlineStereoVisible { get; set; }
 

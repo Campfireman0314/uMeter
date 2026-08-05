@@ -181,54 +181,89 @@
                         </Style>
                     </ScrollViewer.Style>
                     <StackPanel Margin="0,0,0,42">
-                        <StackPanel>
-                            <controls:ScaledLevelMeter Height="46"
-                                                       Margin="0,0,0,6"
-                                                       Label="Momentary loudness"
-                                                       Level="{Binding Session.MomentaryLufsLevel, Mode=OneWay}"
+                            <StackPanel>
+                                <Grid Margin="0,0,0,6">
+                                <controls:ScaledLevelMeter Height="46"
+                                                       Label="{Binding Session.DetailMomentaryLufsLabel}"
+                                                       LabelIndent="30"
+                                                       Level="{Binding Session.DetailMomentaryLufsLevel, Mode=OneWay}"
                                                        ScaleMaximum="0"
                                                        ScaleMinimum="-60"
                                                        TickValues="-60,-48,-36,-24,-12,0"
-                                                       ValueText="{Binding Session.MomentaryLufsText}" />
+                                                       ValueText="{Binding Session.DetailMomentaryLufsText}" />
+                                    <Border Width="138" Height="28" Margin="30,0,0,0" HorizontalAlignment="Left" VerticalAlignment="Top"
+                                            Panel.ZIndex="1" Background="Transparent"
+                                            controls:HoverHintBehavior.IsEnabled="{Binding EnableDetailHoverHints}"
+                                            controls:HoverHintBehavior.Text="Momentary loudness shows the K-weighted loudness over the latest 400 ms. Mid = (L + R) / 2 and Side = (L - R) / 2." />
+                                    <ComboBox Width="24" Height="24" HorizontalAlignment="Left" VerticalAlignment="Top" Panel.ZIndex="2" FontSize="10" Style="{StaticResource SignalMeasurementModeComboBox}" ItemsSource="{Binding SignalMeasurementModeOptions}" SelectedItem="{Binding Session.MomentaryMeasurementMode, Mode=TwoWay}" />
+                                </Grid>
 
-                            <controls:ScaledLevelMeter Height="46"
-                                                       Margin="0,0,0,6"
-                                                       Label="Short-term loudness"
-                                                       Level="{Binding Session.ShortTermLufsLevel, Mode=OneWay}"
+                                <Grid Margin="0,0,0,6">
+                                <controls:ScaledLevelMeter Height="46"
+                                                       Label="{Binding Session.DetailShortTermLufsLabel}"
+                                                       LabelIndent="30"
+                                                       Level="{Binding Session.DetailShortTermLufsLevel, Mode=OneWay}"
                                                        ScaleMaximum="0"
                                                        ScaleMinimum="-60"
                                                        TickValues="-60,-48,-36,-24,-12,0"
-                                                       ValueText="{Binding Session.ShortTermLufsText}" />
+                                                       ValueText="{Binding Session.DetailShortTermLufsText}" />
+                                    <Border Width="138" Height="28" Margin="30,0,0,0" HorizontalAlignment="Left" VerticalAlignment="Top"
+                                            Panel.ZIndex="1" Background="Transparent"
+                                            controls:HoverHintBehavior.IsEnabled="{Binding EnableDetailHoverHints}"
+                                            controls:HoverHintBehavior.Text="Short-term loudness averages the selected signal over the latest 3 seconds for a steadier program-level view." />
+                                    <ComboBox Width="24" Height="24" HorizontalAlignment="Left" VerticalAlignment="Top" Panel.ZIndex="2" FontSize="10" Style="{StaticResource SignalMeasurementModeComboBox}" ItemsSource="{Binding SignalMeasurementModeOptions}" SelectedItem="{Binding Session.ShortTermMeasurementMode, Mode=TwoWay}" />
+                                </Grid>
 
-                            <controls:ScaledLevelMeter Height="46"
-                                                       Margin="0,0,0,6"
-                                                       Label="Integrated loudness"
-                                                       Level="{Binding Session.IntegratedLufsLevel, Mode=OneWay}"
+                                <Grid Margin="0,0,0,6">
+                                <controls:ScaledLevelMeter Height="46"
+                                                       Label="{Binding Session.DetailIntegratedLufsLabel}"
+                                                       LabelIndent="30"
+                                                       Level="{Binding Session.DetailIntegratedLufsLevel, Mode=OneWay}"
                                                        ScaleMaximum="0"
                                                        ScaleMinimum="-60"
                                                        TickValues="-60,-48,-36,-24,-12,0"
-                                                       ValueText="{Binding Session.IntegratedLufsText}" />
+                                                       ValueText="{Binding Session.DetailIntegratedLufsText}" />
+                                    <Border Width="138" Height="28" Margin="30,0,0,0" HorizontalAlignment="Left" VerticalAlignment="Top"
+                                            Panel.ZIndex="1" Background="Transparent"
+                                            controls:HoverHintBehavior.IsEnabled="{Binding EnableDetailHoverHints}"
+                                            controls:HoverHintBehavior.Text="Integrated loudness applies BS.1770-style absolute and relative gating across the selected signal since the last reset." />
+                                    <ComboBox Width="24" Height="24" HorizontalAlignment="Left" VerticalAlignment="Top" Panel.ZIndex="2" FontSize="10" Style="{StaticResource SignalMeasurementModeComboBox}" ItemsSource="{Binding SignalMeasurementModeOptions}" SelectedItem="{Binding Session.IntegratedMeasurementMode, Mode=TwoWay}" />
+                                </Grid>
 
-                            <controls:ScaledLevelMeter Height="46"
-                                                       Margin="0,0,0,6"
-                                                       Label="True-peak level"
-                                                       Level="{Binding Session.TruePeakLevel, Mode=OneWay}"
+                                <Grid Margin="0,0,0,6">
+                                <controls:ScaledLevelMeter Height="46"
+                                                       Label="{Binding Session.DetailTruePeakLabel}"
+                                                       LabelIndent="30"
+                                                       Level="{Binding Session.DetailTruePeakLevel, Mode=OneWay}"
                                                        ScaleMaximum="3"
                                                        ScaleMinimum="-60"
                                                        TickValues="-60,-48,-36,-24,-12,0,+3"
-                                                       ValueSeverity="{Binding Session.TruePeakReadoutSeverity}"
-                                                       ValueSubtext="{Binding Session.TruePeakMaxText}"
-                                                       ValueText="{Binding Session.TruePeakText}" />
+                                                       ValueSeverity="{Binding Session.DetailTruePeakReadoutSeverity}"
+                                                       ValueSubtext="{Binding Session.DetailTruePeakMaxText}"
+                                                       ValueText="{Binding Session.DetailTruePeakText}" />
+                                    <Border Width="138" Height="28" Margin="30,0,0,0" HorizontalAlignment="Left" VerticalAlignment="Top"
+                                            Panel.ZIndex="1" Background="Transparent"
+                                            controls:HoverHintBehavior.IsEnabled="{Binding EnableDetailHoverHints}"
+                                            controls:HoverHintBehavior.Text="True peak estimates inter-sample peaks over the latest 100 ms. The max readout holds the highest selected-signal value until reset." />
+                                    <ComboBox Width="24" Height="24" HorizontalAlignment="Left" VerticalAlignment="Top" Panel.ZIndex="2" FontSize="10" Style="{StaticResource SignalMeasurementModeComboBox}" ItemsSource="{Binding SignalMeasurementModeOptions}" SelectedItem="{Binding Session.TruePeakMeasurementMode, Mode=TwoWay}" />
+                                </Grid>
 
-                            <controls:ScaledLevelMeter Height="46"
-                                                       Margin="0,0,0,6"
-                                                       Label="100 ms RMS level"
-                                                       Level="{Binding Session.Rms100MsLevel, Mode=OneWay}"
+                                <Grid Margin="0,0,0,6">
+                                <controls:ScaledLevelMeter Height="46"
+                                                       Label="{Binding Session.DetailRms100MsLabel}"
+                                                       LabelIndent="30"
+                                                       Level="{Binding Session.DetailRms100MsLevel, Mode=OneWay}"
                                                        ScaleMaximum="0"
                                                        ScaleMinimum="-60"
                                                        TickValues="-60,-48,-36,-24,-12,0"
-                                                       ValueText="{Binding Session.Rms100MsText}" />
-                        </StackPanel>
+                                                       ValueText="{Binding Session.DetailRms100MsText}" />
+                                    <Border Width="138" Height="28" Margin="30,0,0,0" HorizontalAlignment="Left" VerticalAlignment="Top"
+                                            Panel.ZIndex="1" Background="Transparent"
+                                            controls:HoverHintBehavior.IsEnabled="{Binding EnableDetailHoverHints}"
+                                            controls:HoverHintBehavior.Text="100 ms RMS shows the recent average signal energy. Use Mid to inspect centered content and Side to inspect stereo difference content." />
+                                    <ComboBox Width="24" Height="24" HorizontalAlignment="Left" VerticalAlignment="Top" Panel.ZIndex="2" FontSize="10" Style="{StaticResource SignalMeasurementModeComboBox}" ItemsSource="{Binding SignalMeasurementModeOptions}" SelectedItem="{Binding Session.RmsMeasurementMode, Mode=TwoWay}" />
+                                </Grid>
+                            </StackPanel>
 
                         <Popup x:Name="DetailCollisionSettingsPopup"
                                AllowsTransparency="True"
@@ -461,8 +496,8 @@
                                         Margin="0,0,0,8"
                                         Tag="{Binding StereoModule}"
                                         AllowDrop="True"
-                                        DragOver="DetailModule_OnDragOver"
-                                        Drop="DetailModule_OnDrop"
+                                         PreviewDragOver="DetailModule_OnDragOver"
+                                         PreviewDrop="DetailModule_OnDrop"
                                         GiveFeedback="DetailModule_OnGiveFeedback">
                                 <Border Style="{StaticResource DetailModuleDropBeforeHint}">
                                     <Border Height="2"
@@ -503,6 +538,8 @@
                                                        Cursor="SizeAll"
                                                        FontSize="13"
                                                        Foreground="{DynamicResource DisabledTextBrush}"
+                                                       PreviewMouseLeftButtonDown="DetailModuleDragHandle_OnMouseLeftButtonDown"
+                                                       PreviewMouseLeftButtonUp="DetailModuleDragHandle_OnMouseLeftButtonUp"
                                                        MouseMove="DetailModuleDragHandle_OnMouseMove"
                                                        Tag="{Binding StereoModule}"
                                                        Text="::"
@@ -515,6 +552,8 @@
                                                         VerticalAlignment="Center"
                                                         Foreground="{DynamicResource SubtleTextBrush}"
                                                         FontSize="11"
+                                                        controls:HoverHintBehavior.IsEnabled="{Binding EnableDetailHoverHints}"
+                                                        controls:HoverHintBehavior.Text="Stereo image plots left/right energy as a fan and correlation from -1 (opposed phase) through 0 (wide) to +1 (mono-compatible)."
                                                         Text="Stereo image" />
                                              <TextBlock Grid.Column="6"
                                                         Width="88"
@@ -596,8 +635,8 @@
                                         Margin="0,0,0,8"
                                         Tag="{Binding CollisionModule}"
                                         AllowDrop="True"
-                                        DragOver="DetailModule_OnDragOver"
-                                        Drop="DetailModule_OnDrop"
+                                         PreviewDragOver="DetailModule_OnDragOver"
+                                         PreviewDrop="DetailModule_OnDrop"
                                         GiveFeedback="DetailModule_OnGiveFeedback">
                                 <Border Style="{StaticResource DetailModuleDropBeforeHint}">
                                     <Border Height="2"
@@ -639,6 +678,8 @@
                                                        Cursor="SizeAll"
                                                        FontSize="13"
                                                        Foreground="{DynamicResource DisabledTextBrush}"
+                                                       PreviewMouseLeftButtonDown="DetailModuleDragHandle_OnMouseLeftButtonDown"
+                                                       PreviewMouseLeftButtonUp="DetailModuleDragHandle_OnMouseLeftButtonUp"
                                                        MouseMove="DetailModuleDragHandle_OnMouseMove"
                                                        Tag="{Binding CollisionModule}"
                                                        Text="::"
@@ -651,6 +692,8 @@
                                                        VerticalAlignment="Center"
                                                        Foreground="{DynamicResource SubtleTextBrush}"
                                                        FontSize="11"
+                                                       controls:HoverHintBehavior.IsEnabled="{Binding EnableDetailHoverHints}"
+                                                       controls:HoverHintBehavior.Text="Frequency collision highlights bands where this source and the selected comparison source have strong overlapping spectrum energy."
                                                        Text="Frequency collision" />
                                             <Button Grid.Column="6"
                                                     Height="26"
@@ -732,8 +775,8 @@
                                         Margin="0,0,0,8"
                                         Tag="{Binding LoudnessClockModule}"
                                         AllowDrop="True"
-                                        DragOver="DetailModule_OnDragOver"
-                                        Drop="DetailModule_OnDrop"
+                                         PreviewDragOver="DetailModule_OnDragOver"
+                                         PreviewDrop="DetailModule_OnDrop"
                                         GiveFeedback="DetailModule_OnGiveFeedback">
                                 <Border Style="{StaticResource DetailModuleDropBeforeHint}">
                                     <Border Height="2"
@@ -771,6 +814,8 @@
                                                        Cursor="SizeAll"
                                                        FontSize="13"
                                                        Foreground="{DynamicResource DisabledTextBrush}"
+                                                       PreviewMouseLeftButtonDown="DetailModuleDragHandle_OnMouseLeftButtonDown"
+                                                       PreviewMouseLeftButtonUp="DetailModuleDragHandle_OnMouseLeftButtonUp"
                                                        MouseMove="DetailModuleDragHandle_OnMouseMove"
                                                        Tag="{Binding LoudnessClockModule}"
                                                        Text="::"
@@ -783,6 +828,8 @@
                                                        VerticalAlignment="Center"
                                                        Foreground="{DynamicResource SubtleTextBrush}"
                                                        FontSize="11"
+                                                       controls:HoverHintBehavior.IsEnabled="{Binding EnableDetailHoverHints}"
+                                                       controls:HoverHintBehavior.Text="The loudness clock traces momentary loudness around a repeating time cycle, making sustained level and recent changes easy to compare."
                                                        Text="Clock" />
                                             <Button x:Name="DetailClockSettingsButton"
                                                     Grid.Column="6"
@@ -839,8 +886,8 @@
                                         Margin="0,0,0,8"
                                         Tag="{Binding WaveformModule}"
                                         AllowDrop="True"
-                                        DragOver="DetailModule_OnDragOver"
-                                        Drop="DetailModule_OnDrop"
+                                         PreviewDragOver="DetailModule_OnDragOver"
+                                         PreviewDrop="DetailModule_OnDrop"
                                         GiveFeedback="DetailModule_OnGiveFeedback">
                                 <Border Style="{StaticResource DetailModuleDropBeforeHint}">
                                     <Border Height="2"
@@ -878,6 +925,8 @@
                                                        Cursor="SizeAll"
                                                        FontSize="13"
                                                        Foreground="{DynamicResource DisabledTextBrush}"
+                                                       PreviewMouseLeftButtonDown="DetailModuleDragHandle_OnMouseLeftButtonDown"
+                                                       PreviewMouseLeftButtonUp="DetailModuleDragHandle_OnMouseLeftButtonUp"
                                                        MouseMove="DetailModuleDragHandle_OnMouseMove"
                                                        Tag="{Binding WaveformModule}"
                                                        Text="::"
@@ -890,6 +939,8 @@
                                                        VerticalAlignment="Center"
                                                        Foreground="{DynamicResource SubtleTextBrush}"
                                                        FontSize="11"
+                                                       controls:HoverHintBehavior.IsEnabled="{Binding EnableDetailHoverHints}"
+                                                       controls:HoverHintBehavior.Text="Waveform scrolls recent sample amplitude over time. Switch between overall and separate left/right channels in its settings."
                                                        Text="Waveform" />
                                             <Button x:Name="DetailWaveformSettingsButton"
                                                     Grid.Column="6"
@@ -981,8 +1032,8 @@
                                         Margin="0,0,0,8"
                                         Tag="{Binding SpectrumModule}"
                                         AllowDrop="True"
-                                        DragOver="DetailModule_OnDragOver"
-                                        Drop="DetailModule_OnDrop"
+                                         PreviewDragOver="DetailModule_OnDragOver"
+                                         PreviewDrop="DetailModule_OnDrop"
                                         GiveFeedback="DetailModule_OnGiveFeedback">
                                 <Border Style="{StaticResource DetailModuleDropBeforeHint}">
                                     <Border Height="2"
@@ -1020,6 +1071,8 @@
                                                        Cursor="SizeAll"
                                                        FontSize="13"
                                                        Foreground="{DynamicResource DisabledTextBrush}"
+                                                       PreviewMouseLeftButtonDown="DetailModuleDragHandle_OnMouseLeftButtonDown"
+                                                       PreviewMouseLeftButtonUp="DetailModuleDragHandle_OnMouseLeftButtonUp"
                                                        MouseMove="DetailModuleDragHandle_OnMouseMove"
                                                        Tag="{Binding SpectrumModule}"
                                                        Text="::"
@@ -1032,6 +1085,8 @@
                                                        VerticalAlignment="Center"
                                                        Foreground="{DynamicResource SubtleTextBrush}"
                                                        FontSize="11"
+                                                       controls:HoverHintBehavior.IsEnabled="{Binding EnableDetailHoverHints}"
+                                                       controls:HoverHintBehavior.Text="Spectrum scrolls frequency energy over time, with low frequencies at the left and high frequencies at the right."
                                                        Text="Spectrum" />
                                             <Button x:Name="DetailSpectrumSettingsButton"
                                                     Grid.Column="6"

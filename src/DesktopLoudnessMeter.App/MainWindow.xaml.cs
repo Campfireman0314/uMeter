@@ -12,6 +12,7 @@ public partial class MainWindow : Window
     private GlobalSettingsWindow? _globalSettingsWindow;
     private Point _sourceDragStartPoint;
     private Point _inlineDetailModuleDragStartPoint;
+    private bool _inlineDetailModuleDragArmed;
 
     public MainWindow()
     {
@@ -288,6 +289,23 @@ public partial class MainWindow : Window
         UseMoveDragCursor(e);
     }
 
+    private void InlineDetailModuleDragHandle_OnMouseLeftButtonDown(object sender, MouseButtonEventArgs e)
+    {
+        if (sender is not FrameworkElement { Tag: DetailModuleViewModel } element)
+        {
+            return;
+        }
+
+        _inlineDetailModuleDragStartPoint = e.GetPosition(this);
+        _inlineDetailModuleDragArmed = element.CaptureMouse();
+        e.Handled = _inlineDetailModuleDragArmed;
+    }
+
+    private void InlineDetailModuleDragHandle_OnMouseLeftButtonUp(object sender, MouseButtonEventArgs e)
+    {
+        CancelInlineDetailModuleDrag(sender as FrameworkElement);
+    }
+
     private void InlineDetailModuleDragHandle_OnMouseMove(object sender, MouseEventArgs e)
     {
         if (sender is not FrameworkElement { Tag: DetailModuleViewModel module } element)
@@ -295,9 +313,9 @@ public partial class MainWindow : Window
             return;
         }
 
-        if (e.LeftButton != MouseButtonState.Pressed)
+        if (!_inlineDetailModuleDragArmed || e.LeftButton != MouseButtonState.Pressed)
         {
-            _inlineDetailModuleDragStartPoint = e.GetPosition(this);
+            CancelInlineDetailModuleDrag(element);
             return;
         }
 
@@ -308,8 +326,15 @@ public partial class MainWindow : Window
             return;
         }
 
-        DragDrop.DoDragDrop(element, module, DragDropEffects.Move);
-        ClearInlineDetailModuleDropHints();
+        CancelInlineDetailModuleDrag(element);
+        try
+        {
+            DragDrop.DoDragDrop(element, module, DragDropEffects.Move);
+        }
+        finally
+        {
+            ClearInlineDetailModuleDropHints();
+        }
     }
 
     private void InlineDetailModule_OnDragOver(object sender, DragEventArgs e)
@@ -332,7 +357,7 @@ public partial class MainWindow : Window
             return;
         }
 
-        var insertAfter = ShouldInsertAfter(e, sender);
+        var insertAfter = DetailModuleDropPlacement.ShouldInsertAfter(source, target);
         foreach (var module in viewModel.InlineDetailModules)
         {
             module.SetReorderDropHint(ReferenceEquals(module, target) && !insertAfter, ReferenceEquals(module, target) && insertAfter);
@@ -351,7 +376,7 @@ public partial class MainWindow : Window
             return;
         }
 
-        viewModel.MoveInlineDetailModuleTo(source, target, ShouldInsertAfter(e, sender));
+        viewModel.MoveInlineDetailModuleTo(source, target, DetailModuleDropPlacement.ShouldInsertAfter(source, target));
         ClearInlineDetailModuleDropHints();
         e.Handled = true;
     }
@@ -382,6 +407,15 @@ public partial class MainWindow : Window
         }
 
         return e.GetPosition(element).Y >= element.ActualHeight / 2;
+    }
+
+    private void CancelInlineDetailModuleDrag(FrameworkElement? element)
+    {
+        _inlineDetailModuleDragArmed = false;
+        if (element?.IsMouseCaptured == true)
+        {
+            element.ReleaseMouseCapture();
+        }
     }
 
     private void ClearSourceDropHints()

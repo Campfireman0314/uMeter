@@ -32,6 +32,40 @@ public sealed class TruePeakAndStereoMetricTests
     }
 
     [Fact]
+    public void CenteredStereoProducesMidMetricsAndSilentSideMetrics()
+    {
+        var analyzer = Analyzer();
+
+        analyzer.Process(Sine(seconds: 0.5, leftAmplitude: 0.5, rightAmplitude: 0.5));
+
+        var mid = Assert.IsType<SignalLevelMetrics>(analyzer.Snapshot.MidMetrics);
+        var side = Assert.IsType<SignalLevelMetrics>(analyzer.Snapshot.SideMetrics);
+        Assert.NotNull(mid.MomentaryLufs);
+        Assert.NotNull(mid.Rms100MsDb);
+        Assert.NotNull(mid.TruePeakDb);
+        Assert.Null(side.MomentaryLufs);
+        Assert.Null(side.Rms100MsDb);
+        Assert.Null(side.TruePeakDb);
+    }
+
+    [Fact]
+    public void AntiPhaseStereoProducesSideMetricsAndSilentMidMetrics()
+    {
+        var analyzer = Analyzer();
+
+        analyzer.Process(Sine(seconds: 0.5, leftAmplitude: 0.5, rightAmplitude: -0.5));
+
+        var mid = Assert.IsType<SignalLevelMetrics>(analyzer.Snapshot.MidMetrics);
+        var side = Assert.IsType<SignalLevelMetrics>(analyzer.Snapshot.SideMetrics);
+        Assert.Null(mid.MomentaryLufs);
+        Assert.Null(mid.Rms100MsDb);
+        Assert.Null(mid.TruePeakDb);
+        Assert.NotNull(side.MomentaryLufs);
+        Assert.NotNull(side.Rms100MsDb);
+        Assert.NotNull(side.TruePeakDb);
+    }
+
+    [Fact]
     public void StereoImagePointsTowardHardPannedSide()
     {
         var left = Analyzer();

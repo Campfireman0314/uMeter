@@ -51,7 +51,8 @@ void DesktopLoudnessMeterAudioProcessor::prepareToPlay (double sampleRate, int s
 
 void DesktopLoudnessMeterAudioProcessor::releaseResources()
 {
-    sender.stop();
+    // Hosts may release audio resources while sleeping or deactivating the graph without
+    // preparing the processor again on resume. Discovery stays alive until destruction.
 }
 
 bool DesktopLoudnessMeterAudioProcessor::isBusesLayoutSupported (const BusesLayout& layouts) const

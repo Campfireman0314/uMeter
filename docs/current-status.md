@@ -2,9 +2,9 @@
 
 ## Checkpoint
 
-`v2.3.4` - draggable detail-graph polish and fixed-height collision analyzer, pinned on 2026-06-27.
+`v2.3.5` - Sender recovery, deterministic detail dragging, and selectable detail metering, pinned on 2026-08-05.
 
-This checkpoint builds on the v2.3.3 UI reliability release. Detail visualization modules can be reordered with steadier drop hints, hidden waveform/spectrograph/clock modules stop live render work, resize grips use the themed handle template, title banners advertise alias editing on hover, and the collision analyzer is restored to its original compact fixed height without a stretch handle. The installer still ships the desktop app plus the `uMeter Sender.vst3` bundle and exposes both the app install folder and VST3 install folder.
+This checkpoint builds on the v2.3.4 detail-graph polish release. The VST3 sender now keeps discovery alive across DAW audio-resource deactivation and renews an unacknowledged localhost transport, while detail modules use captured, direction-aware drag placement in both inline and pop-up workspaces. Detailed numeric meters independently inspect Overall, Mid, or Side content without changing global rows, and optional title/banner hints use lightweight in-window rendering. Closing the main panel now closes its owned popups and exits cleanly. The installer ships the desktop app plus the `uMeter Sender.vst3` bundle and exposes both the app install folder and VST3 install folder.
 
 The remaining roadmap work after this checkpoint should focus on deeper metering trust fixtures, measured Mel-band aggregation experiments, richer sender diagnostics, or a deliberately scoped next product feature.
 
@@ -19,6 +19,7 @@ The remaining roadmap work after this checkpoint should focus on deeper metering
 - VST3 sender sample-rate/channel restarts re-register the same handle without an intervening close packet.
 - Host-based VST3 default source names such as `Cubase 7F3A`.
 - Stable persisted plugin source handles and periodic register packets for late desktop-app startup.
+- VST3 sender discovery survives host audio-resource deactivation and renews stale unacknowledged UDP transports.
 - Plugin rows are removed from the main source list on unload; open detail views show an `Instance not found` overlay until the same instance returns or the view is switched.
 - Only one uMeter desktop instance is allowed per user session; secondary launches request activation of the primary instance and exit.
 - Configurable installer VST3 path, defaulting to `C:\Program Files\VSTPlugins`.
@@ -33,6 +34,8 @@ The remaining roadmap work after this checkpoint should focus on deeper metering
 - Inline detail view with Back navigation.
 - Per-app pop-up detail windows with independent always-on-top state.
 - Inline and pop-up detail panels can save/load their visualization layout/settings as JSON presets.
+- Inline and pop-up detail modules use captured, direction-aware dragging with reliable top insertion.
+- Closing the main panel closes owned detail popups and exits the application.
 - Pop-up detail windows do not inherit the global window's `Always on top` behavior.
 - Independent stereo image scale settings per pop-up and inline detail view.
 - Stereo image auto-scale controls for range, lower limit, manual top, speed, trace persistence, and reset.
@@ -40,6 +43,8 @@ The remaining roadmap work after this checkpoint should focus on deeper metering
 - Momentary, short-term, and integrated loudness.
 - Recent-window true peak plus history max readout.
 - 100 ms RMS.
+- Independent Overall, Mid, and Side selection for each detailed loudness, true-peak, and RMS meter, with compact marked titles.
+- Persisted optional explanations on detail meter titles and diagram banners, dismissed on pointer movement without separate tooltip windows.
 - Polar stereo fan sample dots.
 - Correlation arrow in the `[-1, 1]` range.
 - Global and per-detail reset actions.
@@ -84,7 +89,7 @@ The remaining roadmap work after this checkpoint should focus on deeper metering
 ## Run
 
 ```powershell
-cd D:\GitRepo\desktop-loudness-meter
+cd D:\GitRepo\uMeter-main
 dotnet run --project .\src\DesktopLoudnessMeter.App\DesktopLoudnessMeter.App.csproj
 ```
 
@@ -121,13 +126,13 @@ Latest verified status:
 
 - App build: clean.
 - Native build: Release passed after adding the true-peak RfRapid exports.
-- Tests: 275 passing.
+- Tests: 295 passing.
 - Benchmark: RfRapid true-peak 8x processed the local 30 s stereo benchmark at about `4.44 Mframes/s` versus about `1.95 Mframes/s` for managed reconstruction, with matching peak output.
 - JUCE VST3 native CTest: Debug passed.
 - JUCE VST3 Release build: passed through installer packaging.
-- Format: not rerun for this checkpoint.
-- Installer build: not rerun for this checkpoint; packaging defaults now target `artifacts\uMeter-Setup-2.3.4.exe`.
-- Installer SHA256: not generated for this checkpoint.
+- Format: passed.
+- Installer build: passed; packaging produced `artifacts\uMeter.Setup.exe` and `artifacts\uMeter-Setup-2.3.5.exe`.
+- Installer SHA256: `CE35B2C1FEA9C63DB10AD8EF8389897829D62E61AE4C0A1683F9BAB397A9D43C`.
 - Installer payload: desktop app, native DSP DLL, and bundled `uMeter Sender.vst3` generated by the packaging script.
 
 ## Installer Notes
@@ -135,7 +140,7 @@ Latest verified status:
 - Default app install folder: `%LOCALAPPDATA%\Programs\uMeter`.
 - Default VST3 install folder: `C:\Program Files\VSTPlugins`.
 - Standard VST3 mirror folder: `C:\Program Files\Common Files\VST3`.
-- Default artifacts: `artifacts\uMeter.Setup.exe` and `artifacts\uMeter-Setup-2.3.4.exe`.
+- Default artifacts: `artifacts\uMeter.Setup.exe` and `artifacts\uMeter-Setup-2.3.5.exe`.
 - Quiet install supports `--install-dir`, `--vst-dir`, `--no-vst`, `--no-desktop-shortcut`, `--no-start-menu-shortcut`, and `--no-shortcuts`.
 - Installing the VST3 sender into Program Files may trigger UAC elevation.
 - Uninstall cleanup relaunches elevated when protected app or VST3 locations need administrator permission.
@@ -150,7 +155,7 @@ Suggested release commit:
 cd D:\GitRepo\desktop-loudness-meter
 git status --short
 git add .
-git commit -m "Release uMeter v2.3.4"
+git commit -m "Release uMeter v2.3.5"
 git push
 ```
 
@@ -160,6 +165,7 @@ Before committing, review generated folders and build outputs are still ignored 
 
 - `README.md` - project overview, run commands, roadmap.
 - `CHANGELOG.md` - version history.
+- docs/v2.3.5-release.md - v2.3.5 release notes.
 - docs/v2.3.4-release.md - v2.3.4 release notes.
 - docs/v2.3.3-release.md - v2.3.3 release notes.
 - docs/v2.3.2-release.md - v2.3.2 release notes.

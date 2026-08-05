@@ -148,7 +148,8 @@ public partial class App : Application
     {
         var window = new DetailWindow
         {
-            DataContext = new DetailWindowViewModel(session, GetActiveDetailSwitchTargets, _workspaceSettings)
+            Owner = _mainWindow,
+            DataContext = new DetailWindowViewModel(session, GetActiveDetailSwitchTargets, _workspaceSettings, _mainViewModel)
         };
         PositionDetailPopup(window, _mainWindow);
         window.Show();

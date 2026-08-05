@@ -10,7 +10,18 @@ public sealed class PcmMetricAnalyzer : IDisposable
     private readonly RecentSampleWindow _recentSamples;
     private readonly TruePeakEstimator _truePeakEstimator;
     private readonly double[] _frameBuffer = new double[2];
+    private readonly double[] _weightedFrameBuffer = new double[2];
     private readonly int _truePeakWindowFrames;
+    private readonly SlidingPowerWindow? _midMomentaryWindow;
+    private readonly SlidingPowerWindow? _midShortTermWindow;
+    private readonly SlidingPowerWindow? _midRmsWindow;
+    private readonly IntegratedLoudnessGate? _midIntegratedGate;
+    private readonly SlidingPeakWindow? _midTruePeakWindow;
+    private readonly SlidingPowerWindow? _sideMomentaryWindow;
+    private readonly SlidingPowerWindow? _sideShortTermWindow;
+    private readonly SlidingPowerWindow? _sideRmsWindow;
+    private readonly IntegratedLoudnessGate? _sideIntegratedGate;
+    private readonly SlidingPeakWindow? _sideTruePeakWindow;
     private NativeRfRapidTruePeakEstimator? _nativeTruePeakEstimator;
     private double[] _nativeInputBuffer = [];
     private double[] _nativeOversampledDisplayBuffer = [];
@@ -44,6 +55,20 @@ public sealed class PcmMetricAnalyzer : IDisposable
             options.Channels,
             options.TruePeakOversampling,
             _truePeakWindowFrames);
+        if (options.Channels == 2)
+        {
+            _midMomentaryWindow = new SlidingPowerWindow(MillisecondsToFrames(400));
+            _midShortTermWindow = new SlidingPowerWindow(MillisecondsToFrames(3000));
+            _midRmsWindow = new SlidingPowerWindow(_truePeakWindowFrames);
+            _midIntegratedGate = new IntegratedLoudnessGate(MillisecondsToFrames(400), MillisecondsToFrames(100));
+            _midTruePeakWindow = new SlidingPeakWindow(_truePeakWindowFrames);
+            _sideMomentaryWindow = new SlidingPowerWindow(MillisecondsToFrames(400));
+            _sideShortTermWindow = new SlidingPowerWindow(MillisecondsToFrames(3000));
+            _sideRmsWindow = new SlidingPowerWindow(_truePeakWindowFrames);
+            _sideIntegratedGate = new IntegratedLoudnessGate(MillisecondsToFrames(400), MillisecondsToFrames(100));
+            _sideTruePeakWindow = new SlidingPeakWindow(_truePeakWindowFrames);
+        }
+
         _managedOversampledDisplayBuffer = new double[options.TruePeakOversampling];
         _managedOversampledChannelDisplayBuffer = new double[options.TruePeakOversampling * options.Channels];
     }
@@ -94,6 +119,7 @@ public sealed class PcmMetricAnalyzer : IDisposable
                 _frameBuffer[channel] = sample;
 
                 var weighted = _kWeightingFilters[channel].Process(sample);
+                _weightedFrameBuffer[channel] = weighted;
                 weightedPower += weighted * weighted;
             }
 
@@ -105,6 +131,10 @@ public sealed class PcmMetricAnalyzer : IDisposable
             _recentSamples.Add(
                 activeFrame,
                 _managedOversampledDisplayBuffer.AsSpan(0, oversampledCount),
+                _managedOversampledChannelDisplayBuffer.AsSpan(0, oversampledCount * _options.Channels));
+            AddStereoMetrics(
+                activeFrame,
+                _weightedFrameBuffer,
                 _managedOversampledChannelDisplayBuffer.AsSpan(0, oversampledCount * _options.Channels));
             _momentaryWindow.Add(weightedPower);
             _shortTermWindow.Add(weightedPower);
@@ -128,6 +158,7 @@ public sealed class PcmMetricAnalyzer : IDisposable
         _integratedGate.Reset();
         _recentSamples.Reset();
         _truePeakEstimator.Reset();
+        ResetStereoMetrics();
         _nativeTruePeakEstimator?.Reset();
         _snapshot = new PcmMetricsSnapshot();
     }
@@ -168,7 +199,21 @@ public sealed class PcmMetricAnalyzer : IDisposable
             ChannelWaveformSamples: _channelWaveformEnabled ? _recentSamples.ChannelWaveformSamples : null,
             SpectrumBuckets: _recentSamples.SpectrumBuckets,
             ChannelSpectrumBuckets: _channelSpectrumEnabled ? _recentSamples.ChannelSpectrumBuckets : null,
-            PlotFrameVersion: _processedFrames);
+            PlotFrameVersion: _processedFrames,
+            MidMetrics: CreateStereoMetrics(
+                _midMomentaryWindow,
+                _midShortTermWindow,
+                _midIntegratedGate,
+                _midTruePeakWindow,
+                _midRmsWindow,
+                seconds),
+            SideMetrics: CreateStereoMetrics(
+                _sideMomentaryWindow,
+                _sideShortTermWindow,
+                _sideIntegratedGate,
+                _sideTruePeakWindow,
+                _sideRmsWindow,
+                seconds));
     }
 
     private bool HasTruePeakSamples => _nativeTruePeakEstimator is not null
@@ -215,6 +260,7 @@ public sealed class PcmMetricAnalyzer : IDisposable
                     _frameBuffer[channel] = sample;
 
                     var weighted = _kWeightingFilters[channel].Process(sample);
+                    _weightedFrameBuffer[channel] = weighted;
                     weightedPower += weighted * weighted;
                 }
 
@@ -224,6 +270,12 @@ public sealed class PcmMetricAnalyzer : IDisposable
                 _recentSamples.Add(
                     activeFrame,
                     _nativeOversampledDisplayBuffer.AsSpan(oversampledOffset, oversampledCount),
+                    _nativeOversampledChannelDisplayBuffer.AsSpan(
+                        oversampledOffset * _options.Channels,
+                        oversampledCount * _options.Channels));
+                AddStereoMetrics(
+                    activeFrame,
+                    _weightedFrameBuffer,
                     _nativeOversampledChannelDisplayBuffer.AsSpan(
                         oversampledOffset * _options.Channels,
                         oversampledCount * _options.Channels));
@@ -284,6 +336,81 @@ public sealed class PcmMetricAnalyzer : IDisposable
         return Math.Max(1, (int)Math.Round(_options.SampleRate * milliseconds / 1000d));
     }
 
+    private void AddStereoMetrics(
+        ReadOnlySpan<double> frame,
+        ReadOnlySpan<double> weightedFrame,
+        ReadOnlySpan<double> oversampledChannels)
+    {
+        if (_options.Channels != 2)
+        {
+            return;
+        }
+
+        var mid = (frame[0] + frame[1]) / 2;
+        var side = (frame[0] - frame[1]) / 2;
+        var weightedMid = (weightedFrame[0] + weightedFrame[1]) / 2;
+        var weightedSide = (weightedFrame[0] - weightedFrame[1]) / 2;
+        var midPower = weightedMid * weightedMid;
+        var sidePower = weightedSide * weightedSide;
+
+        _midMomentaryWindow!.Add(midPower);
+        _midShortTermWindow!.Add(midPower);
+        _midIntegratedGate!.Add(midPower);
+        _midRmsWindow!.Add(mid * mid);
+        _sideMomentaryWindow!.Add(sidePower);
+        _sideShortTermWindow!.Add(sidePower);
+        _sideIntegratedGate!.Add(sidePower);
+        _sideRmsWindow!.Add(side * side);
+
+        var midPeak = 0d;
+        var sidePeak = 0d;
+        for (var index = 0; index + 1 < oversampledChannels.Length; index += 2)
+        {
+            var oversampledMid = Math.Abs((oversampledChannels[index] + oversampledChannels[index + 1]) / 2);
+            var oversampledSide = Math.Abs((oversampledChannels[index] - oversampledChannels[index + 1]) / 2);
+            midPeak = Math.Max(midPeak, oversampledMid);
+            sidePeak = Math.Max(sidePeak, oversampledSide);
+        }
+
+        _midTruePeakWindow!.Add(midPeak);
+        _sideTruePeakWindow!.Add(sidePeak);
+    }
+
+    private static SignalLevelMetrics? CreateStereoMetrics(
+        SlidingPowerWindow? momentary,
+        SlidingPowerWindow? shortTerm,
+        IntegratedLoudnessGate? integrated,
+        SlidingPeakWindow? truePeak,
+        SlidingPowerWindow? rms,
+        double seconds)
+    {
+        if (momentary is null || shortTerm is null || integrated is null || truePeak is null || rms is null)
+        {
+            return null;
+        }
+
+        return new SignalLevelMetrics(
+            MomentaryLufs: momentary.IsFull ? MeanSquareToNullableLufs(momentary.Mean) : null,
+            ShortTermLufs: shortTerm.IsFull ? MeanSquareToNullableLufs(shortTerm.Mean) : null,
+            IntegratedLufs: integrated.CalculateLufs(),
+            TruePeakDb: truePeak.HasValues ? ToNullableDb(truePeak.Peak) : null,
+            Rms100MsDb: seconds >= 0.1 ? ToNullableDb(Math.Sqrt(rms.Mean)) : null);
+    }
+
+    private void ResetStereoMetrics()
+    {
+        _midMomentaryWindow?.Reset();
+        _midShortTermWindow?.Reset();
+        _midIntegratedGate?.Reset();
+        _midTruePeakWindow?.Reset();
+        _midRmsWindow?.Reset();
+        _sideMomentaryWindow?.Reset();
+        _sideShortTermWindow?.Reset();
+        _sideIntegratedGate?.Reset();
+        _sideTruePeakWindow?.Reset();
+        _sideRmsWindow?.Reset();
+    }
+
     private static double? MeanSquareToNullableLufs(double meanSquare)
     {
         return meanSquare <= 0 ? null : MeanSquareToLufs(meanSquare);
@@ -297,5 +424,10 @@ public sealed class PcmMetricAnalyzer : IDisposable
     private static double ToDb(double amplitude)
     {
         return amplitude <= 0 ? double.NegativeInfinity : 20 * Math.Log10(amplitude);
+    }
+
+    private static double? ToNullableDb(double amplitude)
+    {
+        return amplitude <= 0 ? null : ToDb(amplitude);
     }
 }

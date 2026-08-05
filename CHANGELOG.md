@@ -4,6 +4,39 @@
 
 - Nothing yet.
 
+## v2.3.5 - 2026-08-05
+
+VST3 sender recovery, detail metering, and workspace reliability patch.
+
+### Changed
+
+- Detail-module drops are direction-aware: upward drags insert before the target and downward drags insert after it.
+- App, setup, protocol, sender kit, sender probe, VST3 sender project, and AAX sender project metadata now report version `2.3.5`.
+- Default versioned installer artifact is now `uMeter-Setup-2.3.5.exe`.
+- Detailed numeric meters can independently inspect Overall, Mid, or Side signal measurements.
+- Detail meter and diagram explanations can be enabled or disabled from Global Settings.
+- Detail measurement selectors use compact borderless triangle controls, with `(I)`, `(M)`, and `(S)` title markers showing the active mode.
+- Hover explanations activate only on meter titles and diagram banners, dismiss on pointer movement, and render inside the existing window visual tree.
+
+### Fixed
+
+- VST3 sender discovery remains active when a DAW releases audio resources during hibernation or audio-graph deactivation.
+- An unacknowledged VST3 sender periodically renews its localhost UDP transport so a stale socket cannot require a DAW restart.
+- Inline and pop-up detail-module drags capture from button-down and use preview drag events, preventing child charts and controls from interrupting the gesture.
+- Moving a detail module to the top no longer requires hitting the upper half of a narrow target region.
+- Closing the main window now closes owned detail popups and exits the application.
+- Mid and Side loudness, true-peak, and RMS measurements remain scoped to detail views without changing global rows or event detection.
+- Floating explanations no longer create separate tooltip windows that can briefly pause meter and diagram rendering.
+
+### Verified
+
+- `dotnet test .\desktop-loudness-meter.sln --no-restore` with 295 passing tests.
+- JUCE sender native CTest passed, including five consecutive transport-recovery runs.
+- Debug solution build and Release VST3 build passed.
+- `dotnet format .\desktop-loudness-meter.sln --verify-no-changes --no-restore` passed.
+- Release installer packaging passed with desktop app, native DSP DLL, and VST3 sender payloads.
+- `uMeter-Setup-2.3.5.exe` SHA-256: `CE35B2C1FEA9C63DB10AD8EF8389897829D62E61AE4C0A1683F9BAB397A9D43C`.
+
 ## v2.3.4 - 2026-06-27
 
 Draggable detail-graph polish patch.

@@ -246,6 +246,56 @@ void sameHandleRestartDoesNotEmitCloseBeforeReregister()
     const auto close = readUntilType (receiver, "close", 5);
     expect (property (close, "handle") == config.handle, "explicit stop close handle mismatch");
 }
+
+void senderRenewsTransportUntilReceiverAcknowledges()
+{
+    juce::DatagramSocket receiver;
+    expect (receiver.bindToPort (0, "127.0.0.1"), "test UDP receiver should bind");
+
+    dlm::LoopbackSender sender;
+    dlm::LoopbackSenderConfig config;
+    config.handle = "juce-vst3-transport-recovery-test";
+    config.displayName = "Transport Recovery Test";
+    config.port = receiver.getBoundPort();
+    config.heartbeatIntervalMs = 25;
+    config.registerIntervalMs = 25;
+    config.transportRecoveryIntervalMs = 100;
+
+    sender.start (config);
+    const auto initialRegistration = readPacketWithSenderUntilType (receiver, "register", 3);
+    expect (sender.getTransportGeneration() == 1, "sender should begin with one transport generation");
+
+    for (auto attempt = 0; attempt < 100 && sender.getTransportGeneration() < 2; ++attempt)
+    {
+        juce::Thread::sleep (10);
+    }
+
+    expect (sender.getTransportGeneration() >= 2, "sender should renew an unacknowledged transport");
+
+    const auto ack = dlm::LoopbackProtocol::encodeAck (config.handle);
+    for (auto attempt = 0; attempt < 20
+         && sender.getConnectionState() != dlm::LoopbackSenderConnectionState::Connected;
+         ++attempt)
+    {
+        const auto registration = readPacketWithSenderUntilType (receiver, "register", 5);
+        expect (receiver.write (registration.senderAddress,
+                                registration.senderPort,
+                                ack.getData(),
+                                static_cast<int> (ack.getSize())) > 0,
+                "test receiver should acknowledge a recovery registration");
+        juce::Thread::sleep (20);
+    }
+
+    expect (sender.getConnectionState() == dlm::LoopbackSenderConnectionState::Connected,
+            "sender should observe an acknowledgement after transport recovery");
+    const auto connectedGeneration = sender.getTransportGeneration();
+    juce::Thread::sleep (config.transportRecoveryIntervalMs * 2);
+    expect (sender.getTransportGeneration() == connectedGeneration,
+            "acknowledged sender should keep its current transport");
+
+    sender.stop();
+    juce::ignoreUnused (initialRegistration);
+}
 }
 
 void runLoopbackSenderTests()
@@ -253,4 +303,5 @@ void runLoopbackSenderTests()
     senderEmitsLifecyclePacketsFromWorker();
     senderReportsConnectedAfterReceiverAck();
     sameHandleRestartDoesNotEmitCloseBeforeReregister();
+    senderRenewsTransportUntilReceiverAcknowledges();
 }

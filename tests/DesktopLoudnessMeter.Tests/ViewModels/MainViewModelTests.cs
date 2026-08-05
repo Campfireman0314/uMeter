@@ -530,6 +530,77 @@ public sealed class MainViewModelTests
         Assert.Equal("D:\\uMeter Events", workspace.EventOutputFolder);
     }
 
+    [Fact]
+    public void DetailMeasurementModesPersistPerSourceAndReload()
+    {
+        var workspace = new UserWorkspaceSettings();
+        var source = Source("plugin:meter-modes", "Meter Modes", SignalSourceKind.Plugin, 0.5f);
+        var first = new MainViewModel(
+            new SequenceSignalSourceMeterService(Sources(source)),
+            startTimer: false,
+            workspaceSettings: workspace);
+        first.RefreshNow();
+        var firstRow = Assert.Single(first.Sessions);
+        firstRow.OpenDetailCommand.Execute(null);
+
+        firstRow.MomentaryMeasurementMode = SignalMeasurementMode.Mid;
+        firstRow.ShortTermMeasurementMode = SignalMeasurementMode.Side;
+        firstRow.IntegratedMeasurementMode = SignalMeasurementMode.Mid;
+        firstRow.TruePeakMeasurementMode = SignalMeasurementMode.Side;
+        firstRow.RmsMeasurementMode = SignalMeasurementMode.Mid;
+
+        var saved = Assert.IsType<SourceWorkspaceSettings>(workspace.GetSource(source.SourceKey));
+        Assert.Equal(SignalMeasurementMode.Mid, saved.MomentaryMeasurementMode);
+        Assert.Equal(SignalMeasurementMode.Side, saved.ShortTermMeasurementMode);
+        Assert.Equal(SignalMeasurementMode.Mid, saved.IntegratedMeasurementMode);
+        Assert.Equal(SignalMeasurementMode.Side, saved.TruePeakMeasurementMode);
+        Assert.Equal(SignalMeasurementMode.Mid, saved.RmsMeasurementMode);
+
+        var second = new MainViewModel(
+            new SequenceSignalSourceMeterService(Sources(source)),
+            startTimer: false,
+            workspaceSettings: workspace);
+        second.RefreshNow();
+        var secondRow = Assert.Single(second.Sessions);
+        secondRow.OpenDetailCommand.Execute(null);
+
+        Assert.Equal(SignalMeasurementMode.Mid, secondRow.MomentaryMeasurementMode);
+        Assert.Equal(SignalMeasurementMode.Side, secondRow.ShortTermMeasurementMode);
+        Assert.Equal(SignalMeasurementMode.Mid, secondRow.IntegratedMeasurementMode);
+        Assert.Equal(SignalMeasurementMode.Side, secondRow.TruePeakMeasurementMode);
+        Assert.Equal(SignalMeasurementMode.Mid, secondRow.RmsMeasurementMode);
+    }
+
+    [Fact]
+    public void DetailHoverHintsDefaultOnPersistAndUpdateOpenPopup()
+    {
+        var workspace = new UserWorkspaceSettings();
+        var viewModel = new MainViewModel(
+            new SequenceSignalSourceMeterService(Sources(Source(
+                "plugin:hints",
+                "Hints",
+                SignalSourceKind.Plugin,
+                0.5f))),
+            startTimer: false,
+            workspaceSettings: workspace);
+        viewModel.RefreshNow();
+        using var popup = new DetailWindowViewModel(
+            Assert.Single(viewModel.Sessions),
+            workspaceSettings: workspace,
+            globalSettingsOwner: viewModel);
+        var changed = new List<string?>();
+        popup.PropertyChanged += (_, args) => changed.Add(args.PropertyName);
+
+        Assert.True(viewModel.EnableDetailHoverHints);
+        Assert.True(popup.EnableDetailHoverHints);
+
+        viewModel.EnableDetailHoverHints = false;
+
+        Assert.False(workspace.EnableDetailHoverHints);
+        Assert.False(popup.EnableDetailHoverHints);
+        Assert.Contains(nameof(DetailWindowViewModel.EnableDetailHoverHints), changed);
+    }
+
     private static AudioSessionSnapshot Snapshot(string key, string name, float peak, int? processId = 42)
     {
         return new AudioSessionSnapshot(

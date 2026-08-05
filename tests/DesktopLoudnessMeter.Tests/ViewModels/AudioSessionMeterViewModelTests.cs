@@ -318,6 +318,40 @@ public sealed class AudioSessionMeterViewModelTests
     }
 
     [Fact]
+    public void DetailMeasurementSelectorsAreIndependentAndDoNotChangeGlobalReadouts()
+    {
+        var row = new AudioSessionMeterViewModel(Snapshot(
+            momentaryLufs: -12,
+            shortTermLufs: -13,
+            integratedLufs: -14,
+            truePeakDb: -1,
+            rms100MsDb: -15,
+            midMetrics: new SignalLevelMetrics(-22, -23, -24, -2, -25),
+            sideMetrics: new SignalLevelMetrics(-32, -33, -34, -3, -35)));
+
+        Assert.Equal("Momentary loudness (I)", row.DetailMomentaryLufsLabel);
+
+        row.MomentaryMeasurementMode = SignalMeasurementMode.Mid;
+        row.ShortTermMeasurementMode = SignalMeasurementMode.Side;
+        row.IntegratedMeasurementMode = SignalMeasurementMode.Mid;
+        row.TruePeakMeasurementMode = SignalMeasurementMode.Side;
+        row.RmsMeasurementMode = SignalMeasurementMode.Mid;
+
+        Assert.Equal("-22.0 LUFS", row.DetailMomentaryLufsText);
+        Assert.Equal("Momentary loudness (M)", row.DetailMomentaryLufsLabel);
+        Assert.Equal("-33.0 LUFS", row.DetailShortTermLufsText);
+        Assert.Equal("Short-term loudness (S)", row.DetailShortTermLufsLabel);
+        Assert.Equal("-24.0 LUFS", row.DetailIntegratedLufsText);
+        Assert.Equal("Integrated loudness (M)", row.DetailIntegratedLufsLabel);
+        Assert.Equal("-3.0dB", row.DetailTruePeakText);
+        Assert.Equal("True-peak level (S)", row.DetailTruePeakLabel);
+        Assert.Equal("-25.0 dB", row.DetailRms100MsText);
+        Assert.Equal("100 ms RMS level (M)", row.DetailRms100MsLabel);
+        Assert.Equal("-12.0 LUFS", row.MomentaryLufsText);
+        Assert.Equal("-1.0dB", row.TruePeakText);
+    }
+
+    [Fact]
     public void UpdateDoesNotRepublishUnchangedRollBuffers()
     {
         double[] waveform = [0.1, -0.2];
@@ -560,7 +594,9 @@ public sealed class AudioSessionMeterViewModelTests
         IReadOnlyList<double>? spectrumBuckets = null,
         IReadOnlyList<IReadOnlyList<double>>? channelSpectrumBuckets = null,
         double peakDb = -12,
-        long plotFrameVersion = 0)
+        long plotFrameVersion = 0,
+        SignalLevelMetrics? midMetrics = null,
+        SignalLevelMetrics? sideMetrics = null)
     {
         return new AudioSessionSnapshot(
             "session-1",
@@ -583,6 +619,8 @@ public sealed class AudioSessionMeterViewModelTests
             ChannelWaveformSamples: channelWaveformSamples,
             SpectrumBuckets: spectrumBuckets,
             ChannelSpectrumBuckets: channelSpectrumBuckets,
-            PlotFrameVersion: plotFrameVersion);
+            PlotFrameVersion: plotFrameVersion,
+            MidMetrics: midMetrics,
+            SideMetrics: sideMetrics);
     }
 }

@@ -67,6 +67,7 @@ public sealed class MainViewModel : ObservableObject, IDisposable
     private bool _isApplyingWorkspacePreferences;
     private RecentEventFilterOption _selectedRecentEventFilter;
     private int _maxRecentEventEntries = DefaultMaxRecentEventEntries;
+    private bool _enableDetailHoverHints = true;
     private string? _eventOutputFolder;
     private bool _loadDefaultDetailLayoutFromFile;
     private string? _defaultDetailLayoutFile;
@@ -123,9 +124,11 @@ public sealed class MainViewModel : ObservableObject, IDisposable
         _eventOutputFolder = NormalizeOptionalText(_workspaceSettings.EventOutputFolder);
         _loadDefaultDetailLayoutFromFile = _workspaceSettings.LoadDefaultDetailLayoutFromFile;
         _defaultDetailLayoutFile = NormalizeOptionalText(_workspaceSettings.DefaultDetailLayoutFile);
+        _enableDetailHoverHints = _workspaceSettings.EnableDetailHoverHints ?? true;
         _workspaceSettings.MaxRecentEventEntries = _maxRecentEventEntries;
         _workspaceSettings.EventOutputFolder = _eventOutputFolder;
         _workspaceSettings.DefaultDetailLayoutFile = _defaultDetailLayoutFile;
+        _workspaceSettings.EnableDetailHoverHints = _enableDetailHoverHints;
         RefreshInterval = refreshInterval ?? NormalRefreshInterval;
         RefreshLabel = FormatRefreshLabel(RefreshInterval);
         _selectedRecentEventFilter = RecentEventFilterOptions[0];
@@ -331,6 +334,26 @@ public sealed class MainViewModel : ObservableObject, IDisposable
         WaveformDisplayMode.Overall,
         WaveformDisplayMode.Channels
     ];
+
+    public IReadOnlyList<SignalMeasurementMode> SignalMeasurementModeOptions { get; } =
+    [
+        SignalMeasurementMode.Overall,
+        SignalMeasurementMode.Mid,
+        SignalMeasurementMode.Side
+    ];
+
+    public bool EnableDetailHoverHints
+    {
+        get => _enableDetailHoverHints;
+        set
+        {
+            if (SetProperty(ref _enableDetailHoverHints, value))
+            {
+                _workspaceSettings.EnableDetailHoverHints = value;
+                _workspaceSettings.Save();
+            }
+        }
+    }
 
     public IReadOnlyList<CollisionFrequencyScale> CollisionFrequencyScaleOptions { get; } =
     [
@@ -1910,6 +1933,15 @@ public sealed class MainViewModel : ObservableObject, IDisposable
         {
             RefreshFrequencyCollisions();
         }
+
+        if (args.PropertyName is nameof(AudioSessionMeterViewModel.MomentaryMeasurementMode)
+            or nameof(AudioSessionMeterViewModel.ShortTermMeasurementMode)
+            or nameof(AudioSessionMeterViewModel.IntegratedMeasurementMode)
+            or nameof(AudioSessionMeterViewModel.TruePeakMeasurementMode)
+            or nameof(AudioSessionMeterViewModel.RmsMeasurementMode))
+        {
+            SaveSelectedDetailPreferences();
+        }
     }
 
     private void InlineStereoSettingsOnPropertyChanged(object? sender, PropertyChangedEventArgs args)
@@ -2214,6 +2246,11 @@ public sealed class MainViewModel : ObservableObject, IDisposable
         preferences.LoudnessClockCycleSeconds = LoudnessClockCycleSeconds;
         preferences.InlineStereo = StereoWorkspaceSettings.FromSettings(InlineStereoSettings);
         preferences.InlineDetailModules = InlineDetailModules.OrderBy(module => module.OrderIndex).Select(module => module.ToLayout()).ToList();
+        preferences.MomentaryMeasurementMode = SelectedDetailSession.MomentaryMeasurementMode;
+        preferences.ShortTermMeasurementMode = SelectedDetailSession.ShortTermMeasurementMode;
+        preferences.IntegratedMeasurementMode = SelectedDetailSession.IntegratedMeasurementMode;
+        preferences.TruePeakMeasurementMode = SelectedDetailSession.TruePeakMeasurementMode;
+        preferences.RmsMeasurementMode = SelectedDetailSession.RmsMeasurementMode;
         SaveSourcePreferences(SelectedDetailSession.SourceKey);
     }
 
@@ -2243,6 +2280,11 @@ public sealed class MainViewModel : ObservableObject, IDisposable
             LoudnessClockMaximumDb = preferences.LoudnessClockMaximumDb ?? LoudnessClockDefaultMaximumDb;
             LoudnessClockWarningDb = preferences.LoudnessClockWarningDb ?? LoudnessClockDefaultWarningDb;
             LoudnessClockCycleSeconds = preferences.LoudnessClockCycleSeconds ?? LoudnessClockDefaultCycleSeconds;
+            session.MomentaryMeasurementMode = preferences.MomentaryMeasurementMode;
+            session.ShortTermMeasurementMode = preferences.ShortTermMeasurementMode;
+            session.IntegratedMeasurementMode = preferences.IntegratedMeasurementMode;
+            session.TruePeakMeasurementMode = preferences.TruePeakMeasurementMode;
+            session.RmsMeasurementMode = preferences.RmsMeasurementMode;
             if (preferences.InlineStereo is not null)
             {
                 preferences.InlineStereo.ApplyTo(InlineStereoSettings);
@@ -2376,6 +2418,16 @@ public sealed class MainViewModel : ObservableObject, IDisposable
 
         public SpectrumDisplayMode SpectrumDisplayMode { get; set; } = SpectrumDisplayMode.Overall;
 
+        public SignalMeasurementMode MomentaryMeasurementMode { get; set; }
+
+        public SignalMeasurementMode ShortTermMeasurementMode { get; set; }
+
+        public SignalMeasurementMode IntegratedMeasurementMode { get; set; }
+
+        public SignalMeasurementMode TruePeakMeasurementMode { get; set; }
+
+        public SignalMeasurementMode RmsMeasurementMode { get; set; }
+
         public bool? InlineStereoVisible { get; set; }
 
         public bool? InlineWaveformVisible { get; set; }
@@ -2448,6 +2500,11 @@ public sealed class MainViewModel : ObservableObject, IDisposable
                 TruePeakOversampling = workspace?.TruePeakOversampling,
                 WaveformDisplayMode = workspace?.WaveformDisplayMode ?? WaveformDisplayMode.Overall,
                 SpectrumDisplayMode = workspace?.SpectrumDisplayMode ?? SpectrumDisplayMode.Overall,
+                MomentaryMeasurementMode = workspace?.MomentaryMeasurementMode ?? SignalMeasurementMode.Overall,
+                ShortTermMeasurementMode = workspace?.ShortTermMeasurementMode ?? SignalMeasurementMode.Overall,
+                IntegratedMeasurementMode = workspace?.IntegratedMeasurementMode ?? SignalMeasurementMode.Overall,
+                TruePeakMeasurementMode = workspace?.TruePeakMeasurementMode ?? SignalMeasurementMode.Overall,
+                RmsMeasurementMode = workspace?.RmsMeasurementMode ?? SignalMeasurementMode.Overall,
                 InlineStereoVisible = workspace?.InlineStereoVisible,
                 InlineWaveformVisible = workspace?.InlineWaveformVisible,
                 InlineSpectrumVisible = workspace?.InlineSpectrumVisible,
@@ -2513,6 +2570,11 @@ public sealed class MainViewModel : ObservableObject, IDisposable
             workspace.TruePeakOversampling = TruePeakOversampling;
             workspace.WaveformDisplayMode = WaveformDisplayMode;
             workspace.SpectrumDisplayMode = SpectrumDisplayMode;
+            workspace.MomentaryMeasurementMode = MomentaryMeasurementMode;
+            workspace.ShortTermMeasurementMode = ShortTermMeasurementMode;
+            workspace.IntegratedMeasurementMode = IntegratedMeasurementMode;
+            workspace.TruePeakMeasurementMode = TruePeakMeasurementMode;
+            workspace.RmsMeasurementMode = RmsMeasurementMode;
             workspace.InlineStereoVisible = InlineStereoVisible;
             workspace.InlineWaveformVisible = InlineWaveformVisible;
             workspace.InlineSpectrumVisible = InlineSpectrumVisible;

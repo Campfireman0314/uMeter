@@ -4,7 +4,7 @@ param(
 
     [string]$Runtime = "win-x64",
 
-    [string]$Version = "2.3.4",
+    [string]$Version = "2.3.5",
 
     [string]$JuceDir = "",
 

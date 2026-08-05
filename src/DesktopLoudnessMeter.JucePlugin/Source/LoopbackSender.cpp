@@ -27,6 +27,11 @@ int sanitizeRegisterInterval (int intervalMs)
     return std::max (intervalMs, 100);
 }
 
+int sanitizeTransportRecoveryInterval (int intervalMs)
+{
+    return std::max (intervalMs, 100);
+}
+
 juce::String normalizeDisplayName (const juce::String& displayName)
 {
     const auto trimmed = displayName.trim();
@@ -72,11 +77,13 @@ void LoopbackSender::start (const LoopbackSenderConfig& config)
     currentConfig.port = config.port <= 0 ? LoopbackProtocol::defaultPort : config.port;
     currentConfig.heartbeatIntervalMs = sanitizeHeartbeatInterval (config.heartbeatIntervalMs);
     currentConfig.registerIntervalMs = sanitizeRegisterInterval (config.registerIntervalMs);
+    currentConfig.transportRecoveryIntervalMs = sanitizeTransportRecoveryInterval (config.transportRecoveryIntervalMs);
     currentConfig.queueCapacity = std::max<std::size_t> (config.queueCapacity, 1);
     currentConfig.maxSamplesPerPacket = std::max (config.maxSamplesPerPacket, currentConfig.channels);
     pendingRename = {};
     renamePending.store (false, std::memory_order_release);
     lastAckReceivedMs.store (0.0, std::memory_order_release);
+    transportGeneration.store (0, std::memory_order_release);
 
     audioQueue = std::make_unique<RealtimeAudioQueue> (currentConfig.queueCapacity, currentConfig.maxSamplesPerPacket);
 
@@ -188,6 +195,11 @@ std::uint64_t LoopbackSender::getDroppedPacketCount() const noexcept
     return audioQueue == nullptr ? 0 : audioQueue->getDroppedPacketCount();
 }
 
+std::uint64_t LoopbackSender::getTransportGeneration() const noexcept
+{
+    return transportGeneration.load (std::memory_order_acquire);
+}
+
 void LoopbackSender::run()
 {
     LoopbackSenderConfig configSnapshot;
@@ -196,14 +208,32 @@ void LoopbackSender::run()
         configSnapshot = currentConfig;
     }
 
-    juce::DatagramSocket socket;
-    socket.bindToPort (0, "127.0.0.1");
+    std::unique_ptr<juce::DatagramSocket> socket;
+    auto lastTransportOpenMs = 0.0;
+    const auto openTransport = [&]()
+    {
+        auto nextSocket = std::make_unique<juce::DatagramSocket>();
+        if (! nextSocket->bindToPort (0, "127.0.0.1"))
+        {
+            return false;
+        }
 
-    sendPacket (socket, LoopbackProtocol::encodeRegister (configSnapshot.handle,
-                                                          configSnapshot.displayName,
-                                                          configSnapshot.sampleRate,
-                                                          configSnapshot.channels),
-                configSnapshot.port);
+        socket = std::move (nextSocket);
+        lastTransportOpenMs = juce::Time::getMillisecondCounterHiRes();
+        transportGeneration.fetch_add (1, std::memory_order_acq_rel);
+        return true;
+    };
+
+    const auto sendRegistration = [&]()
+    {
+        return socket != nullptr
+            && sendPacket (*socket,
+                           LoopbackProtocol::encodeRegister (configSnapshot.handle,
+                                                             configSnapshot.displayName,
+                                                             configSnapshot.sampleRate,
+                                                             configSnapshot.channels),
+                           configSnapshot.port);
+    };
 
     auto lastHeartbeatMs = juce::Time::getMillisecondCounterHiRes();
     auto lastRegisterMs = lastHeartbeatMs;
@@ -211,16 +241,54 @@ void LoopbackSender::run()
 
     while (! threadShouldExit())
     {
-        while (audioQueue != nullptr && audioQueue->tryPop (packet))
+        if (socket == nullptr)
         {
-            sendPacket (socket, LoopbackProtocol::encodeAudio (configSnapshot.handle,
-                                                               packet.sequence,
-                                                               packet.samples.data(),
-                                                               static_cast<int> (packet.samples.size())),
-                        configSnapshot.port);
+            if (! openTransport())
+            {
+                wait (100);
+                continue;
+            }
+
+            sendRegistration();
+            lastHeartbeatMs = lastTransportOpenMs;
+            lastRegisterMs = lastTransportOpenMs;
         }
 
-        pollForAck (socket, configSnapshot.handle);
+        pollForAck (*socket, configSnapshot.handle);
+
+        const auto transportCheckMs = juce::Time::getMillisecondCounterHiRes();
+        const auto lastAckMs = lastAckReceivedMs.load (std::memory_order_acquire);
+        const auto receiverIsMissing = lastAckMs <= 0.0 || transportCheckMs - lastAckMs > connectedAckTimeoutMs;
+        if (receiverIsMissing
+            && transportCheckMs - lastTransportOpenMs >= configSnapshot.transportRecoveryIntervalMs)
+        {
+            socket->shutdown();
+            socket.reset();
+            continue;
+        }
+
+        auto transportFailed = false;
+        while (audioQueue != nullptr && audioQueue->tryPop (packet))
+        {
+            if (! sendPacket (*socket, LoopbackProtocol::encodeAudio (configSnapshot.handle,
+                                                                      packet.sequence,
+                                                                      packet.samples.data(),
+                                                                      static_cast<int> (packet.samples.size())),
+                              configSnapshot.port))
+            {
+                transportFailed = true;
+                break;
+            }
+        }
+
+        if (transportFailed)
+        {
+            socket->shutdown();
+            socket.reset();
+            continue;
+        }
+
+        pollForAck (*socket, configSnapshot.handle);
 
         if (renamePending.exchange (false, std::memory_order_acq_rel))
         {
@@ -231,51 +299,61 @@ void LoopbackSender::run()
             }
 
             configSnapshot.displayName = renameValue;
-            sendPacket (socket, LoopbackProtocol::encodeRename (configSnapshot.handle, renameValue),
-                        configSnapshot.port);
+            transportFailed = ! sendPacket (*socket,
+                                            LoopbackProtocol::encodeRename (configSnapshot.handle, renameValue),
+                                            configSnapshot.port);
         }
 
         const auto nowMs = juce::Time::getMillisecondCounterHiRes();
         if (nowMs - lastRegisterMs >= configSnapshot.registerIntervalMs)
         {
-            sendPacket (socket, LoopbackProtocol::encodeRegister (configSnapshot.handle,
-                                                                  configSnapshot.displayName,
-                                                                  configSnapshot.sampleRate,
-                                                                  configSnapshot.channels),
-                        configSnapshot.port);
+            transportFailed = ! sendRegistration() || transportFailed;
             lastRegisterMs = nowMs;
         }
 
         if (nowMs - lastHeartbeatMs >= configSnapshot.heartbeatIntervalMs)
         {
-            sendPacket (socket, LoopbackProtocol::encodeHeartbeat (configSnapshot.handle), configSnapshot.port);
+            transportFailed = ! sendPacket (*socket,
+                                            LoopbackProtocol::encodeHeartbeat (configSnapshot.handle),
+                                            configSnapshot.port)
+                || transportFailed;
             lastHeartbeatMs = nowMs;
         }
 
-        pollForAck (socket, configSnapshot.handle);
+        if (transportFailed)
+        {
+            socket->shutdown();
+            socket.reset();
+            continue;
+        }
+
+        pollForAck (*socket, configSnapshot.handle);
 
         wait (5);
     }
 
-    if (sendCloseOnStop.load (std::memory_order_acquire))
+    if (socket != nullptr && sendCloseOnStop.load (std::memory_order_acquire))
     {
-        sendPacket (socket, LoopbackProtocol::encodeClose (configSnapshot.handle), configSnapshot.port);
+        sendPacket (*socket, LoopbackProtocol::encodeClose (configSnapshot.handle), configSnapshot.port);
     }
 
-    socket.shutdown();
+    if (socket != nullptr)
+    {
+        socket->shutdown();
+    }
 }
 
-void LoopbackSender::sendPacket (juce::DatagramSocket& socket, const juce::MemoryBlock& packet, int port) const
+bool LoopbackSender::sendPacket (juce::DatagramSocket& socket, const juce::MemoryBlock& packet, int port) const
 {
     if (packet.getSize() == 0)
     {
-        return;
+        return false;
     }
 
-    socket.write ("127.0.0.1",
-                  port,
-                  packet.getData(),
-                  static_cast<int> (packet.getSize()));
+    return socket.write ("127.0.0.1",
+                         port,
+                         packet.getData(),
+                         static_cast<int> (packet.getSize())) == static_cast<int> (packet.getSize());
 }
 
 void LoopbackSender::pollForAck (juce::DatagramSocket& socket, const juce::String& handle) noexcept

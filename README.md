@@ -4,7 +4,7 @@ Fast floating Windows desktop meter for seeing which app, DAW, or plugin sender 
 
 ## Current Version
 
-`v2.3.4` is the current public release. This patch closes the draggable detail-graph polish pass with fixed-height collision analysis, inactive hidden graphs, steadier reorder hints, and detail title hover guidance.
+`v2.3.5` is the current public release. This reliability and detail-metering patch restores VST3 sender discovery after DAW hibernation, makes detail-module dragging deterministic, adds independent Overall/Mid/Side detail measurements, and closes owned popups with the main panel.
 
 ## Usable Baseline
 
@@ -13,13 +13,13 @@ Fast floating Windows desktop meter for seeing which app, DAW, or plugin sender 
 - **Sender plugin:** JUCE VST3 audio-effect sender with pass-through audio, stable source handles, host-based default names, live source rename, temporary mute, late desktop-app discovery, and receiver acknowledgement/status feedback.
 - **Detail workspace:** Inline and pop-up detail panels share the same per-source settings model. Detail modules can be independently shown, hidden, dragged, reordered, saved, loaded from JSON presets, or restored from an optional validated default layout file.
 - **Detail graphs:** Stereo image plus correlation, loudness clock, waveform, and spectrograph are separate graph modules. Stereo/waveform/spectrograph/clock modules are resizeable where useful; the collision analyzer is a compact fixed-height module.
-- **Metering:** Peak/LUFS display, true-peak oversampling options, momentary/short-term/integrated loudness, recent-window true peak, 100 ms RMS, polar stereo image, and correlation.
+- **Metering:** Peak/LUFS display, true-peak oversampling options, momentary/short-term/integrated loudness, recent-window true peak, 100 ms RMS, polar stereo image, and correlation. Each detailed numeric meter independently selects Overall, Mid, or Side content through a compact marked-title selector.
 - **Waveform:** Oversampled dBFS waveform display with overall/channel modes, viewport-bounded rendering, vertical pan, mouse-wheel zoom, double-click reset, and inactive hidden-module gating.
 - **Spectrograph:** Horizontally rolling Mel-scaled FFT display from 20 Hz to 22 kHz using raw PCM history, dynamic viewport resolution, adjustable display range, hover frequency readout, sharp bucket rendering, and rollover-stripe protection.
 - **Loudness clock:** Configurable cycle length, loudness range, warning threshold, fan-fill plotting, scan line, time markers, hover readout, and over-range danger coloring.
 - **Collision analyzer:** Prominent spectrum-overlap comparison between sources with source selection, logarithmic/Mel scale, level floor, prominence, match tolerance, frequency cursor marker, and double-click numeric slider entry.
-- **Events and settings:** Recent Events strip for source lifecycle, true-peak max, loudness jumps, and conservative collision overlaps, with type filtering and configurable retained entry count. Global settings cover event history, future event output folder selection, and default detail-layout loading.
-- **Performance and reliability:** Eco mode, hidden graph active gates, deferred render update coalescing, theme refresh across open windows/popups, bitmap-lock retry handling, and optional native RfRapid C++ FFT/true-peak acceleration with managed fallback.
+- **Events and settings:** Recent Events strip for source lifecycle, true-peak max, loudness jumps, and conservative collision overlaps, with type filtering and configurable retained entry count. Global settings cover event history, future event output folder selection, default detail-layout loading, and optional title/banner explanations for detail meters and diagrams.
+- **Performance and reliability:** Eco mode, hidden graph active gates, deferred render update coalescing, in-window hover hints, theme refresh across open windows/popups, bitmap-lock retry handling, and optional native RfRapid C++ FFT/true-peak acceleration with managed fallback.
 - **Packaging:** Installer includes the desktop app and `uMeter Sender.vst3`, with app install path, shortcut options, configurable VST3 path, standard VST3 mirror install, quiet mode, and versioned artifacts.
 
 ## Run
@@ -64,7 +64,7 @@ The generated installers are written to:
 
 ```text
 artifacts\uMeter.Setup.exe
-artifacts\uMeter-Setup-2.3.4.exe
+artifacts\uMeter-Setup-2.3.5.exe
 ```
 
 The installer contains the desktop app and `uMeter Sender.vst3`. The VST3 install path defaults to:
@@ -109,6 +109,7 @@ For mixed-source behavior, duplicate names, and reconnect preference memory, see
 - `docs/current-status.md` - current release status and remaining known limits.
 - `docs/product-roadmap/` - post-v2.2.4 product roadmap and planning notes.
 - `docs/rendering-architecture.md` - graph rendering cleanup notes.
+- `docs/v2.3.5-release.md` - v2.3.5 release notes.
 - `docs/v2.3.4-release.md` - v2.3.4 release notes.
 - `docs/v2.3.3-release.md` - v2.3.3 release notes.
 - `docs/v2.3.2-release.md` - v2.3.2 release notes.
@@ -147,3 +148,4 @@ For mixed-source behavior, duplicate names, and reconnect preference memory, see
 17. Done: v2.3.2 rendering responsiveness, unified detail title editing, and loudness clock polish.
 18. Done: v2.3.3 UI reliability, detail-layout presets, and loudness clock interaction polish.
 19. Done: v2.3.4 draggable detail-graph polish and fixed-height collision analyzer.
+20. Done: v2.3.5 sender recovery, deterministic detail dragging, selectable Mid/Side detail metering, popup lifecycle, and responsive hover hints.

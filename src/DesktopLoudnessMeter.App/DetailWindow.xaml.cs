@@ -9,6 +9,7 @@ namespace DesktopLoudnessMeter.App;
 public partial class DetailWindow : Window
 {
     private Point _detailModuleDragStartPoint;
+    private bool _detailModuleDragArmed;
 
     public DetailWindow()
     {
@@ -185,6 +186,23 @@ public partial class DetailWindow : Window
         }
     }
 
+    private void DetailModuleDragHandle_OnMouseLeftButtonDown(object sender, MouseButtonEventArgs e)
+    {
+        if (sender is not FrameworkElement { Tag: DetailModuleViewModel } element)
+        {
+            return;
+        }
+
+        _detailModuleDragStartPoint = e.GetPosition(this);
+        _detailModuleDragArmed = element.CaptureMouse();
+        e.Handled = _detailModuleDragArmed;
+    }
+
+    private void DetailModuleDragHandle_OnMouseLeftButtonUp(object sender, MouseButtonEventArgs e)
+    {
+        CancelDetailModuleDrag(sender as FrameworkElement);
+    }
+
     private void DetailModuleDragHandle_OnMouseMove(object sender, MouseEventArgs e)
     {
         if (sender is not FrameworkElement { Tag: DetailModuleViewModel module } element)
@@ -192,9 +210,9 @@ public partial class DetailWindow : Window
             return;
         }
 
-        if (e.LeftButton != MouseButtonState.Pressed)
+        if (!_detailModuleDragArmed || e.LeftButton != MouseButtonState.Pressed)
         {
-            _detailModuleDragStartPoint = e.GetPosition(this);
+            CancelDetailModuleDrag(element);
             return;
         }
 
@@ -205,8 +223,15 @@ public partial class DetailWindow : Window
             return;
         }
 
-        DragDrop.DoDragDrop(element, module, DragDropEffects.Move);
-        ClearDetailModuleDropHints();
+        CancelDetailModuleDrag(element);
+        try
+        {
+            DragDrop.DoDragDrop(element, module, DragDropEffects.Move);
+        }
+        finally
+        {
+            ClearDetailModuleDropHints();
+        }
     }
 
     private void DetailModule_OnDragOver(object sender, DragEventArgs e)
@@ -229,7 +254,7 @@ public partial class DetailWindow : Window
             return;
         }
 
-        var insertAfter = ShouldInsertAfter(e, sender);
+        var insertAfter = DetailModuleDropPlacement.ShouldInsertAfter(source, target);
         foreach (var module in viewModel.DetailModules)
         {
             module.SetReorderDropHint(ReferenceEquals(module, target) && !insertAfter, ReferenceEquals(module, target) && insertAfter);
@@ -248,7 +273,7 @@ public partial class DetailWindow : Window
             return;
         }
 
-        viewModel.MoveDetailModuleTo(source, target, ShouldInsertAfter(e, sender));
+        viewModel.MoveDetailModuleTo(source, target, DetailModuleDropPlacement.ShouldInsertAfter(source, target));
         ClearDetailModuleDropHints();
         e.Handled = true;
     }
@@ -266,10 +291,13 @@ public partial class DetailWindow : Window
         e.Handled = true;
     }
 
-    private static bool ShouldInsertAfter(DragEventArgs e, object sender)
+    private void CancelDetailModuleDrag(FrameworkElement? element)
     {
-        return sender is FrameworkElement element
-            && e.GetPosition(element).Y >= element.ActualHeight / 2;
+        _detailModuleDragArmed = false;
+        if (element?.IsMouseCaptured == true)
+        {
+            element.ReleaseMouseCapture();
+        }
     }
 
     private void ClearDetailModuleDropHints()

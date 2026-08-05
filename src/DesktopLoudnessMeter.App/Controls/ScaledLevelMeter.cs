@@ -19,6 +19,12 @@ public sealed class ScaledLevelMeter : FrameworkElement
         typeof(ScaledLevelMeter),
         new FrameworkPropertyMetadata("n/a", FrameworkPropertyMetadataOptions.AffectsRender));
 
+    public static readonly DependencyProperty LabelIndentProperty = DependencyProperty.Register(
+        nameof(LabelIndent),
+        typeof(double),
+        typeof(ScaledLevelMeter),
+        new FrameworkPropertyMetadata(0d, FrameworkPropertyMetadataOptions.AffectsRender));
+
     public static readonly DependencyProperty ValueSubtextProperty = DependencyProperty.Register(
         nameof(ValueSubtext),
         typeof(string),
@@ -91,6 +97,12 @@ public sealed class ScaledLevelMeter : FrameworkElement
         set => SetValue(ValueTextProperty, value);
     }
 
+    public double LabelIndent
+    {
+        get => (double)GetValue(LabelIndentProperty);
+        set => SetValue(LabelIndentProperty, value);
+    }
+
     public string ValueSubtext
     {
         get => (string)GetValue(ValueSubtextProperty);
@@ -145,7 +157,7 @@ public sealed class ScaledLevelMeter : FrameworkElement
 
         drawingContext.DrawRectangle(Brushes.Transparent, null, new Rect(0, 0, width, ActualHeight));
 
-        var labelWidth = width < 360 ? 116d : 138d;
+        var labelWidth = 138d + Math.Max(0, LabelIndent);
         var valueText = CreateText(ValueText, 13, GetValueForeground(ValueSeverity), ValueTypeface);
         var valueSubtext = CreateText(ValueSubtext, 11, GetValueForeground(ValueSeverity), ValueTypeface);
         var hasValueSubtext = !string.IsNullOrWhiteSpace(ValueSubtext);
@@ -160,7 +172,7 @@ public sealed class ScaledLevelMeter : FrameworkElement
         var valueRect = new Rect(valueX, 2, Math.Min(valueWidth, Math.Max(0, width - valueX)), 38);
         var bar = new Rect(barX, barY, barWidth, barHeight);
 
-        drawingContext.DrawText(CreateText(Label, 12, LabelBrush, TextTypeface), new Point(0, 6));
+        drawingContext.DrawText(CreateText(Label, 12, LabelBrush, TextTypeface), new Point(Math.Max(0, LabelIndent), 6));
         DrawValueReadout(drawingContext, valueText, valueSubtext, valueRect, hasValueSubtext);
 
         drawingContext.DrawRoundedRectangle(TrackBrush, TrackStroke, bar, 6, 6);
