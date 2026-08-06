@@ -5,9 +5,9 @@
         xmlns:shell="clr-namespace:System.Windows.Shell;assembly=PresentationFramework"
         Title="{Binding Session.DisplayTitle}"
         Icon="Assets/desktop-loudness-meter.ico"
-        Width="460"
+        Width="520"
         Height="840"
-        MinWidth="400"
+        MinWidth="480"
         MinHeight="720"
         Topmost="{Binding IsAlwaysOnTop, Mode=OneWay}"
         WindowStyle="None"
@@ -145,17 +145,11 @@
                                    VerticalAlignment="Center"
                                    Foreground="{DynamicResource SubtleTextBrush}"
                                    FontSize="11"
-                                   Text="TP" />
-                        <ComboBox Width="72"
+                                   Text="True Peak" />
+                        <ComboBox Width="148"
                                   Height="26"
                                   ItemsSource="{Binding TruePeakOversamplingOptions}"
-                                  SelectedItem="{Binding Session.TruePeakOversampling, Mode=TwoWay}">
-                            <ComboBox.ItemTemplate>
-                                <DataTemplate>
-                                    <TextBlock Text="{Binding StringFormat={}{0:D}x}" />
-                                </DataTemplate>
-                            </ComboBox.ItemTemplate>
-                        </ComboBox>
+                                  SelectedItem="{Binding Session.TruePeakOversampling, Mode=TwoWay}" />
                     </StackPanel>
 
                     <CheckBox Grid.Column="3"
@@ -595,6 +589,7 @@
                                         </controls:StereoFanView>
                                         <controls:CorrelationMeter Grid.Row="2"
                                                                    Height="52"
+                                                                   Label="Correlation"
                                                                    Value="{Binding Session.CorrelationValue, Mode=OneWay}"
                                                                    ValueText="{Binding Session.CorrelationText}">
                                             <controls:CorrelationMeter.Style>

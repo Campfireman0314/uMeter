@@ -27,7 +27,7 @@ DesktopLoudnessMeterAudioProcessorEditor::DesktopLoudnessMeterAudioProcessorEdit
     : AudioProcessorEditor (&processor),
       audioProcessor (processor)
 {
-    setSize (420, 132);
+    setSize (560, 164);
 
     titleLabel.setText ("uMeter Sender", juce::dontSendNotification);
     titleLabel.setJustificationType (juce::Justification::centredLeft);
@@ -35,13 +35,19 @@ DesktopLoudnessMeterAudioProcessorEditor::DesktopLoudnessMeterAudioProcessorEdit
     titleLabel.setFont (juce::FontOptions (18.0f, juce::Font::bold));
     addAndMakeVisible (titleLabel);
 
+    startHostButton.setButtonText (localization.translate ("Start uMeter"));
+    startHostButton.setColour (juce::TextButton::buttonColourId, juce::Colour (0xff176b64));
+    startHostButton.setColour (juce::TextButton::textColourOffId, juce::Colours::white);
+    startHostButton.onClick = [this] { launchHostApp(); };
+    addAndMakeVisible (startHostButton);
+
     statusLabel.setJustificationType (juce::Justification::centredLeft);
     statusLabel.setColour (juce::Label::textColourId, juce::Colour (0xffaab4c2));
     statusLabel.setFont (juce::FontOptions (13.0f, juce::Font::plain));
     addAndMakeVisible (statusIndicator);
     addAndMakeVisible (statusLabel);
 
-    sourceNameLabel.setText ("Source name", juce::dontSendNotification);
+    sourceNameLabel.setText (localization.translate ("Source name"), juce::dontSendNotification);
     sourceNameLabel.setJustificationType (juce::Justification::centredLeft);
     sourceNameLabel.setColour (juce::Label::textColourId, juce::Colour (0xffaab4c2));
     addAndMakeVisible (sourceNameLabel);
@@ -82,6 +88,11 @@ DesktopLoudnessMeterAudioProcessorEditor::DesktopLoudnessMeterAudioProcessorEdit
     };
     refreshMuteButton();
     addAndMakeVisible (muteButton);
+
+    hostLaunchStatusLabel.setJustificationType (juce::Justification::centredRight);
+    hostLaunchStatusLabel.setColour (juce::Label::textColourId, juce::Colour (0xffaab4c2));
+    hostLaunchStatusLabel.setFont (juce::FontOptions (12.0f, juce::Font::plain));
+    addAndMakeVisible (hostLaunchStatusLabel);
 
     refreshConnectionStatus();
     startTimerHz (4);
@@ -158,19 +169,26 @@ void DesktopLoudnessMeterAudioProcessorEditor::resized()
 {
     auto bounds = getLocalBounds().reduced (18);
     auto header = bounds.removeFromTop (28);
-    auto statusArea = header.removeFromRight (214);
+    startHostButton.setBounds (header.removeFromRight (128));
+    header.removeFromRight (10);
+    titleLabel.setBounds (header);
+    bounds.removeFromTop (8);
+
+    auto statusArea = bounds.removeFromTop (24);
     statusIndicator.setBounds (statusArea.removeFromLeft (18).withSizeKeepingCentre (18, 18));
     statusArea.removeFromLeft (7);
     statusLabel.setBounds (statusArea);
-    titleLabel.setBounds (header);
-    bounds.removeFromTop (12);
+    bounds.removeFromTop (8);
 
     auto row = bounds.removeFromTop (42);
-    sourceNameLabel.setBounds (row.removeFromLeft (98));
+    sourceNameLabel.setBounds (row.removeFromLeft (112));
     row.removeFromLeft (8);
     muteButton.setBounds (row.removeFromRight (92));
     row.removeFromRight (10);
     sourceNameEditor.setBounds (row);
+
+    bounds.removeFromTop (4);
+    hostLaunchStatusLabel.setBounds (bounds.removeFromTop (18));
 }
 
 void DesktopLoudnessMeterAudioProcessorEditor::updateSourceName (bool refreshEditorText)
@@ -185,17 +203,17 @@ void DesktopLoudnessMeterAudioProcessorEditor::updateSourceName (bool refreshEdi
 
 void DesktopLoudnessMeterAudioProcessorEditor::refreshMuteButton()
 {
-    muteButton.setButtonText (audioProcessor.isMuted() ? "Muted" : "Mute");
+    muteButton.setButtonText (localization.translate (audioProcessor.isMuted() ? "Muted" : "Mute"));
 }
 
 void DesktopLoudnessMeterAudioProcessorEditor::refreshConnectionStatus()
 {
     const auto state = audioProcessor.getSenderConnectionState();
-    auto text = audioProcessor.getSenderConnectionStatusText();
+    auto text = localization.translate (audioProcessor.getSenderConnectionStatusText());
     const auto dropped = audioProcessor.getDroppedSenderPacketCount();
     if (dropped > 0)
     {
-        text += " - dropped " + juce::String (static_cast<juce::int64> (dropped));
+        text += " - " + localization.translate ("dropped") + " " + juce::String (static_cast<juce::int64> (dropped));
     }
 
     statusIndicator.setState (state);
@@ -203,7 +221,23 @@ void DesktopLoudnessMeterAudioProcessorEditor::refreshConnectionStatus()
     statusLabel.setColour (juce::Label::textColourId, statusColour (state).interpolatedWith (juce::Colour (0xffd8e1ec), 0.45f));
 }
 
+void DesktopLoudnessMeterAudioProcessorEditor::launchHostApp()
+{
+    jassert (juce::MessageManager::getInstance()->isThisTheMessageThread());
+
+    const auto result = hostAppLauncher.launch();
+    hostLaunchStatusLabel.setText (localization.translate (result.message), juce::dontSendNotification);
+    hostLaunchStatusLabel.setColour (juce::Label::textColourId,
+                                     result.started ? juce::Colour (0xff5eead4) : juce::Colour (0xfffca5a5));
+    hostLaunchStatusTicksRemaining = 16;
+}
+
 void DesktopLoudnessMeterAudioProcessorEditor::timerCallback()
 {
     refreshConnectionStatus();
+
+    if (hostLaunchStatusTicksRemaining > 0 && --hostLaunchStatusTicksRemaining == 0)
+    {
+        hostLaunchStatusLabel.setText ({}, juce::dontSendNotification);
+    }
 }

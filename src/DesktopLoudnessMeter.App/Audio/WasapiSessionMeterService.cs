@@ -58,7 +58,7 @@ public sealed class WasapiSessionMeterService :
         {
             if (_snapshotSource is not null)
             {
-                return AddProcessMetrics(NormalizeVisibleRows(_snapshotSource()));
+                return AddProcessMetrics(NormalizeRows(_snapshotSource()));
             }
 
             using var device = _deviceEnumerator.GetDefaultAudioEndpoint(DataFlow.Render, Role.Multimedia);
@@ -87,7 +87,7 @@ public sealed class WasapiSessionMeterService :
                     session.State.ToString()));
             }
 
-            return AddProcessMetrics(NormalizeVisibleRows(snapshots));
+            return AddProcessMetrics(NormalizeRows(snapshots));
         }
         catch (Exception ex) when (IsRecoverableAudioFailure(ex))
         {
@@ -155,7 +155,7 @@ public sealed class WasapiSessionMeterService :
     {
         if (_processMetricProvider is null)
         {
-            return snapshots;
+            return snapshots.Where(snapshot => IsVisibleAudioRow(snapshot, metrics: null)).ToArray();
         }
 
         var processIds = snapshots
@@ -170,13 +170,19 @@ public sealed class WasapiSessionMeterService :
         }
         catch (Exception ex) when (IsRecoverableAudioFailure(ex))
         {
-            return snapshots;
+            return snapshots.Where(snapshot => IsVisibleAudioRow(snapshot, metrics: null)).ToArray();
         }
 
         return snapshots
-            .Select(snapshot => snapshot.ProcessId is int processId
-                ? MergeMetrics(snapshot, TryGetMetrics(processId))
-                : snapshot)
+            .Select(snapshot =>
+            {
+                var metrics = snapshot.ProcessId is int processId
+                    ? TryGetMetrics(processId)
+                    : null;
+                return (Snapshot: snapshot, Metrics: metrics);
+            })
+            .Where(item => IsVisibleAudioRow(item.Snapshot, item.Metrics))
+            .Select(item => MergeMetrics(item.Snapshot, item.Metrics))
             .ToArray();
     }
 
@@ -217,10 +223,10 @@ public sealed class WasapiSessionMeterService :
             };
     }
 
-    private IReadOnlyList<AudioSessionSnapshot> NormalizeVisibleRows(IReadOnlyList<AudioSessionSnapshot> snapshots)
+    private IReadOnlyList<AudioSessionSnapshot> NormalizeRows(IReadOnlyList<AudioSessionSnapshot> snapshots)
     {
         return snapshots
-            .Where(IsVisibleAudioRow)
+            .Where(snapshot => snapshot.ProcessId != _currentProcessId)
             .GroupBy(GetProcessRowKey, StringComparer.Ordinal)
             .Select(CollapseProcessRows)
             .OrderByDescending(session => session.Peak)
@@ -228,14 +234,24 @@ public sealed class WasapiSessionMeterService :
             .ToArray();
     }
 
-    private bool IsVisibleAudioRow(AudioSessionSnapshot snapshot)
+    private bool IsVisibleAudioRow(AudioSessionSnapshot snapshot, PcmMetricsSnapshot? metrics)
     {
         if (snapshot.ProcessId == _currentProcessId)
         {
             return false;
         }
 
+        if (snapshot.ProcessId is not null && metrics is not null)
+        {
+            return HasCurrentAudiblePcm(metrics);
+        }
+
         return snapshot.Peak > AudiblePeakFloor || HasAudibleAnalyzerMetrics(snapshot);
+    }
+
+    private static bool HasCurrentAudiblePcm(PcmMetricsSnapshot metrics)
+    {
+        return IsAudibleDb(metrics.TruePeakDb) || IsAudibleDb(metrics.Rms100MsDb);
     }
 
     private static string GetProcessRowKey(AudioSessionSnapshot snapshot)

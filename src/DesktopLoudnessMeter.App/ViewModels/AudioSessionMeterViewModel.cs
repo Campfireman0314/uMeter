@@ -1,4 +1,5 @@
 using DesktopLoudnessMeter.App.Audio;
+using DesktopLoudnessMeter.App.Localization;
 using DesktopLoudnessMeter.App.Audio.Analysis;
 using System.Windows.Input;
 
@@ -128,13 +129,13 @@ public sealed class AudioSessionMeterViewModel : ObservableObject
         {
             if (SourceKind == SignalSourceKind.WasapiSession && ProcessId is int processId)
             {
-                return $"{SourceKindLabel} source - PID {processId}";
+                return LocalizationManager.Format("{0} source - PID {1}", SourceKindLabel, processId);
             }
 
             var stableId = CompactSourceIdentifier(SourceKey);
             return string.IsNullOrWhiteSpace(stableId)
-                ? $"{SourceKindLabel} source"
-                : $"{SourceKindLabel} source - {stableId}";
+                ? LocalizationManager.Format("{0} source", SourceKindLabel)
+                : LocalizationManager.Format("{0} source - {1}", SourceKindLabel, stableId);
         }
     }
 
@@ -225,7 +226,7 @@ public sealed class AudioSessionMeterViewModel : ObservableObject
         }
     }
 
-    public string SourceStatusText => State;
+    public string SourceStatusText => LocalizationManager.Translate(NormalizeStateLabel(State));
 
     public MeterDisplayMode DisplayMode
     {
@@ -398,20 +399,18 @@ public sealed class AudioSessionMeterViewModel : ObservableObject
 
     public string TruePeakText => FormatCompactDb(_truePeakDb);
 
-    public string TruePeakMaxText => _truePeakMaxDb is null
-        ? "max n/a"
-        : $"max {FormatCompactDb(_truePeakMaxDb)}";
+    public string TruePeakMaxText => FormatMaximum(_truePeakMaxDb);
 
     public ReadoutSeverity TruePeakReadoutSeverity => CalculateDbReadoutSeverity(GetTruePeakSeverityValue(), hasValue: true);
 
     public string Rms100MsText => FormatDb(_rms100MsDb);
 
     public string StereoImageText => _stereoImageX is null || _stereoImageY is null
-        ? "n/a"
+        ? LocalizationManager.Translate("n/a")
         : $"({_stereoImageX.Value:0.00}, {_stereoImageY.Value:0.00})";
 
     public string CorrelationText => _correlation is null
-        ? "n/a"
+        ? LocalizationManager.Translate("n/a")
         : $"{_correlation.Value:0.00}";
 
     public double MomentaryLufsLevel => NormalizeLufs(_momentaryLufs);
@@ -446,9 +445,7 @@ public sealed class AudioSessionMeterViewModel : ObservableObject
 
     public string DetailTruePeakLabel => FormatDetailLabel("True-peak level", TruePeakMeasurementMode);
 
-    public string DetailTruePeakMaxText => GetTruePeakMax(TruePeakMeasurementMode) is not double maximum
-        ? "max n/a"
-        : $"max {FormatCompactDb(maximum)}";
+    public string DetailTruePeakMaxText => FormatMaximum(GetTruePeakMax(TruePeakMeasurementMode));
 
     public ReadoutSeverity DetailTruePeakReadoutSeverity => CalculateDbReadoutSeverity(
         GetDetailTruePeakSeverityValue(),
@@ -924,23 +921,28 @@ public sealed class AudioSessionMeterViewModel : ObservableObject
 
     private static string FormatLufs(double? value)
     {
-        return value is null ? "LUFS n/a" : $"{value.Value:0.0} LUFS";
+        return value is null ? $"LUFS {LocalizationManager.Translate("n/a")}" : $"{value.Value:0.0} LUFS";
     }
 
     private static string FormatDb(double? value)
     {
-        return value is null ? "n/a" : $"{value.Value:0.0} dB";
+        return value is null ? LocalizationManager.Translate("n/a") : $"{value.Value:0.0} dB";
     }
 
     private static string FormatCompactDb(double? value)
     {
         if (value is null)
         {
-            return "n/a";
+            return LocalizationManager.Translate("n/a");
         }
 
         var sign = value.Value > 0 ? "+" : string.Empty;
         return $"{sign}{value.Value:0.0}dB";
+    }
+
+    private static string FormatMaximum(double? value)
+    {
+        return LocalizationManager.Format("max {0}", FormatCompactDb(value));
     }
 
     private static string FormatDetailLabel(string label, SignalMeasurementMode mode)
@@ -951,7 +953,44 @@ public sealed class AudioSessionMeterViewModel : ObservableObject
             SignalMeasurementMode.Side => "S",
             _ => "I"
         };
-        return $"{label} ({marker})";
+        return $"{LocalizationManager.Translate(label)} ({marker})";
+    }
+
+    private static string NormalizeStateLabel(string state)
+    {
+        return state switch
+        {
+            "AudioSessionStateActive" => "Active",
+            "AudioSessionStateInactive" => "Inactive",
+            _ => state
+        };
+    }
+
+    public void RefreshLocalizedText()
+    {
+        OnPropertyChanged(nameof(SourceKindLabel));
+        OnPropertyChanged(nameof(SourceIdentityText));
+        OnPropertyChanged(nameof(DisplayTitle));
+        OnPropertyChanged(nameof(SourceStatusText));
+        OnPropertyChanged(nameof(ShortTermLufsText));
+        OnPropertyChanged(nameof(IntegratedLufsText));
+        OnPropertyChanged(nameof(TruePeakText));
+        OnPropertyChanged(nameof(TruePeakMaxText));
+        OnPropertyChanged(nameof(Rms100MsText));
+        OnPropertyChanged(nameof(StereoImageText));
+        OnPropertyChanged(nameof(CorrelationText));
+        OnPropertyChanged(nameof(DetailMomentaryLufsText));
+        OnPropertyChanged(nameof(DetailMomentaryLufsLabel));
+        OnPropertyChanged(nameof(DetailShortTermLufsText));
+        OnPropertyChanged(nameof(DetailShortTermLufsLabel));
+        OnPropertyChanged(nameof(DetailIntegratedLufsText));
+        OnPropertyChanged(nameof(DetailIntegratedLufsLabel));
+        OnPropertyChanged(nameof(DetailTruePeakText));
+        OnPropertyChanged(nameof(DetailTruePeakMaxText));
+        OnPropertyChanged(nameof(DetailTruePeakLabel));
+        OnPropertyChanged(nameof(DetailRms100MsText));
+        OnPropertyChanged(nameof(DetailRms100MsLabel));
+        RefreshPrimaryValueText();
     }
 
     private static double NormalizeLufs(double? value)

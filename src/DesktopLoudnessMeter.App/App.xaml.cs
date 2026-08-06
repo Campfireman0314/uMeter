@@ -3,6 +3,7 @@ using System.Windows;
 using DesktopLoudnessMeter.App.Audio;
 using DesktopLoudnessMeter.App.Diagnostics;
 using DesktopLoudnessMeter.App.Infrastructure;
+using DesktopLoudnessMeter.App.Localization;
 using DesktopLoudnessMeter.App.Settings;
 using DesktopLoudnessMeter.App.Themes;
 using DesktopLoudnessMeter.App.ViewModels;
@@ -48,6 +49,7 @@ public partial class App : Application
 
         AppLogger.Info("Single-instance ownership acquired for this user session.");
         _workspaceSettings = UserWorkspaceSettings.Load();
+        LocalizationManager.Initialize(_workspaceSettings.LanguageCode);
         var initialTheme = AppThemes.FindById(_workspaceSettings.ThemeId);
         ThemeManager.Apply(initialTheme);
 
@@ -63,6 +65,15 @@ public partial class App : Application
             workspaceSettings: _workspaceSettings,
             selectFolder: DesktopLoudnessMeter.App.MainWindow.SelectFolder);
         _mainViewModel.DetailPopupRequested += OpenDetailPopup;
+        try
+        {
+            _mainViewModel.ApplyStartupRegistration();
+        }
+        catch (Exception ex)
+        {
+            AppLogger.Error("Failed to synchronize Windows startup registration.", ex);
+        }
+
         _mainViewModel.RefreshNow();
 
         _mainWindow = new MainWindow
@@ -71,14 +82,21 @@ public partial class App : Application
         };
         MainWindow = _mainWindow;
         InitializeTrayIcon();
-        _mainWindow.Show();
-        _mainWindow.Activate();
+        var startHidden = e.Args.Contains(WindowsStartupRegistration.BackgroundArgument, StringComparer.OrdinalIgnoreCase)
+            && _workspaceSettings.HideToTrayAfterStartup;
+        if (!startHidden)
+        {
+            _mainWindow.Show();
+            _mainWindow.Activate();
+        }
         if (_activationRequestedBeforeWindowReady)
         {
             ShowMainWindow();
         }
 
-        AppLogger.Info($"Main window shown. Left={_mainWindow.Left:0}, Top={_mainWindow.Top:0}, Width={_mainWindow.Width:0}, Height={_mainWindow.Height:0}, Topmost={_mainWindow.Topmost}.");
+        AppLogger.Info(startHidden
+            ? "Application started in the notification area."
+            : $"Main window shown. Left={_mainWindow.Left:0}, Top={_mainWindow.Top:0}, Width={_mainWindow.Width:0}, Height={_mainWindow.Height:0}, Topmost={_mainWindow.Topmost}.");
     }
 
     protected override void OnExit(ExitEventArgs e)
@@ -148,12 +166,20 @@ public partial class App : Application
     {
         var window = new DetailWindow
         {
-            Owner = _mainWindow,
             DataContext = new DetailWindowViewModel(session, GetActiveDetailSwitchTargets, _workspaceSettings, _mainViewModel)
         };
+        AssignDetailPopupOwner(window, _mainWindow);
         PositionDetailPopup(window, _mainWindow);
         window.Show();
         window.Activate();
+    }
+
+    internal static void AssignDetailPopupOwner(Window popup, Window? mainWindow)
+    {
+        if (mainWindow?.IsVisible == true)
+        {
+            popup.Owner = mainWindow;
+        }
     }
 
     private static void PositionDetailPopup(Window popup, Window? mainWindow)
@@ -233,13 +259,13 @@ public partial class App : Application
         }
 
         _trayMenu.Items.Clear();
-        _trayMenu.Items.Add("Show uMeter", null, (_, _) => ShowMainWindow());
+        _trayMenu.Items.Add(LocalizationManager.Translate("Show uMeter"), null, (_, _) => ShowMainWindow());
 
-        var popupMenu = new Forms.ToolStripMenuItem("Pop-up App...");
+        var popupMenu = new Forms.ToolStripMenuItem(LocalizationManager.Translate("Pop-up App..."));
         var sessions = _mainViewModel?.Sessions.ToArray() ?? [];
         if (sessions.Length == 0)
         {
-            popupMenu.DropDownItems.Add("(no active apps)").Enabled = false;
+            popupMenu.DropDownItems.Add(LocalizationManager.Translate("(no active apps)")).Enabled = false;
         }
         else
         {
@@ -263,7 +289,7 @@ public partial class App : Application
 
         _trayMenu.Items.Add(popupMenu);
         _trayMenu.Items.Add(new Forms.ToolStripSeparator());
-        _trayMenu.Items.Add("Exit", null, (_, _) => RequestTrayExit());
+        _trayMenu.Items.Add(LocalizationManager.Translate("Exit"), null, (_, _) => RequestTrayExit());
     }
 
     private void RequestTrayExit()

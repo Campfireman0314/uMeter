@@ -1,5 +1,7 @@
 #pragma once
 
+#include "HostAppLauncher.h"
+#include "PluginLocalization.h"
 #include "PluginProcessor.h"
 
 #include <juce_gui_basics/juce_gui_basics.h>
@@ -35,16 +37,22 @@ private:
     void updateSourceName (bool refreshEditorText);
     void refreshMuteButton();
     void refreshConnectionStatus();
+    void launchHostApp();
     void timerCallback() override;
 
     DesktopLoudnessMeterAudioProcessor& audioProcessor;
+    dlm::HostAppLauncher hostAppLauncher;
+    dlm::PluginLocalization localization;
     RoundedTextEditorLookAndFeel roundedTextEditorLookAndFeel;
     juce::Label titleLabel;
     StatusIndicator statusIndicator;
     juce::Label statusLabel;
     juce::Label sourceNameLabel;
     juce::TextEditor sourceNameEditor;
-    juce::TextButton muteButton { "Mute" };
+    juce::TextButton muteButton;
+    juce::TextButton startHostButton;
+    juce::Label hostLaunchStatusLabel;
+    int hostLaunchStatusTicksRemaining = 0;
 
     JUCE_DECLARE_NON_COPYABLE_WITH_LEAK_DETECTOR (DesktopLoudnessMeterAudioProcessorEditor)
 };

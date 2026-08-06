@@ -1,6 +1,7 @@
 using System.ComponentModel;
 using System.IO;
 using System.Windows.Input;
+using DesktopLoudnessMeter.App.Localization;
 using DesktopLoudnessMeter.App.Settings;
 
 namespace DesktopLoudnessMeter.App.ViewModels;
@@ -91,6 +92,8 @@ public sealed class DetailWindowViewModel : ObservableObject, IDisposable
         {
             module.PropertyChanged += DetailModuleOnPropertyChanged;
         }
+
+        LocalizationManager.LanguageChanged += LocalizationManagerOnLanguageChanged;
 
         ApplyWorkspacePreferences();
         RefreshSwitchTargets();
@@ -347,7 +350,10 @@ public sealed class DetailWindowViewModel : ObservableObject, IDisposable
         }
     }
 
-    public string SpectrumDisplayRangeText => $"{SpectrumDisplayFloorDb:0} to {SpectrumDisplayCeilingDb:0} dB";
+    public string SpectrumDisplayRangeText => LocalizationManager.Format(
+        "{0} to {1} dB",
+        SpectrumDisplayFloorDb.ToString("0"),
+        SpectrumDisplayCeilingDb.ToString("0"));
 
     public double LoudnessClockMinimumDb
     {
@@ -385,7 +391,10 @@ public sealed class DetailWindowViewModel : ObservableObject, IDisposable
         }
     }
 
-    public string LoudnessClockRangeText => $"{LoudnessClockMinimumDb:0} to {LoudnessClockMaximumDb:0} LUFS";
+    public string LoudnessClockRangeText => LocalizationManager.Format(
+        "{0} to {1} LUFS",
+        LoudnessClockMinimumDb.ToString("0"),
+        LoudnessClockMaximumDb.ToString("0"));
 
     public double LoudnessClockWarningDb
     {
@@ -529,11 +538,11 @@ public sealed class DetailWindowViewModel : ObservableObject, IDisposable
     {
         if (DetailLayoutPresetStore.Save(path, CreateDetailLayoutPreset(), out var error))
         {
-            DetailLayoutStatusText = $"Saved detail layout: {Path.GetFileName(path)}";
+            DetailLayoutStatusText = LocalizationManager.Format("Saved detail layout: {0}", Path.GetFileName(path));
             return true;
         }
 
-        DetailLayoutStatusText = $"Layout save failed: {error}";
+        DetailLayoutStatusText = LocalizationManager.Format("Layout save failed: {0}", error);
         return false;
     }
 
@@ -541,12 +550,12 @@ public sealed class DetailWindowViewModel : ObservableObject, IDisposable
     {
         if (!DetailLayoutPresetStore.TryLoad(path, out var preset, out var error))
         {
-            DetailLayoutStatusText = $"Layout load failed: {error}";
+            DetailLayoutStatusText = LocalizationManager.Format("Layout load failed: {0}", error);
             return false;
         }
 
         ApplyDetailLayoutPreset(preset, persist: true);
-        DetailLayoutStatusText = $"Loaded detail layout: {Path.GetFileName(path)}";
+        DetailLayoutStatusText = LocalizationManager.Format("Loaded detail layout: {0}", Path.GetFileName(path));
         return true;
     }
 
@@ -558,6 +567,7 @@ public sealed class DetailWindowViewModel : ObservableObject, IDisposable
         }
 
         _isDisposed = true;
+        LocalizationManager.LanguageChanged -= LocalizationManagerOnLanguageChanged;
         _session.PropertyChanged -= SessionOnPropertyChanged;
         if (_globalSettingsOwner is not null)
         {
@@ -571,6 +581,20 @@ public sealed class DetailWindowViewModel : ObservableObject, IDisposable
         }
 
         ClearCollisionSourceSubscriptions();
+    }
+
+    private void LocalizationManagerOnLanguageChanged(object? sender, EventArgs e)
+    {
+        foreach (var module in DetailModules)
+        {
+            module.RefreshLocalizedText();
+        }
+
+        Session.RefreshLocalizedText();
+        OnPropertyChanged(nameof(CollisionFrequencyScaleText));
+        OnPropertyChanged(nameof(SpectrumDisplayRangeText));
+        OnPropertyChanged(nameof(LoudnessClockRangeText));
+        OnPropertyChanged(nameof(SelectedFrequencyCollisionSourceDisplayName));
     }
 
     private void StereoSettingsOnPropertyChanged(object? sender, PropertyChangedEventArgs args)

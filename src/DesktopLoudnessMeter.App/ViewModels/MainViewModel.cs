@@ -6,6 +6,8 @@ using System.Windows.Threading;
 using System.Diagnostics;
 using System.ComponentModel;
 using DesktopLoudnessMeter.App.Audio.Analysis;
+using DesktopLoudnessMeter.App.Infrastructure;
+using DesktopLoudnessMeter.App.Localization;
 using DesktopLoudnessMeter.App.Settings;
 using DesktopLoudnessMeter.App.Themes;
 
@@ -52,6 +54,7 @@ public sealed class MainViewModel : ObservableObject, IDisposable
     private readonly Dictionary<string, int> _missingTicksByKey = [];
     private readonly Dictionary<string, SourceRowPreferences> _preferencesBySourceKey = [];
     private readonly UserWorkspaceSettings _workspaceSettings;
+    private readonly IStartupRegistration _startupRegistration;
     private readonly int _missingRowRetentionTicks;
     private readonly Func<int, bool> _isProcessAlive;
     private readonly Func<DateTimeOffset> _now;
@@ -68,11 +71,15 @@ public sealed class MainViewModel : ObservableObject, IDisposable
     private RecentEventFilterOption _selectedRecentEventFilter;
     private int _maxRecentEventEntries = DefaultMaxRecentEventEntries;
     private bool _enableDetailHoverHints = true;
+    private bool _startWithWindows;
+    private bool _autoInvokeHostApp;
+    private bool _hideToTrayAfterStartup;
+    private LanguageOption _selectedLanguage;
     private string? _eventOutputFolder;
     private bool _loadDefaultDetailLayoutFromFile;
     private string? _defaultDetailLayoutFile;
-    private string _defaultDetailLayoutStatusText = "Built-in default detail layout is active.";
-    private string _statusText = "Waiting for audio sources";
+    private string _defaultDetailLayoutStatusText = LocalizationManager.Translate("Built-in default detail layout is active.");
+    private string _statusText = LocalizationManager.Translate("Waiting for audio sources");
     private MeterDisplayMode _selectedDisplayMode = MeterDisplayMode.Peak;
     private bool _truePeakEnabled;
     private bool _isEcoModeEnabled;
@@ -109,11 +116,13 @@ public sealed class MainViewModel : ObservableObject, IDisposable
         Action<AppTheme>? themeSelected = null,
         UserWorkspaceSettings? workspaceSettings = null,
         Func<DateTimeOffset>? now = null,
-        Func<string?, string?>? selectFolder = null)
+        Func<string?, string?>? selectFolder = null,
+        IStartupRegistration? startupRegistration = null)
     {
         _sourceMeterService = sourceMeterService;
         _themeSelected = themeSelected;
         _workspaceSettings = workspaceSettings ?? new UserWorkspaceSettings();
+        _startupRegistration = startupRegistration ?? new WindowsStartupRegistration();
         _selectedTheme = selectedTheme ?? AppThemes.Default;
         _sourceWarningText = string.IsNullOrWhiteSpace(sourceWarningText) ? null : sourceWarningText.Trim();
         _missingRowRetentionTicks = Math.Max(0, missingRowRetentionTicks);
@@ -125,6 +134,11 @@ public sealed class MainViewModel : ObservableObject, IDisposable
         _loadDefaultDetailLayoutFromFile = _workspaceSettings.LoadDefaultDetailLayoutFromFile;
         _defaultDetailLayoutFile = NormalizeOptionalText(_workspaceSettings.DefaultDetailLayoutFile);
         _enableDetailHoverHints = _workspaceSettings.EnableDetailHoverHints ?? true;
+        _startWithWindows = _workspaceSettings.StartWithWindows;
+        _autoInvokeHostApp = _workspaceSettings.AutoInvokeHostApp;
+        _hideToTrayAfterStartup = _workspaceSettings.HideToTrayAfterStartup;
+        _selectedLanguage = LocalizationManager.LanguageOptions.First(option =>
+            option.Code == LocalizationManager.NormalizePreferenceCode(_workspaceSettings.LanguageCode));
         _workspaceSettings.MaxRecentEventEntries = _maxRecentEventEntries;
         _workspaceSettings.EventOutputFolder = _eventOutputFolder;
         _workspaceSettings.DefaultDetailLayoutFile = _defaultDetailLayoutFile;
@@ -168,6 +182,7 @@ public sealed class MainViewModel : ObservableObject, IDisposable
         }
 
         InlineStereoSettings.PropertyChanged += InlineStereoSettingsOnPropertyChanged;
+        LocalizationManager.LanguageChanged += LocalizationManagerOnLanguageChanged;
         RefreshDefaultDetailLayoutStatus();
     }
 
@@ -267,7 +282,7 @@ public sealed class MainViewModel : ObservableObject, IDisposable
     }
 
     public string EventOutputFolderDisplayText => string.IsNullOrWhiteSpace(EventOutputFolder)
-        ? "Not selected"
+        ? LocalizationManager.Translate("Not selected")
         : EventOutputFolder;
 
     public bool LoadDefaultDetailLayoutFromFile
@@ -301,7 +316,7 @@ public sealed class MainViewModel : ObservableObject, IDisposable
     }
 
     public string DefaultDetailLayoutFileDisplayText => string.IsNullOrWhiteSpace(DefaultDetailLayoutFile)
-        ? "Not selected"
+        ? LocalizationManager.Translate("Not selected")
         : DefaultDetailLayoutFile;
 
     public string DefaultDetailLayoutStatusText
@@ -353,6 +368,71 @@ public sealed class MainViewModel : ObservableObject, IDisposable
                 _workspaceSettings.Save();
             }
         }
+    }
+
+    public IReadOnlyList<LanguageOption> LanguageOptions => LocalizationManager.LanguageOptions;
+
+    public LanguageOption SelectedLanguage
+    {
+        get => _selectedLanguage;
+        set
+        {
+            if (value is not null && SetProperty(ref _selectedLanguage, value))
+            {
+                _workspaceSettings.LanguageCode = value.Code;
+                _workspaceSettings.Save();
+                LocalizationManager.Apply(value.Code);
+            }
+        }
+    }
+
+    public bool StartWithWindows
+    {
+        get => _startWithWindows;
+        set
+        {
+            if (SetProperty(ref _startWithWindows, value))
+            {
+                _workspaceSettings.StartWithWindows = value;
+                _workspaceSettings.Save();
+                ApplyStartupRegistration();
+            }
+        }
+    }
+
+    public bool AutoInvokeHostApp
+    {
+        get => _autoInvokeHostApp;
+        set
+        {
+            if (SetProperty(ref _autoInvokeHostApp, value))
+            {
+                _workspaceSettings.AutoInvokeHostApp = value;
+                _workspaceSettings.Save();
+            }
+        }
+    }
+
+    public bool HideToTrayAfterStartup
+    {
+        get => _hideToTrayAfterStartup;
+        set
+        {
+            if (SetProperty(ref _hideToTrayAfterStartup, value))
+            {
+                _workspaceSettings.HideToTrayAfterStartup = value;
+                _workspaceSettings.Save();
+                if (StartWithWindows)
+                {
+                    ApplyStartupRegistration();
+                }
+            }
+        }
+    }
+
+    public void ApplyStartupRegistration()
+    {
+        _startupRegistration.Configure(StartWithWindows, HideToTrayAfterStartup);
     }
 
     public IReadOnlyList<CollisionFrequencyScale> CollisionFrequencyScaleOptions { get; } =
@@ -550,7 +630,10 @@ public sealed class MainViewModel : ObservableObject, IDisposable
         }
     }
 
-    public string SpectrumDisplayRangeText => $"{SpectrumDisplayFloorDb:0} to {SpectrumDisplayCeilingDb:0} dB";
+    public string SpectrumDisplayRangeText => LocalizationManager.Format(
+        "{0} to {1} dB",
+        SpectrumDisplayFloorDb.ToString("0"),
+        SpectrumDisplayCeilingDb.ToString("0"));
 
     public double LoudnessClockMinimumDb
     {
@@ -588,7 +671,10 @@ public sealed class MainViewModel : ObservableObject, IDisposable
         }
     }
 
-    public string LoudnessClockRangeText => $"{LoudnessClockMinimumDb:0} to {LoudnessClockMaximumDb:0} LUFS";
+    public string LoudnessClockRangeText => LocalizationManager.Format(
+        "{0} to {1} LUFS",
+        LoudnessClockMinimumDb.ToString("0"),
+        LoudnessClockMaximumDb.ToString("0"));
 
     public double LoudnessClockWarningDb
     {
@@ -714,7 +800,8 @@ public sealed class MainViewModel : ObservableObject, IDisposable
         }
     }
 
-    public string ShowHiddenSourcesText => ShowHiddenSources ? "Showing hidden" : "Hidden filtered";
+    public string ShowHiddenSourcesText => LocalizationManager.Translate(
+        ShowHiddenSources ? "Showing hidden" : "Hidden filtered");
 
     public bool HasHiddenSources => _preferencesBySourceKey.Values.Any(preferences => preferences.IsHidden);
 
@@ -888,17 +975,17 @@ public sealed class MainViewModel : ObservableObject, IDisposable
     {
         if (SelectedDetailSession is null)
         {
-            StatusText = "Open an inline detail panel before saving its layout.";
+            StatusText = LocalizationManager.Translate("Open an inline detail panel before saving its layout.");
             return false;
         }
 
         if (DetailLayoutPresetStore.Save(path, CreateInlineDetailLayoutPreset(), out var error))
         {
-            StatusText = $"Saved inline detail layout: {Path.GetFileName(path)}";
+            StatusText = LocalizationManager.Format("Saved inline detail layout: {0}", Path.GetFileName(path));
             return true;
         }
 
-        StatusText = $"Layout save failed: {error}";
+        StatusText = LocalizationManager.Format("Layout save failed: {0}", error);
         return false;
     }
 
@@ -906,18 +993,18 @@ public sealed class MainViewModel : ObservableObject, IDisposable
     {
         if (SelectedDetailSession is null)
         {
-            StatusText = "Open an inline detail panel before loading its layout.";
+            StatusText = LocalizationManager.Translate("Open an inline detail panel before loading its layout.");
             return false;
         }
 
         if (!DetailLayoutPresetStore.TryLoad(path, out var preset, out var error))
         {
-            StatusText = $"Layout load failed: {error}";
+            StatusText = LocalizationManager.Format("Layout load failed: {0}", error);
             return false;
         }
 
         ApplyInlineDetailLayoutPreset(preset, persist: true);
-        StatusText = $"Loaded inline detail layout: {Path.GetFileName(path)}";
+        StatusText = LocalizationManager.Format("Loaded inline detail layout: {0}", Path.GetFileName(path));
         return true;
     }
 
@@ -931,19 +1018,20 @@ public sealed class MainViewModel : ObservableObject, IDisposable
             RefreshFrequencyCollisions();
             StatusText = _sourceWarningText ?? (Sessions.Count switch
             {
-                0 => "No active audio sources",
-                1 => "1 source tracked",
-                _ => $"{Sessions.Count} sources tracked"
+                0 => LocalizationManager.Translate("No active audio sources"),
+                1 => LocalizationManager.Translate("1 source tracked"),
+                _ => LocalizationManager.Format("{0} sources tracked", Sessions.Count)
             });
         }
         catch (Exception ex)
         {
-            StatusText = $"Refresh failed: {ex.Message}";
+            StatusText = LocalizationManager.Format("Refresh failed: {0}", ex.Message);
         }
     }
 
     public void Dispose()
     {
+        LocalizationManager.LanguageChanged -= LocalizationManagerOnLanguageChanged;
         _refreshTimer?.Stop();
         if (_selectedDetailSession is not null)
         {
@@ -960,6 +1048,28 @@ public sealed class MainViewModel : ObservableObject, IDisposable
         {
             module.PropertyChanged -= InlineDetailModuleOnPropertyChanged;
         }
+    }
+
+    private void LocalizationManagerOnLanguageChanged(object? sender, EventArgs e)
+    {
+        foreach (var module in InlineDetailModules)
+        {
+            module.RefreshLocalizedText();
+        }
+
+        foreach (var session in Sessions)
+        {
+            session.RefreshLocalizedText();
+        }
+
+        RefreshDefaultDetailLayoutStatus();
+        OnPropertyChanged(nameof(EventOutputFolderDisplayText));
+        OnPropertyChanged(nameof(DefaultDetailLayoutFileDisplayText));
+        OnPropertyChanged(nameof(ShowHiddenSourcesText));
+        OnPropertyChanged(nameof(CollisionFrequencyScaleText));
+        OnPropertyChanged(nameof(SpectrumDisplayRangeText));
+        OnPropertyChanged(nameof(LoudnessClockRangeText));
+        OnPropertyChanged(nameof(SelectedFrequencyCollisionSourceDisplayName));
     }
 
     private void Reconcile(IReadOnlyList<SignalSourceSnapshot> snapshots)
@@ -1193,34 +1303,34 @@ public sealed class MainViewModel : ObservableObject, IDisposable
     {
         if (!LoadDefaultDetailLayoutFromFile)
         {
-            DefaultDetailLayoutStatusText = "Built-in default detail layout is active.";
+            DefaultDetailLayoutStatusText = LocalizationManager.Translate("Built-in default detail layout is active.");
             return;
         }
 
         if (string.IsNullOrWhiteSpace(DefaultDetailLayoutFile))
         {
-            DefaultDetailLayoutStatusText = "Choose a detail layout file or built-in defaults will be used.";
+            DefaultDetailLayoutStatusText = LocalizationManager.Translate("Choose a detail layout file or built-in defaults will be used.");
             return;
         }
 
         DefaultDetailLayoutStatusText = DetailLayoutPresetStore.TryLoad(DefaultDetailLayoutFile, out _, out var error)
-            ? "Default detail layout file is valid."
-            : $"Invalid layout file: {error}. Built-in defaults will be used.";
+            ? LocalizationManager.Translate("Default detail layout file is valid.")
+            : LocalizationManager.Format("Invalid layout file: {0}. Built-in defaults will be used.", error);
     }
 
     private DetailLayoutPreset? LoadDefaultDetailLayoutPreset()
     {
         if (DetailLayoutPresetStore.TryLoadDefault(_workspaceSettings, out var preset, out var error))
         {
-            DefaultDetailLayoutStatusText = "Default detail layout file is valid.";
+            DefaultDetailLayoutStatusText = LocalizationManager.Translate("Default detail layout file is valid.");
             return preset;
         }
 
         if (LoadDefaultDetailLayoutFromFile)
         {
             DefaultDetailLayoutStatusText = string.IsNullOrWhiteSpace(error)
-                ? "Choose a detail layout file or built-in defaults will be used."
-                : $"Invalid layout file: {error}. Built-in defaults will be used.";
+                ? LocalizationManager.Translate("Choose a detail layout file or built-in defaults will be used.")
+                : LocalizationManager.Format("Invalid layout file: {0}. Built-in defaults will be used.", error);
         }
 
         return null;
@@ -1397,7 +1507,7 @@ public sealed class MainViewModel : ObservableObject, IDisposable
             new RecentEventViewModel(
                 _now().ToString("HH:mm:ss"),
                 kind,
-                title,
+                LocalizationManager.Translate(title),
                 detail,
                 severity));
 

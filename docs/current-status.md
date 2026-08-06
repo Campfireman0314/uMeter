@@ -2,9 +2,9 @@
 
 ## Checkpoint
 
-`v2.3.5` - Sender recovery, deterministic detail dragging, and selectable detail metering, pinned on 2026-08-05.
+`v2.4.0` - Localization and desktop-host launch workflows, pinned on 2026-08-05.
 
-This checkpoint builds on the v2.3.4 detail-graph polish release. The VST3 sender now keeps discovery alive across DAW audio-resource deactivation and renews an unacknowledged localhost transport, while detail modules use captured, direction-aware drag placement in both inline and pop-up workspaces. Detailed numeric meters independently inspect Overall, Mid, or Side content without changing global rows, and optional title/banner hints use lightweight in-window rendering. Closing the main panel now closes its owned popups and exits cleanly. The installer ships the desktop app plus the `uMeter Sender.vst3` bundle and exposes both the app install folder and VST3 install folder.
+This checkpoint builds on the v2.3.5 reliability release. The desktop app now follows the Windows display language or a persisted manual choice across English, Simplified Chinese, Japanese, and Russian. The VST3 editor and installer follow the same supported locale set, while wider wrapping layouts protect longer labels. Global Settings can register uMeter for Windows login, allow sender plugins to invoke the desktop host, and independently hide automatic launches in the notification area. The VST3 editor also offers an explicit visible `Start uMeter` action.
 
 The remaining roadmap work after this checkpoint should focus on deeper metering trust fixtures, measured Mel-band aggregation experiments, richer sender diagnostics, or a deliberately scoped next product feature.
 
@@ -27,12 +27,13 @@ The remaining roadmap work after this checkpoint should focus on deeper metering
 - Plugin receiver port-collision warning in the desktop app.
 - Persistent user source ordering with duplicate-name disambiguation and source identity text.
 - Per-source hide/restore controls with a global `Show hidden` toggle.
-- Audible app rows with duplicate row collapse, self-filtering, and silent active row filtering.
+- Audible app rows with duplicate row collapse, self-filtering, and process-loopback PCM qualification when supported; capture-only processes stay hidden unless they actually render audio.
 - Process-loopback capture for per-process PCM metrics on supported Windows builds.
 - Peak/LUFS primary display mode.
 - Global true-peak option shell with 2x, 4x, and 8x ratios.
 - Inline detail view with Back navigation.
 - Per-app pop-up detail windows with independent always-on-top state.
+- Tray-opened VST monitor pop-ups remain ownerless when the main window has never been shown, avoiding hidden-startup owner crashes.
 - Inline and pop-up detail panels can save/load their visualization layout/settings as JSON presets.
 - Inline and pop-up detail modules use captured, direction-aware dragging with reliable top insertion.
 - Closing the main panel closes owned detail popups and exits the application.
@@ -40,6 +41,8 @@ The remaining roadmap work after this checkpoint should focus on deeper metering
 - Independent stereo image scale settings per pop-up and inline detail view.
 - Stereo image auto-scale controls for range, lower limit, manual top, speed, trace persistence, and reset.
 - Per-app true-peak oversampling selector in inline and pop-up detail views.
+- True Peak and oversampling multiplier labels are fully localized instead of exposing `TP` or an untranslated `x` suffix.
+- Detail source identity and status, unavailable and maximum readouts, setting ranges, and the stereo correlation label follow live language changes.
 - Momentary, short-term, and integrated loudness.
 - Recent-window true peak plus history max readout.
 - 100 ms RMS.
@@ -71,6 +74,7 @@ The remaining roadmap work after this checkpoint should focus on deeper metering
 - Per-source analysis preferences persist through the user workspace when the source key is stable.
 - Frequency collision analyzer compares prominent spectrum overlap between sources and highlights similar frequency ranges in a fixed-height compact panel.
 - Collision analyzer options include source selection, `Scale` (`Logarithmic` by default, or `Mel`), `Level floor`, `Prominence`, and `Match tolerance`.
+- Diagram-setting flyouts localize labels and explanations even though WPF hosts their content in detached popup visual trees.
 - Collision analyzer single-value sliders support double-click numeric entry.
 - Global Recent Events strip shows a bounded, filterable view of source lifecycle, true-peak max, and loudness-jump events.
 - Recent Events can include conservative `Possible overlap` entries from enabled detail collision analysis.
@@ -126,13 +130,13 @@ Latest verified status:
 
 - App build: clean.
 - Native build: Release passed after adding the true-peak RfRapid exports.
-- Tests: 295 passing.
+- Tests: 323 passing.
 - Benchmark: RfRapid true-peak 8x processed the local 30 s stereo benchmark at about `4.44 Mframes/s` versus about `1.95 Mframes/s` for managed reconstruction, with matching peak output.
 - JUCE VST3 native CTest: Debug passed.
 - JUCE VST3 Release build: passed through installer packaging.
 - Format: passed.
-- Installer build: passed; packaging produced `artifacts\uMeter.Setup.exe` and `artifacts\uMeter-Setup-2.3.5.exe`.
-- Installer SHA256: `CE35B2C1FEA9C63DB10AD8EF8389897829D62E61AE4C0A1683F9BAB397A9D43C`.
+- Installer build: passed; packaging produced `artifacts\uMeter.Setup.exe` and `artifacts\uMeter-Setup-2.4.0.exe`.
+- Installer SHA256: `761ADEC643E13FC105817F3404BD5C824D880A7023DF470E28489C85B0631D87`.
 - Installer payload: desktop app, native DSP DLL, and bundled `uMeter Sender.vst3` generated by the packaging script.
 
 ## Installer Notes
@@ -140,7 +144,7 @@ Latest verified status:
 - Default app install folder: `%LOCALAPPDATA%\Programs\uMeter`.
 - Default VST3 install folder: `C:\Program Files\VSTPlugins`.
 - Standard VST3 mirror folder: `C:\Program Files\Common Files\VST3`.
-- Default artifacts: `artifacts\uMeter.Setup.exe` and `artifacts\uMeter-Setup-2.3.5.exe`.
+- Default artifacts: `artifacts\uMeter.Setup.exe` and `artifacts\uMeter-Setup-2.4.0.exe`.
 - Quiet install supports `--install-dir`, `--vst-dir`, `--no-vst`, `--no-desktop-shortcut`, `--no-start-menu-shortcut`, and `--no-shortcuts`.
 - Installing the VST3 sender into Program Files may trigger UAC elevation.
 - Uninstall cleanup relaunches elevated when protected app or VST3 locations need administrator permission.
@@ -155,7 +159,7 @@ Suggested release commit:
 cd D:\GitRepo\desktop-loudness-meter
 git status --short
 git add .
-git commit -m "Release uMeter v2.3.5"
+git commit -m "Release uMeter v2.4.0"
 git push
 ```
 
@@ -165,6 +169,7 @@ Before committing, review generated folders and build outputs are still ignored 
 
 - `README.md` - project overview, run commands, roadmap.
 - `CHANGELOG.md` - version history.
+- docs/v2.4.0-release.md - v2.4.0 release notes.
 - docs/v2.3.5-release.md - v2.3.5 release notes.
 - docs/v2.3.4-release.md - v2.3.4 release notes.
 - docs/v2.3.3-release.md - v2.3.3 release notes.

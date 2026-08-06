@@ -8,6 +8,8 @@ void runLoopbackProtocolTests();
 void runLoopbackSenderTests();
 void runPluginStateTests();
 void runRealtimeAudioQueueTests();
+void runHostAppLauncherTests();
+void runPluginLocalizationTests();
 
 namespace
 {
@@ -25,7 +27,9 @@ int main()
         { "LoopbackProtocol", runLoopbackProtocolTests },
         { "LoopbackSender", runLoopbackSenderTests },
         { "PluginState", runPluginStateTests },
-        { "RealtimeAudioQueue", runRealtimeAudioQueueTests }
+        { "RealtimeAudioQueue", runRealtimeAudioQueueTests },
+        { "HostAppLauncher", runHostAppLauncherTests },
+        { "PluginLocalization", runPluginLocalizationTests }
     };
 
     auto failures = 0;

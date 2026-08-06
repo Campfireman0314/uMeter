@@ -51,6 +51,42 @@ public sealed class WasapiSessionMeterServiceTests
     }
 
     [Fact]
+    public void SuppressesProcessPeakWhenLoopbackPcmContainsOnlySilence()
+    {
+        var provider = new FakeProcessMetricProvider();
+        provider.Metrics[42] = new PcmMetricsSnapshot(
+            TruePeakDb: double.NegativeInfinity,
+            Rms100MsDb: double.NegativeInfinity,
+            PlotFrameVersion: 4800);
+        var service = new WasapiSessionMeterService(
+            provider,
+            () => [Snapshot("capture-only", 42, peak: 0.5f)],
+            currentProcessId: 9000);
+
+        Assert.Empty(service.GetCurrentSessions());
+        Assert.Equal([42], provider.TrackedProcessSets.Single());
+    }
+
+    [Fact]
+    public void ShowsProcessAfterLoopbackPcmConfirmsRenderedAudio()
+    {
+        var provider = new FakeProcessMetricProvider();
+        provider.Metrics[42] = new PcmMetricsSnapshot(
+            TruePeakDb: -18,
+            Rms100MsDb: -24,
+            PlotFrameVersion: 4800);
+        var service = new WasapiSessionMeterService(
+            provider,
+            () => [Snapshot("renderer", 42, peak: 0.5f)],
+            currentProcessId: 9000);
+
+        var snapshot = Assert.Single(service.GetCurrentSessions());
+
+        Assert.Equal("pid:42", snapshot.SessionKey);
+        Assert.Equal(-18, snapshot.TruePeakDb);
+    }
+
+    [Fact]
     public void ExposesWasapiRowsThroughSignalSourceService()
     {
         var service = new WasapiSessionMeterService(
@@ -100,7 +136,7 @@ public sealed class WasapiSessionMeterServiceTests
         Assert.Equal(42, snapshot.ProcessId);
         Assert.Equal(0.5f, snapshot.Peak);
         Assert.Equal("-6.0 dB", snapshot.PeakDbText);
-        Assert.Equal([42], provider.TrackedProcessSets.Single());
+        Assert.Equal([42, 77], provider.TrackedProcessSets.Single());
     }
 
     [Fact]

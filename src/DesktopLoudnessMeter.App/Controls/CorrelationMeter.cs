@@ -6,6 +6,12 @@ namespace DesktopLoudnessMeter.App.Controls;
 
 public sealed class CorrelationMeter : FrameworkElement
 {
+    public static readonly DependencyProperty LabelProperty = DependencyProperty.Register(
+        nameof(Label),
+        typeof(string),
+        typeof(CorrelationMeter),
+        new FrameworkPropertyMetadata("Correlation", FrameworkPropertyMetadataOptions.AffectsRender));
+
     public static readonly DependencyProperty ValueProperty = DependencyProperty.Register(
         nameof(Value),
         typeof(double),
@@ -20,6 +26,12 @@ public sealed class CorrelationMeter : FrameworkElement
 
     private static readonly Typeface TextTypeface = new("Segoe UI");
     private static readonly Typeface ValueTypeface = new(new FontFamily("Segoe UI"), FontStyles.Normal, FontWeights.SemiBold, FontStretches.Normal);
+
+    public string Label
+    {
+        get => (string)GetValue(LabelProperty);
+        set => SetValue(LabelProperty, value);
+    }
 
     public double Value
     {
@@ -54,7 +66,7 @@ public sealed class CorrelationMeter : FrameworkElement
         var labelBrush = ThemedDrawing.GetBrush(this, "SubtleTextBrush", Color.FromRgb(174, 183, 194));
         var textBrush = ThemedDrawing.GetBrush(this, "TextBrush", Color.FromRgb(244, 247, 250));
         var tickPen = ThemedDrawing.GetPen(this, "SubtleTextBrush", 160, 1, Color.FromRgb(174, 183, 194));
-        var label = CreateText("Correlation", 12, labelBrush, TextTypeface);
+        var label = CreateText(Label, 12, labelBrush, TextTypeface);
         var value = CreateText(ValueText, 13, textBrush, ValueTypeface);
         drawingContext.DrawText(label, new Point(0, 3));
         drawingContext.DrawText(value, new Point(Math.Max(0, width - value.Width), 2));

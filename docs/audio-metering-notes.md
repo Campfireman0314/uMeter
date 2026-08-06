@@ -40,6 +40,8 @@ True-peak reconstruction uses the same Hann-windowed sinc kernel shape in both m
 
 This path requires Windows 10 build 20348 or later and can still fail for protected, stale, or unsupported process sessions. When activation fails, the app keeps peak-derived session meters alive and leaves sample-derived LUFS/detail values unavailable for that process.
 
+Core Audio sessions enumerated from a render endpoint do not represent capture streams, but a capture-oriented app can still own an initialized or monitoring render stream. uMeter therefore observes every non-self render session and, when process loopback is available, exposes a process-backed row only after its loopback PCM contains a non-silent recent true-peak or RMS window. A capture-only process remains hidden; if it later renders monitoring or program audio, it becomes visible on the next analyzed buffer. Session-peak filtering remains the compatibility fallback when process-loopback activation is unavailable.
+
 ## First Usable Checkpoint
 
 `v0.1.0` pins the current behavior as usable for local desktop testing:

@@ -4,6 +4,42 @@
 
 - Nothing yet.
 
+## v2.4.0 - 2026-08-05
+
+Localization and host-launch workflow release.
+
+### Added
+
+- Desktop app, VST3 sender editor, and installer localization for Simplified Chinese, Japanese, and Russian, with English fallback.
+- Automatic OS-language selection plus a persisted live language selector in Global Settings.
+- Per-user Windows startup registration and optional notification-area startup.
+- Sender-driven automatic host invocation and a manual `Start uMeter` button in the VST3 editor.
+
+### Changed
+
+- Global Settings and the installer use wider, wrapping layouts for longer localized labels and explanations.
+- Automatic sender launches can add `--background`; manual plugin launches always open uMeter visibly.
+- Notification-area startup can be selected independently of Windows startup and sender auto-invocation.
+- VST3 host launching resolves custom installer locations from the per-user uninstall registry entry and falls back to `%LOCALAPPDATA%\Programs\uMeter`.
+- Product, setup, shared component, VST3, and AAX metadata now report version `2.4.0`.
+
+### Fixed
+
+- Opening a VST monitor pop-up from the tray no longer assigns a never-shown hidden main window as its owner and crash WPF.
+- True Peak is no longer abbreviated as `TP`, and 2x, 4x, and 8x oversampling labels express the multiplier in each supported language.
+- Diagram-setting flyouts now localize their detached WPF popup content, including labels and explanations.
+- Detail source status, unavailable values, true-peak maximum readouts, and the stereo correlation label now follow the selected language.
+- Inline and pop-up detail source identities, raw WASAPI active/inactive states, spectrum ranges, and loudness-clock ranges now follow the selected language.
+- Process-backed app rows now require non-silent process-loopback PCM when that capture path is available, keeping capture-only apps hidden while still allowing real monitoring output.
+- The hide-after-automatic-start option remains available when Windows startup and sender auto-invocation are disabled.
+
+### Verified
+
+- Managed suite: 323 passing tests.
+- JUCE sender native suite: 6 passing groups.
+- Debug solution build, Release VST3 build, format verification, and installer packaging passed.
+- `uMeter-Setup-2.4.0.exe` SHA-256: `761ADEC643E13FC105817F3404BD5C824D880A7023DF470E28489C85B0631D87`.
+
 ## v2.3.5 - 2026-08-05
 
 VST3 sender recovery, detail metering, and workspace reliability patch.

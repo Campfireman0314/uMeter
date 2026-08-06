@@ -12,10 +12,10 @@
     <Company>Campfireman Studio</Company>
     <Authors>Campfireman Studio</Authors>
     <Description>Installer for uMeter.</Description>
-    <Version>2.3.5</Version>
-    <AssemblyVersion>2.3.5.0</AssemblyVersion>
-    <FileVersion>2.3.5.0</FileVersion>
-    <InformationalVersion>2.3.5</InformationalVersion>
+    <Version>2.4.0</Version>
+    <AssemblyVersion>2.4.0.0</AssemblyVersion>
+    <FileVersion>2.4.0.0</FileVersion>
+    <InformationalVersion>2.4.0</InformationalVersion>
     <IncludeSourceRevisionInInformationalVersion>false</IncludeSourceRevisionInInformationalVersion>
   </PropertyGroup>
 

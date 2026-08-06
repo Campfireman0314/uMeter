@@ -2,6 +2,7 @@ using System.Windows;
 using System.Windows.Controls;
 using System.Windows.Input;
 using DesktopLoudnessMeter.App.ViewModels;
+using DesktopLoudnessMeter.App.Localization;
 using Microsoft.Win32;
 
 namespace DesktopLoudnessMeter.App;
@@ -40,7 +41,7 @@ public partial class GlobalSettingsWindow : Window
 
         var dialog = new OpenFileDialog
         {
-            Title = "Choose default detail layout",
+            Title = LocalizationManager.Translate("Choose default detail layout"),
             DefaultExt = ".json",
             Filter = "uMeter detail layout (*.json)|*.json|JSON files (*.json)|*.json|All files (*.*)|*.*"
         };

@@ -3,12 +3,16 @@ juce_add_console_app(DesktopLoudnessMeterJucePluginTests
 
 target_sources(DesktopLoudnessMeterJucePluginTests
     PRIVATE
+        ../Source/HostAppLauncher.cpp
         ../Source/LoopbackProtocol.cpp
         ../Source/LoopbackSender.cpp
+        ../Source/PluginLocalization.cpp
         ../Source/PluginState.cpp
         ../Source/RealtimeAudioQueue.cpp
         TestMain.cpp
+        HostAppLauncherTests.cpp
         LoopbackSenderTests.cpp
+        PluginLocalizationTests.cpp
         LoopbackProtocolTests.cpp
         PluginStateTests.cpp
         RealtimeAudioQueueTests.cpp)

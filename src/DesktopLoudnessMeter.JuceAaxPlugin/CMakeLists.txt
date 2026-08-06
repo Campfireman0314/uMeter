@@ -1,6 +1,6 @@
 cmake_minimum_required(VERSION 3.22)
 
-project(DESKTOP_LOUDNESS_METER_JUCE_AAX_PLUGIN VERSION 2.3.5 LANGUAGES CXX)
+project(DESKTOP_LOUDNESS_METER_JUCE_AAX_PLUGIN VERSION 2.4.0 LANGUAGES CXX)
 
 set(DLM_DEFAULT_JUCE_DIR "C:/JUCE")
 if (DEFINED ENV{JUCE_DIR} AND NOT "$ENV{JUCE_DIR}" STREQUAL "")
@@ -48,8 +48,10 @@ juce_add_plugin(DesktopLoudnessMeterSender
 
 target_sources(DesktopLoudnessMeterSender
     PRIVATE
+        "${DLM_JUCE_SENDER_SOURCE_DIR}/HostAppLauncher.cpp"
         "${DLM_JUCE_SENDER_SOURCE_DIR}/LoopbackProtocol.cpp"
         "${DLM_JUCE_SENDER_SOURCE_DIR}/LoopbackSender.cpp"
+        "${DLM_JUCE_SENDER_SOURCE_DIR}/PluginLocalization.cpp"
         "${DLM_JUCE_SENDER_SOURCE_DIR}/PluginEditor.cpp"
         "${DLM_JUCE_SENDER_SOURCE_DIR}/PluginState.cpp"
         "${DLM_JUCE_SENDER_SOURCE_DIR}/PluginProcessor.cpp"

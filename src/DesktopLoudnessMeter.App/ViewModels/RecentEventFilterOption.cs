@@ -1,8 +1,20 @@
 namespace DesktopLoudnessMeter.App.ViewModels;
 
-public sealed record RecentEventFilterOption(
-    RecentEventKind? Kind,
-    string DisplayName)
+using DesktopLoudnessMeter.App.Localization;
+
+public sealed record RecentEventFilterOption
 {
+    private readonly string _sourceDisplayName;
+
+    public RecentEventFilterOption(RecentEventKind? kind, string displayName)
+    {
+        Kind = kind;
+        _sourceDisplayName = displayName;
+    }
+
+    public RecentEventKind? Kind { get; }
+
+    public string DisplayName => LocalizationManager.Translate(_sourceDisplayName);
+
     public bool IsAll => Kind is null;
 }

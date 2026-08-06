@@ -3,10 +3,10 @@
         xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
         Title="Global Settings"
         Icon="Assets/desktop-loudness-meter.ico"
-        Width="360"
-        Height="374"
-        MinWidth="340"
-        MinHeight="360"
+        Width="520"
+        Height="560"
+        MinWidth="480"
+        MinHeight="540"
         WindowStyle="None"
         ResizeMode="NoResize"
         WindowStartupLocation="CenterOwner"
@@ -54,9 +54,15 @@
                   Margin="14">
                 <Grid.RowDefinitions>
                     <RowDefinition Height="Auto" />
-                    <RowDefinition Height="14" />
+                    <RowDefinition Height="12" />
                     <RowDefinition Height="Auto" />
-                    <RowDefinition Height="14" />
+                    <RowDefinition Height="12" />
+                    <RowDefinition Height="Auto" />
+                    <RowDefinition Height="12" />
+                    <RowDefinition Height="Auto" />
+                    <RowDefinition Height="12" />
+                    <RowDefinition Height="Auto" />
+                    <RowDefinition Height="12" />
                     <RowDefinition Height="Auto" />
                     <RowDefinition Height="12" />
                     <RowDefinition Height="Auto" />
@@ -65,6 +71,22 @@
                 </Grid.RowDefinitions>
 
                 <Grid>
+                    <Grid.ColumnDefinitions>
+                        <ColumnDefinition Width="*" />
+                        <ColumnDefinition Width="220" />
+                    </Grid.ColumnDefinitions>
+                    <TextBlock VerticalAlignment="Center"
+                               Foreground="{DynamicResource SubtleTextBrush}"
+                               FontSize="11"
+                               Text="Language" />
+                    <ComboBox Grid.Column="1"
+                              Height="28"
+                              ItemsSource="{Binding LanguageOptions}"
+                              DisplayMemberPath="DisplayName"
+                              SelectedItem="{Binding SelectedLanguage, Mode=TwoWay}" />
+                </Grid>
+
+                <Grid Grid.Row="2">
                     <Grid.ColumnDefinitions>
                         <ColumnDefinition Width="*" />
                         <ColumnDefinition Width="72" />
@@ -85,7 +107,7 @@
                              Text="{Binding MaxRecentEventEntriesText, Mode=TwoWay, UpdateSourceTrigger=LostFocus}" />
                 </Grid>
 
-                <StackPanel Grid.Row="2">
+                <StackPanel Grid.Row="4">
                     <TextBlock Foreground="{DynamicResource SubtleTextBrush}"
                                FontSize="11"
                                Text="Event output folder" />
@@ -115,7 +137,7 @@
                     </Grid>
                 </StackPanel>
 
-                <StackPanel Grid.Row="4">
+                <StackPanel Grid.Row="6">
                     <CheckBox Content="Load default detail layout from file"
                               IsChecked="{Binding LoadDefaultDetailLayoutFromFile, Mode=TwoWay}" />
                     <Grid Margin="0,6,0,0">
@@ -149,11 +171,26 @@
                                TextWrapping="Wrap" />
                 </StackPanel>
 
-                <CheckBox Grid.Row="6"
-                          Content="Show hints for detail meters and diagrams"
-                          IsChecked="{Binding EnableDetailHoverHints, Mode=TwoWay}" />
+                <StackPanel Grid.Row="8">
+                    <CheckBox IsChecked="{Binding StartWithWindows, Mode=TwoWay}">
+                        <TextBlock Text="Start uMeter with Windows" TextWrapping="Wrap" />
+                    </CheckBox>
+                    <CheckBox Margin="0,8,0,0"
+                              IsChecked="{Binding AutoInvokeHostApp, Mode=TwoWay}">
+                        <TextBlock Text="Automatically start uMeter from sender plugins" TextWrapping="Wrap" />
+                    </CheckBox>
+                    <CheckBox Margin="0,8,0,0"
+                              IsChecked="{Binding HideToTrayAfterStartup, Mode=TwoWay}">
+                        <TextBlock Text="Hide to tray after automatic startup" TextWrapping="Wrap" />
+                    </CheckBox>
+                </StackPanel>
 
-                <Grid Grid.Row="8">
+                <CheckBox Grid.Row="10"
+                          IsChecked="{Binding EnableDetailHoverHints, Mode=TwoWay}">
+                    <TextBlock Text="Show hints for detail meters and diagrams" TextWrapping="Wrap" />
+                </CheckBox>
+
+                <Grid Grid.Row="14">
                     <Grid.ColumnDefinitions>
                         <ColumnDefinition Width="*" />
                         <ColumnDefinition Width="Auto" />

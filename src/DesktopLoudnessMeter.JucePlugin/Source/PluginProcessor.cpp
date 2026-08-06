@@ -19,10 +19,16 @@ DesktopLoudnessMeterAudioProcessor::DesktopLoudnessMeterAudioProcessor()
 {
     sourceHandle = dlm::LoopbackProtocol::createHandle();
     displayName = dlm::PluginState::defaultDisplayNameForHandle (sourceHandle, getHostDisplayName());
+    hostAppLaunchPreferences = dlm::HostAppLaunchPreferences::load (dlm::PluginLocalization::defaultSettingsFile());
+    if (hostAppLaunchPreferences.autoInvoke)
+    {
+        startTimer (1000);
+    }
 }
 
 DesktopLoudnessMeterAudioProcessor::~DesktopLoudnessMeterAudioProcessor()
 {
+    stopTimer();
     sender.stop();
 }
 
@@ -246,6 +252,23 @@ juce::String DesktopLoudnessMeterAudioProcessor::getSenderConnectionStatusText()
 std::uint64_t DesktopLoudnessMeterAudioProcessor::getDroppedSenderPacketCount() const noexcept
 {
     return sender.getDroppedPacketCount();
+}
+
+void DesktopLoudnessMeterAudioProcessor::timerCallback()
+{
+    const auto state = sender.getConnectionState();
+    if (state == dlm::LoopbackSenderConnectionState::Connected)
+    {
+        stopTimer();
+        return;
+    }
+
+    if (state == dlm::LoopbackSenderConnectionState::WaitingForReceiver
+        || state == dlm::LoopbackSenderConnectionState::NoRecentAck)
+    {
+        stopTimer();
+        hostAppLauncher.launch (hostAppLaunchPreferences.startHidden);
+    }
 }
 
 juce::String DesktopLoudnessMeterAudioProcessor::getHostDisplayName()

@@ -29,6 +29,8 @@ public sealed class UserWorkspaceSettings
 
     public string? ThemeId { get; set; }
 
+    public string? LanguageCode { get; set; }
+
     public int? MaxRecentEventEntries { get; set; }
 
     public string? EventOutputFolder { get; set; }
@@ -38,6 +40,12 @@ public sealed class UserWorkspaceSettings
     public string? DefaultDetailLayoutFile { get; set; }
 
     public bool? EnableDetailHoverHints { get; set; }
+
+    public bool StartWithWindows { get; set; }
+
+    public bool AutoInvokeHostApp { get; set; }
+
+    public bool HideToTrayAfterStartup { get; set; }
 
     public Dictionary<string, SourceWorkspaceSettings> Sources { get; set; } = new(StringComparer.Ordinal);
 

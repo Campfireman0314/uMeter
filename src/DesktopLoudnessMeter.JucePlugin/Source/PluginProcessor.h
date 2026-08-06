@@ -1,12 +1,15 @@
 #pragma once
 
+#include "HostAppLauncher.h"
 #include "LoopbackSender.h"
+#include "PluginLocalization.h"
 
 #include <juce_audio_processors/juce_audio_processors.h>
 
 #include <atomic>
 
-class DesktopLoudnessMeterAudioProcessor final : public juce::AudioProcessor
+class DesktopLoudnessMeterAudioProcessor final : public juce::AudioProcessor,
+                                                  private juce::Timer
 {
 public:
     DesktopLoudnessMeterAudioProcessor();
@@ -50,12 +53,15 @@ public:
 private:
     static juce::String getHostDisplayName();
     static juce::String normalizeDisplayName (const juce::String& value, const juce::String& fallbackHandle);
+    void timerCallback() override;
 
     mutable juce::CriticalSection stateLock;
     juce::String sourceHandle;
     juce::String displayName;
     std::atomic<bool> muted { false };
     dlm::LoopbackSender sender;
+    dlm::HostAppLauncher hostAppLauncher;
+    dlm::HostAppLaunchPreferences hostAppLaunchPreferences;
 
     JUCE_DECLARE_NON_COPYABLE_WITH_LEAK_DETECTOR (DesktopLoudnessMeterAudioProcessor)
 };

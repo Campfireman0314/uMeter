@@ -1,4 +1,5 @@
 using DesktopLoudnessMeter.App.Settings;
+using DesktopLoudnessMeter.App.Localization;
 
 namespace DesktopLoudnessMeter.App.ViewModels;
 
@@ -13,14 +14,21 @@ public sealed class DetailModuleViewModel : ObservableObject
     public DetailModuleViewModel(DetailModuleKind kind, string title, bool isVisible)
     {
         Kind = kind;
-        Title = title;
+        SourceTitle = title;
         _isVisible = isVisible;
         _height = DetailModuleLayoutNormalizer.DefaultHeight(kind);
     }
 
     public DetailModuleKind Kind { get; }
 
-    public string Title { get; }
+    private string SourceTitle { get; }
+
+    public string Title => LocalizationManager.Translate(SourceTitle);
+
+    public void RefreshLocalizedText()
+    {
+        OnPropertyChanged(nameof(Title));
+    }
 
     public int OrderIndex
     {

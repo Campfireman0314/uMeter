@@ -9,9 +9,9 @@
         mc:Ignorable="d"
         Title="uMeter"
         Icon="Assets/desktop-loudness-meter.ico"
-        Width="460"
+        Width="520"
         Height="860"
-        MinWidth="380"
+        MinWidth="480"
         MinHeight="700"
         Topmost="{Binding IsAlwaysOnTop, Mode=OneWay}"
         WindowStyle="None"
@@ -198,15 +198,10 @@
                                     <CheckBox VerticalAlignment="Center"
                                               IsChecked="{Binding TruePeakEnabled, Mode=TwoWay}" />
                                     <ComboBox Grid.Column="2"
+                                              MinWidth="148"
                                               Height="26"
                                               ItemsSource="{Binding TruePeakOversamplingOptions}"
-                                              SelectedItem="{Binding SelectedTruePeakOversampling, Mode=TwoWay}">
-                                        <ComboBox.ItemTemplate>
-                                            <DataTemplate>
-                                                <TextBlock Text="{Binding StringFormat={}{0:D}x}" />
-                                            </DataTemplate>
-                                        </ComboBox.ItemTemplate>
-                                    </ComboBox>
+                                              SelectedItem="{Binding SelectedTruePeakOversampling, Mode=TwoWay}" />
                                 </Grid>
                             </StackPanel>
 
@@ -802,16 +797,10 @@
                                    Foreground="{DynamicResource SubtleTextBrush}"
                                    FontSize="11"
                                    Text="True Peak" />
-                        <ComboBox Width="72"
+                        <ComboBox Width="148"
                                   Height="26"
                                   ItemsSource="{Binding TruePeakOversamplingOptions}"
-                                  SelectedItem="{Binding SelectedDetailSession.TruePeakOversampling, Mode=TwoWay}">
-                            <ComboBox.ItemTemplate>
-                                <DataTemplate>
-                                    <TextBlock Text="{Binding StringFormat={}{0:D}x}" />
-                                </DataTemplate>
-                            </ComboBox.ItemTemplate>
-                        </ComboBox>
+                                  SelectedItem="{Binding SelectedDetailSession.TruePeakOversampling, Mode=TwoWay}" />
                         <Button Margin="10,0,0,0"
                                 MinWidth="74"
                                 Height="26"
@@ -1314,6 +1303,7 @@
                                 </controls:StereoFanView>
                                 <controls:CorrelationMeter Grid.Row="2"
                                                            Height="52"
+                                                           Label="Correlation"
                                                            Value="{Binding SelectedDetailSession.CorrelationValue, Mode=OneWay}"
                                                            ValueText="{Binding SelectedDetailSession.CorrelationText}">
                                     <controls:CorrelationMeter.Style>

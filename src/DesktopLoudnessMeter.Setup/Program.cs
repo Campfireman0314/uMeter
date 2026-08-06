@@ -45,6 +45,114 @@ internal static class Program
     }
 }
 
+internal static class SetupText
+{
+    private static readonly string Language = System.Globalization.CultureInfo.CurrentUICulture.TwoLetterISOLanguageName;
+
+    public static string Get(string english)
+    {
+        return Language switch
+        {
+            "zh" => Chinese(english),
+            "ja" => Japanese(english),
+            "ru" => Russian(english),
+            _ => english
+        };
+    }
+
+    public static string Format(string english, params object[] arguments)
+    {
+        return string.Format(System.Globalization.CultureInfo.CurrentCulture, Get(english), arguments);
+    }
+
+    private static string Chinese(string text) => text switch
+    {
+        "Install uMeter" => "安装 uMeter",
+        "uMeter Setup" => "uMeter 安装程序",
+        "Choose where to install the app, shortcuts, and the optional VST3 sender plugin. Installing the plugin under Program Files may request administrator permission." => "请选择应用、快捷方式和可选 VST3 发送器插件的安装位置。将插件安装到 Program Files 可能需要管理员权限。",
+        "App install folder" => "应用安装文件夹",
+        "Browse..." => "浏览...",
+        "Shortcuts" => "快捷方式",
+        "Create Desktop shortcut" => "创建桌面快捷方式",
+        "Create Start Menu shortcut" => "创建开始菜单快捷方式",
+        "VST3 sender" => "VST3 发送器",
+        "Install uMeter Sender VST3" => "安装 uMeter Sender VST3",
+        "Install" => "安装",
+        "Cancel" => "取消",
+        "Choose the app install folder for uMeter" => "选择 uMeter 应用安装文件夹",
+        "Choose the VST3 folder for uMeter Sender" => "选择 uMeter Sender 的 VST3 文件夹",
+        "Installing the VST3 sender to the selected folder needs administrator permission. Continue?" => "将 VST3 发送器安装到所选文件夹需要管理员权限。是否继续？",
+        "Requesting administrator permission..." => "正在请求管理员权限...",
+        "Installing with administrator permission..." => "正在使用管理员权限安装...",
+        "Installing..." => "正在安装...",
+        "Installed." => "安装完成。",
+        "uMeter has been installed." => "uMeter 已安装。",
+        "Install failed." => "安装失败。",
+        "The elevated installer did not finish successfully.\n\nLog: {0}" => "管理员安装程序未能成功完成。\n\n日志：{0}",
+        "Elevation canceled." => "已取消管理员授权。",
+        "Install failed:\n\n{0}" => "安装失败：\n\n{0}",
+        _ => text
+    };
+
+    private static string Japanese(string text) => text switch
+    {
+        "Install uMeter" => "uMeter のインストール",
+        "uMeter Setup" => "uMeter セットアップ",
+        "Choose where to install the app, shortcuts, and the optional VST3 sender plugin. Installing the plugin under Program Files may request administrator permission." => "アプリ、ショートカット、オプションの VST3 送信プラグインのインストール先を選択してください。Program Files へのプラグインのインストールには管理者権限が必要な場合があります。",
+        "App install folder" => "アプリのインストール先",
+        "Browse..." => "参照...",
+        "Shortcuts" => "ショートカット",
+        "Create Desktop shortcut" => "デスクトップにショートカットを作成",
+        "Create Start Menu shortcut" => "スタートメニューにショートカットを作成",
+        "VST3 sender" => "VST3 送信プラグイン",
+        "Install uMeter Sender VST3" => "uMeter Sender VST3 をインストール",
+        "Install" => "インストール",
+        "Cancel" => "キャンセル",
+        "Choose the app install folder for uMeter" => "uMeter アプリのインストール先を選択",
+        "Choose the VST3 folder for uMeter Sender" => "uMeter Sender の VST3 フォルダーを選択",
+        "Installing the VST3 sender to the selected folder needs administrator permission. Continue?" => "選択したフォルダーへの VST3 送信プラグインのインストールには管理者権限が必要です。続行しますか？",
+        "Requesting administrator permission..." => "管理者権限を要求しています...",
+        "Installing with administrator permission..." => "管理者権限でインストールしています...",
+        "Installing..." => "インストール中...",
+        "Installed." => "インストールしました。",
+        "uMeter has been installed." => "uMeter をインストールしました。",
+        "Install failed." => "インストールに失敗しました。",
+        "The elevated installer did not finish successfully.\n\nLog: {0}" => "管理者インストーラーが正常に完了しませんでした。\n\nログ: {0}",
+        "Elevation canceled." => "管理者権限の要求をキャンセルしました。",
+        "Install failed:\n\n{0}" => "インストールに失敗しました。\n\n{0}",
+        _ => text
+    };
+
+    private static string Russian(string text) => text switch
+    {
+        "Install uMeter" => "Установка uMeter",
+        "uMeter Setup" => "Установка uMeter",
+        "Choose where to install the app, shortcuts, and the optional VST3 sender plugin. Installing the plugin under Program Files may request administrator permission." => "Выберите папки для приложения, ярлыков и дополнительного VST3-передатчика. Для установки плагина в Program Files могут потребоваться права администратора.",
+        "App install folder" => "Папка установки приложения",
+        "Browse..." => "Обзор...",
+        "Shortcuts" => "Ярлыки",
+        "Create Desktop shortcut" => "Создать ярлык на рабочем столе",
+        "Create Start Menu shortcut" => "Создать ярлык в меню «Пуск»",
+        "VST3 sender" => "VST3-передатчик",
+        "Install uMeter Sender VST3" => "Установить uMeter Sender VST3",
+        "Install" => "Установить",
+        "Cancel" => "Отмена",
+        "Choose the app install folder for uMeter" => "Выберите папку установки приложения uMeter",
+        "Choose the VST3 folder for uMeter Sender" => "Выберите папку VST3 для uMeter Sender",
+        "Installing the VST3 sender to the selected folder needs administrator permission. Continue?" => "Для установки VST3-передатчика в выбранную папку нужны права администратора. Продолжить?",
+        "Requesting administrator permission..." => "Запрос прав администратора...",
+        "Installing with administrator permission..." => "Установка с правами администратора...",
+        "Installing..." => "Установка...",
+        "Installed." => "Установлено.",
+        "uMeter has been installed." => "uMeter установлен.",
+        "Install failed." => "Ошибка установки.",
+        "The elevated installer did not finish successfully.\n\nLog: {0}" => "Установщик с повышенными правами завершился с ошибкой.\n\nЖурнал: {0}",
+        "Elevation canceled." => "Запрос прав отменен.",
+        "Install failed:\n\n{0}" => "Ошибка установки:\n\n{0}",
+        _ => text
+    };
+}
+
 internal sealed record InstallerOptions(
     string InstallRoot,
     bool CreateDesktopShortcut,
@@ -165,12 +273,12 @@ internal sealed class InstallerForm : Form
 
     public InstallerForm(InstallerOptions options)
     {
-        Text = "Install uMeter";
+        Text = SetupText.Get("Install uMeter");
         StartPosition = FormStartPosition.CenterScreen;
         FormBorderStyle = FormBorderStyle.FixedDialog;
         MaximizeBox = false;
         MinimizeBox = false;
-        ClientSize = new Size(640, 450);
+        ClientSize = new Size(700, 460);
         Font = new Font("Segoe UI", 9F, FontStyle.Regular, GraphicsUnit.Point);
         Icon = Icon.ExtractAssociatedIcon(Application.ExecutablePath);
         BackColor = SystemColors.Window;
@@ -193,107 +301,107 @@ internal sealed class InstallerForm : Form
             AutoSize = true,
             Font = new Font(Font.FontFamily, 12F, FontStyle.Bold, GraphicsUnit.Point),
             Location = new Point(24, 22),
-            Text = "uMeter Setup"
+            Text = SetupText.Get("uMeter Setup")
         };
         Controls.Add(title);
 
         var description = new Label
         {
             Location = new Point(24, 58),
-            Size = new Size(585, 42),
-            Text = "Choose where to install the app, shortcuts, and the optional VST3 sender plugin. Installing the plugin under Program Files may request administrator permission."
+            Size = new Size(652, 52),
+            Text = SetupText.Get("Choose where to install the app, shortcuts, and the optional VST3 sender plugin. Installing the plugin under Program Files may request administrator permission.")
         };
         Controls.Add(description);
 
         var pathLabel = new Label
         {
             AutoSize = true,
-            Location = new Point(24, 114),
-            Text = "App install folder"
+            Location = new Point(24, 118),
+            Text = SetupText.Get("App install folder")
         };
         Controls.Add(pathLabel);
 
-        _installPathTextBox.Location = new Point(24, 140);
-        _installPathTextBox.Size = new Size(470, 23);
+        _installPathTextBox.Location = new Point(24, 144);
+        _installPathTextBox.Size = new Size(534, 23);
         _installPathTextBox.Text = options.InstallRoot;
         _installPathTextBox.Anchor = AnchorStyles.Top | AnchorStyles.Left | AnchorStyles.Right;
         Controls.Add(_installPathTextBox);
 
-        _browseButton.Location = new Point(506, 139);
-        _browseButton.Size = new Size(102, 27);
-        _browseButton.Text = "Browse...";
+        _browseButton.Location = new Point(570, 143);
+        _browseButton.Size = new Size(106, 27);
+        _browseButton.Text = SetupText.Get("Browse...");
         _browseButton.Click += BrowseButton_Click;
         _browseButton.Anchor = AnchorStyles.Top | AnchorStyles.Right;
         Controls.Add(_browseButton);
 
         var optionsGroup = new GroupBox
         {
-            Location = new Point(24, 186),
-            Size = new Size(584, 82),
-            Text = "Shortcuts"
+            Location = new Point(24, 188),
+            Size = new Size(652, 82),
+            Text = SetupText.Get("Shortcuts")
         };
         Controls.Add(optionsGroup);
 
         _desktopShortcutCheckBox.Location = new Point(16, 24);
-        _desktopShortcutCheckBox.Size = new Size(250, 20);
+        _desktopShortcutCheckBox.Size = new Size(610, 20);
         _desktopShortcutCheckBox.Checked = options.CreateDesktopShortcut;
-        _desktopShortcutCheckBox.Text = "Create Desktop shortcut";
+        _desktopShortcutCheckBox.Text = SetupText.Get("Create Desktop shortcut");
         optionsGroup.Controls.Add(_desktopShortcutCheckBox);
 
         _startMenuShortcutCheckBox.Location = new Point(16, 50);
-        _startMenuShortcutCheckBox.Size = new Size(250, 20);
+        _startMenuShortcutCheckBox.Size = new Size(610, 20);
         _startMenuShortcutCheckBox.Checked = options.CreateStartMenuShortcut;
-        _startMenuShortcutCheckBox.Text = "Create Start Menu shortcut";
+        _startMenuShortcutCheckBox.Text = SetupText.Get("Create Start Menu shortcut");
         optionsGroup.Controls.Add(_startMenuShortcutCheckBox);
 
         var vstGroup = new GroupBox
         {
-            Location = new Point(24, 282),
-            Size = new Size(584, 82),
-            Text = "VST3 sender"
+            Location = new Point(24, 284),
+            Size = new Size(652, 82),
+            Text = SetupText.Get("VST3 sender")
         };
         Controls.Add(vstGroup);
 
         _vstPluginCheckBox.Location = new Point(16, 24);
-        _vstPluginCheckBox.Size = new Size(260, 20);
+        _vstPluginCheckBox.Size = new Size(610, 20);
         _vstPluginCheckBox.Checked = options.InstallVstPlugin;
-        _vstPluginCheckBox.Text = "Install uMeter Sender VST3";
+        _vstPluginCheckBox.Text = SetupText.Get("Install uMeter Sender VST3");
         _vstPluginCheckBox.CheckedChanged += (_, _) => UpdateVstControls();
         vstGroup.Controls.Add(_vstPluginCheckBox);
 
         _vstPathTextBox.Location = new Point(16, 48);
-        _vstPathTextBox.Size = new Size(438, 23);
+        _vstPathTextBox.Size = new Size(500, 23);
         _vstPathTextBox.Text = options.VstInstallRoot;
         vstGroup.Controls.Add(_vstPathTextBox);
 
-        _vstBrowseButton.Location = new Point(466, 47);
-        _vstBrowseButton.Size = new Size(102, 27);
-        _vstBrowseButton.Text = "Browse...";
+        _vstBrowseButton.Location = new Point(512, 47);
+        _vstBrowseButton.Size = new Size(124, 27);
+        _vstBrowseButton.Text = SetupText.Get("Browse...");
         _vstBrowseButton.Click += VstBrowseButton_Click;
         vstGroup.Controls.Add(_vstBrowseButton);
 
         var separator = new Panel
         {
             BackColor = SystemColors.ControlLight,
-            Location = new Point(24, 384),
-            Size = new Size(584, 1)
+            Location = new Point(24, 386),
+            Size = new Size(652, 1)
         };
         Controls.Add(separator);
 
-        _statusLabel.Location = new Point(24, 405);
-        _statusLabel.Size = new Size(370, 28);
+        _statusLabel.Location = new Point(24, 407);
+        _statusLabel.Size = new Size(420, 32);
         _statusLabel.TextAlign = ContentAlignment.MiddleLeft;
         Controls.Add(_statusLabel);
 
-        _installButton.Location = new Point(406, 402);
-        _installButton.Size = new Size(94, 30);
-        _installButton.Text = "Install";
+        _installButton.Location = new Point(456, 404);
+        _installButton.Size = new Size(106, 32);
+        _installButton.Text = SetupText.Get("Install");
         _installButton.Click += InstallButton_Click;
         Controls.Add(_installButton);
 
-        _cancelButton.Location = new Point(514, 402);
-        _cancelButton.Size = new Size(94, 30);
-        _cancelButton.Text = "Cancel";
+        _cancelButton.Location = new Point(570, 404);
+        _cancelButton.Size = new Size(106, 32);
+        _cancelButton.Text = SetupText.Get("Cancel");
         _cancelButton.Click += (_, _) => Close();
         Controls.Add(_cancelButton);
 
@@ -304,12 +412,12 @@ internal sealed class InstallerForm : Form
 
     private void BrowseButton_Click(object? sender, EventArgs args)
     {
-        BrowseFolder(_installPathTextBox, "Choose the app install folder for uMeter");
+        BrowseFolder(_installPathTextBox, SetupText.Get("Choose the app install folder for uMeter"));
     }
 
     private void VstBrowseButton_Click(object? sender, EventArgs args)
     {
-        BrowseFolder(_vstPathTextBox, "Choose the VST3 folder for uMeter Sender");
+        BrowseFolder(_vstPathTextBox, SetupText.Get("Choose the VST3 folder for uMeter Sender"));
     }
 
     private void BrowseFolder(TextBox targetTextBox, string description)
@@ -337,7 +445,7 @@ internal sealed class InstallerForm : Form
             {
                 var result = MessageBox.Show(
                     this,
-                    "Installing the VST3 sender to the selected folder needs administrator permission. Continue?",
+                    SetupText.Get("Installing the VST3 sender to the selected folder needs administrator permission. Continue?"),
                     Text,
                     MessageBoxButtons.YesNo,
                     MessageBoxIcon.Information);
@@ -348,28 +456,28 @@ internal sealed class InstallerForm : Form
                 }
 
                 SetInstalling(true);
-                _statusLabel.Text = "Requesting administrator permission...";
+                _statusLabel.Text = SetupText.Get("Requesting administrator permission...");
                 Refresh();
 
                 using var elevatedProcess = Installer.RestartElevated(options);
-                _statusLabel.Text = "Installing with administrator permission...";
+                _statusLabel.Text = SetupText.Get("Installing with administrator permission...");
                 Refresh();
 
                 await System.Threading.Tasks.Task.Run(() => elevatedProcess.WaitForExit());
 
                 if (elevatedProcess.ExitCode == 0)
                 {
-                    _statusLabel.Text = "Installed.";
-                    MessageBox.Show(this, "uMeter has been installed.", Text, MessageBoxButtons.OK, MessageBoxIcon.Information);
+                    _statusLabel.Text = SetupText.Get("Installed.");
+                    MessageBox.Show(this, SetupText.Get("uMeter has been installed."), Text, MessageBoxButtons.OK, MessageBoxIcon.Information);
                     DialogResult = DialogResult.OK;
                     Close();
                 }
                 else
                 {
-                    _statusLabel.Text = "Install failed.";
+                    _statusLabel.Text = SetupText.Get("Install failed.");
                     MessageBox.Show(
                         this,
-                        $"The elevated installer did not finish successfully.\n\nLog: {Installer.FailureLogPath}",
+                        SetupText.Format("The elevated installer did not finish successfully.\n\nLog: {0}", Installer.FailureLogPath),
                         Text,
                         MessageBoxButtons.OK,
                         MessageBoxIcon.Error);
@@ -380,23 +488,23 @@ internal sealed class InstallerForm : Form
             }
 
             SetInstalling(true);
-            _statusLabel.Text = "Installing...";
+            _statusLabel.Text = SetupText.Get("Installing...");
             Refresh();
             Installer.Install(options);
-            _statusLabel.Text = "Installed.";
-            MessageBox.Show(this, "uMeter has been installed.", Text, MessageBoxButtons.OK, MessageBoxIcon.Information);
+            _statusLabel.Text = SetupText.Get("Installed.");
+            MessageBox.Show(this, SetupText.Get("uMeter has been installed."), Text, MessageBoxButtons.OK, MessageBoxIcon.Information);
             DialogResult = DialogResult.OK;
             Close();
         }
         catch (Win32Exception ex) when (ex.NativeErrorCode == 1223)
         {
-            _statusLabel.Text = "Elevation canceled.";
+            _statusLabel.Text = SetupText.Get("Elevation canceled.");
             SetInstalling(false);
         }
         catch (Exception ex)
         {
-            _statusLabel.Text = "Install failed.";
-            MessageBox.Show(this, $"Install failed:\n\n{ex.Message}", Text, MessageBoxButtons.OK, MessageBoxIcon.Error);
+            _statusLabel.Text = SetupText.Get("Install failed.");
+            MessageBox.Show(this, SetupText.Format("Install failed:\n\n{0}", ex.Message), Text, MessageBoxButtons.OK, MessageBoxIcon.Error);
             SetInstalling(false);
         }
     }
@@ -428,7 +536,7 @@ internal static class Installer
     private const string AppProcessName = "uMeter";
     private const string PayloadResourceName = "uMeter.Payload.zip";
     private const string Publisher = "Campfireman Studio";
-    private const string Version = "2.3.5";
+    private const string Version = "2.4.0";
     private const string InstallMarkerName = ".umeter-install";
     private const string LegacyInstallMarkerName = ".desktop-loudness-meter-install";
     private const string UninstallKeyPath = @"Software\Microsoft\Windows\CurrentVersion\Uninstall\uMeter";
