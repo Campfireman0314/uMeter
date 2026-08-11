@@ -143,6 +143,40 @@ function Clear-StaleCMakeBuildDirectory {
     Remove-Item -LiteralPath $BuildDir -Recurse -Force
 }
 
+function Clear-VersionMismatchedPluginBuildDirectory {
+    param(
+        [Parameter(Mandatory = $true)]
+        [string]$BuildDir,
+
+        [Parameter(Mandatory = $true)]
+        [string]$ExpectedVersion
+    )
+
+    $resourceFile = Join-Path $BuildDir "DesktopLoudnessMeterSender_artefacts\JuceLibraryCode\DesktopLoudnessMeterSender_resources.rc"
+    if (-not (Test-Path -LiteralPath $resourceFile)) {
+        return
+    }
+
+    $versionParts = $ExpectedVersion.Split('.')
+    if ($versionParts.Count -ne 3) {
+        throw "Installer version must contain major, minor, and patch components: $ExpectedVersion"
+    }
+
+    $expectedResourceVersion = "FILEVERSION  $($versionParts[0]),$($versionParts[1]),$($versionParts[2]),0"
+    $resourceText = Get-Content -LiteralPath $resourceFile -Raw
+    if ($resourceText.Contains($expectedResourceVersion)) {
+        return
+    }
+
+    if (-not (Test-IsUnderRoot -Path $BuildDir -RootPath $root)) {
+        throw "Refusing to clean version-mismatched CMake build directory outside the repository: $BuildDir"
+    }
+
+    Write-Host "Removing version-mismatched VST3 build directory: $BuildDir"
+    Write-Host "  expected resource version: $expectedResourceVersion"
+    Remove-Item -LiteralPath $BuildDir -Recurse -Force
+}
+
 function Invoke-Native {
     param(
         [Parameter(Mandatory = $true)]
@@ -200,6 +234,7 @@ if (-not $SkipVst3Plugin) {
     )
 
     Clear-StaleCMakeBuildDirectory -BuildDir $Vst3BuildDir -SourceDir $pluginProjectDir
+    Clear-VersionMismatchedPluginBuildDirectory -BuildDir $Vst3BuildDir -ExpectedVersion $Version
 
     Invoke-Native "VST3 configure" $cmake @(
         "-S", $pluginProjectDir,

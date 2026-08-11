@@ -1,0 +1,596 @@
+<Window x:Class="DesktopLoudnessMeter.App.GameWindow"
+        xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+        xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+        xmlns:controls="clr-namespace:DesktopLoudnessMeter.App.Controls"
+        xmlns:shell="clr-namespace:System.Windows.Shell;assembly=PresentationFramework"
+        Title="Signal Shuffle"
+        Icon="Assets/desktop-loudness-meter.ico"
+        Width="560"
+        Height="850"
+        MinWidth="500"
+        MinHeight="760"
+        WindowStyle="None"
+        ResizeMode="CanResize"
+        WindowStartupLocation="CenterOwner"
+        Background="{DynamicResource AppChromeBrush}"
+        ShowInTaskbar="True">
+    <Window.Resources>
+        <controls:SignalTileBrushConverter x:Key="SignalTileBrushConverter" />
+        <controls:SignalTileGlyphConverter x:Key="SignalTileGlyphConverter" />
+        <controls:SignalTileAffinityOpacityConverter x:Key="SignalTileAffinityOpacityConverter" />
+        <controls:RhythmPhraseStepOpacityConverter x:Key="RhythmPhraseStepOpacityConverter" />
+        <Style x:Key="RhythmPhrasePip" TargetType="Border">
+            <Setter Property="Width" Value="8" />
+            <Setter Property="Height" Value="5" />
+            <Setter Property="Margin" Value="2,0" />
+            <Setter Property="CornerRadius" Value="2" />
+            <Setter Property="Background" Value="{DynamicResource AccentBrush}" />
+        </Style>
+        <Style x:Key="GamePowerButton"
+               TargetType="{x:Type Button}"
+               BasedOn="{StaticResource ChromeIconButton}">
+            <Setter Property="Width" Value="42" />
+            <Setter Property="Height" Value="42" />
+            <Setter Property="Margin" Value="0,4" />
+            <Setter Property="Background" Value="{DynamicResource PanelAltBrush}" />
+            <Setter Property="BorderBrush" Value="{DynamicResource ControlBorderBrush}" />
+            <Setter Property="BorderThickness" Value="1" />
+            <Style.Triggers>
+                <Trigger Property="IsEnabled" Value="False">
+                    <Setter Property="Opacity" Value="0.38" />
+                </Trigger>
+            </Style.Triggers>
+        </Style>
+        <Style x:Key="GameDebugToggleButton" TargetType="{x:Type ToggleButton}">
+            <Setter Property="Width" Value="26" />
+            <Setter Property="Height" Value="26" />
+            <Setter Property="Padding" Value="0" />
+            <Setter Property="Background" Value="Transparent" />
+            <Setter Property="BorderBrush" Value="Transparent" />
+            <Setter Property="Foreground" Value="{DynamicResource SubtleTextBrush}" />
+            <Setter Property="Cursor" Value="Hand" />
+            <Setter Property="Template">
+                <Setter.Value>
+                    <ControlTemplate TargetType="{x:Type ToggleButton}">
+                        <Border x:Name="ButtonChrome"
+                                Background="{TemplateBinding Background}"
+                                BorderBrush="{TemplateBinding BorderBrush}"
+                                BorderThickness="1"
+                                CornerRadius="5">
+                            <ContentPresenter HorizontalAlignment="Center" VerticalAlignment="Center" />
+                        </Border>
+                        <ControlTemplate.Triggers>
+                            <Trigger Property="IsMouseOver" Value="True">
+                                <Setter TargetName="ButtonChrome" Property="Background" Value="{DynamicResource ControlHoverBrush}" />
+                            </Trigger>
+                            <Trigger Property="IsChecked" Value="True">
+                                <Setter Property="Foreground" Value="{DynamicResource AccentBrush}" />
+                                <Setter TargetName="ButtonChrome" Property="Background" Value="{DynamicResource ControlPressedBrush}" />
+                                <Setter TargetName="ButtonChrome" Property="BorderBrush" Value="{DynamicResource AccentBrush}" />
+                            </Trigger>
+                        </ControlTemplate.Triggers>
+                    </ControlTemplate>
+                </Setter.Value>
+            </Setter>
+        </Style>
+    </Window.Resources>
+    <shell:WindowChrome.WindowChrome>
+        <shell:WindowChrome CaptionHeight="0"
+                            CornerRadius="0"
+                            GlassFrameThickness="0"
+                            ResizeBorderThickness="6"
+                            UseAeroCaptionButtons="False" />
+    </shell:WindowChrome.WindowChrome>
+
+    <Border Background="{DynamicResource AppChromeBrush}"
+            BorderBrush="{DynamicResource ChromeBorderBrush}"
+            BorderThickness="1"
+            SnapsToDevicePixels="True">
+        <Grid>
+            <Grid.RowDefinitions>
+                <RowDefinition Height="44" />
+                <RowDefinition Height="*" />
+            </Grid.RowDefinitions>
+
+            <Border Grid.Row="0"
+                    Padding="14,0,8,0"
+                    Background="{DynamicResource AppChromeBrush}"
+                    MouseLeftButtonDown="Header_OnMouseLeftButtonDown">
+                <Grid>
+                    <Grid.ColumnDefinitions>
+                        <ColumnDefinition Width="*" />
+                        <ColumnDefinition Width="32" />
+                    </Grid.ColumnDefinitions>
+                    <StackPanel VerticalAlignment="Center">
+                        <TextBlock FontSize="14"
+                                   FontWeight="SemiBold"
+                                   Foreground="{DynamicResource TextBrush}"
+                                   Text="Signal Shuffle" />
+                        <TextBlock FontSize="10"
+                                   Foreground="{DynamicResource SubtleTextBrush}"
+                                   Text="Audio tile game" />
+                    </StackPanel>
+                    <Button Grid.Column="1"
+                            Style="{StaticResource ChromeIconButton}"
+                            Click="CloseButton_OnClick"
+                            Content="X"
+                            ToolTip="Close" />
+                </Grid>
+            </Border>
+
+            <Grid Grid.Row="1"
+                  Background="{DynamicResource AppChromeBrush}"
+                  ClipToBounds="True">
+
+                <Viewbox Width="260"
+                         Height="350"
+                         Margin="0,0,24,42"
+                         HorizontalAlignment="Right"
+                         VerticalAlignment="Bottom"
+                         IsHitTestVisible="False"
+                         Opacity="0.68">
+                    <controls:DancingSheepView x:Name="DancingSheep" />
+                </Viewbox>
+
+                <Grid Margin="20,14,20,18">
+                    <Grid.RowDefinitions>
+                        <RowDefinition Height="Auto" />
+                        <RowDefinition Height="Auto" />
+                        <RowDefinition Height="*" />
+                        <RowDefinition Height="Auto" />
+                    </Grid.RowDefinitions>
+
+                    <Grid>
+                        <Grid.RowDefinitions>
+                            <RowDefinition Height="Auto" />
+                            <RowDefinition Height="8" />
+                            <RowDefinition Height="Auto" />
+                        </Grid.RowDefinitions>
+                        <Grid>
+                            <Grid.ColumnDefinitions>
+                                <ColumnDefinition Width="*" />
+                                <ColumnDefinition Width="32" />
+                                <ColumnDefinition Width="32" />
+                                <ColumnDefinition Width="32" />
+                            </Grid.ColumnDefinitions>
+                            <StackPanel VerticalAlignment="Center">
+                                <TextBlock FontSize="16" FontWeight="SemiBold"
+                                           Foreground="{DynamicResource TextBrush}"
+                                           Text="{Binding GameStatusText}" />
+                                <StackPanel Orientation="Horizontal">
+                                    <TextBlock FontSize="10" Foreground="{DynamicResource SubtleTextBrush}" Text="{Binding RemainingText}" />
+                                    <TextBlock Margin="10,0,0,0" FontSize="10" Foreground="{DynamicResource SubtleTextBrush}" Text="{Binding MatchesText}" />
+                                </StackPanel>
+                            </StackPanel>
+                            <ToggleButton Grid.Column="1"
+                                          Style="{StaticResource GameDebugToggleButton}"
+                                          IsChecked="{Binding IsBeatDebugVisible, Mode=TwoWay}"
+                                          FontFamily="Segoe MDL2 Assets"
+                                          FontSize="14"
+                                          Content="&#xE9D2;"
+                                          ToolTip="Show live beat debug" />
+                            <Button Grid.Column="2" Style="{StaticResource ChromeIconButton}"
+                                    FontFamily="Segoe MDL2 Assets" FontSize="14" Content="&#xE72C;"
+                                    Command="{Binding RestartCommand}" ToolTip="Restart board" />
+                            <Button Grid.Column="3" Style="{StaticResource ChromeIconButton}"
+                                    FontFamily="Segoe MDL2 Assets" FontSize="14" Content="&#xE710;"
+                                    Command="{Binding NewGameCommand}" ToolTip="New game" />
+                        </Grid>
+                        <Grid Grid.Row="2">
+                            <Grid.ColumnDefinitions>
+                                <ColumnDefinition Width="Auto" />
+                                <ColumnDefinition Width="10" />
+                                <ColumnDefinition Width="*" />
+                            </Grid.ColumnDefinitions>
+                            <TextBlock VerticalAlignment="Center" FontSize="10"
+                                       Foreground="{DynamicResource SubtleTextBrush}" Text="Audio source" />
+                            <Grid Grid.Column="2">
+                                <Grid.RowDefinitions>
+                                    <RowDefinition Height="26" />
+                                    <RowDefinition Height="3" />
+                                </Grid.RowDefinitions>
+                                <ComboBox ItemsSource="{Binding AudioSources}"
+                                          SelectedItem="{Binding SelectedAudioSource, Mode=TwoWay}">
+                                    <ComboBox.ItemTemplate>
+                                        <DataTemplate>
+                                            <TextBlock Text="{Binding DisplayTitle}"
+                                                       TextTrimming="CharacterEllipsis" />
+                                        </DataTemplate>
+                                    </ComboBox.ItemTemplate>
+                                </ComboBox>
+                                <ProgressBar Grid.Row="1" Minimum="0" Maximum="1" Value="{Binding DanceEnergy, Mode=OneWay}" />
+                            </Grid>
+                        </Grid>
+                    </Grid>
+
+                    <Border Grid.Row="2"
+                            Width="360"
+                            Margin="0,10,0,0"
+                            Padding="10,8"
+                            HorizontalAlignment="Left"
+                            VerticalAlignment="Top"
+                            Panel.ZIndex="200"
+                            Background="{DynamicResource PanelAltBrush}"
+                            BorderBrush="{DynamicResource ControlBorderBrush}"
+                            BorderThickness="1"
+                            Visibility="{Binding IsBeatDebugVisible, Converter={StaticResource BooleanToVisibilityConverter}}">
+                        <Grid>
+                            <Grid.ColumnDefinitions>
+                                <ColumnDefinition Width="112" />
+                                <ColumnDefinition Width="*" />
+                                <ColumnDefinition Width="54" />
+                            </Grid.ColumnDefinitions>
+                            <Grid.RowDefinitions>
+                                <RowDefinition Height="18" />
+                                <RowDefinition Height="18" />
+                                <RowDefinition Height="18" />
+                                <RowDefinition Height="18" />
+                                <RowDefinition Height="18" />
+                                <RowDefinition Height="18" />
+                                <RowDefinition Height="18" />
+                                <RowDefinition Height="18" />
+                                <RowDefinition Height="18" />
+                                <RowDefinition Height="18" />
+                                <RowDefinition Height="22" />
+                            </Grid.RowDefinitions>
+                            <TextBlock Grid.ColumnSpan="2" FontSize="10" FontWeight="SemiBold"
+                                       Foreground="{DynamicResource TextBrush}" Text="Live beat debug" />
+                            <Border Grid.Column="2" Width="8" Height="8" HorizontalAlignment="Right"
+                                    Background="{DynamicResource AccentBrush}" CornerRadius="4">
+                                <Border.Style>
+                                    <Style TargetType="Border">
+                                        <Setter Property="Opacity" Value="0.16" />
+                                        <Style.Triggers>
+                                            <DataTrigger Binding="{Binding IsBeatDetected}" Value="True">
+                                                <Setter Property="Opacity" Value="1" />
+                                            </DataTrigger>
+                                        </Style.Triggers>
+                                    </Style>
+                                </Border.Style>
+                            </Border>
+                            <TextBlock Grid.Row="1" VerticalAlignment="Center" FontSize="10" Foreground="{DynamicResource SubtleTextBrush}" Text="Bass energy" />
+                            <ProgressBar Grid.Row="1" Grid.Column="1" Height="4" VerticalAlignment="Center" Minimum="0" Maximum="1" Value="{Binding BassEnergy, Mode=OneWay}" />
+                            <TextBlock Grid.Row="1" Grid.Column="2" HorizontalAlignment="Right" FontSize="10" Foreground="{DynamicResource TextBrush}" Text="{Binding BassEnergy, StringFormat={}{0:0.000}}" />
+                            <TextBlock Grid.Row="2" VerticalAlignment="Center" FontSize="10" Foreground="{DynamicResource SubtleTextBrush}" Text="Signal energy" />
+                            <ProgressBar Grid.Row="2" Grid.Column="1" Height="4" VerticalAlignment="Center" Minimum="0" Maximum="1" Value="{Binding SignalEnergy, Mode=OneWay}" />
+                            <TextBlock Grid.Row="2" Grid.Column="2" HorizontalAlignment="Right" FontSize="10" Foreground="{DynamicResource TextBrush}" Text="{Binding SignalEnergy, StringFormat={}{0:0.000}}" />
+                            <TextBlock Grid.Row="3" VerticalAlignment="Center" FontSize="10" Foreground="{DynamicResource SubtleTextBrush}" Text="Spectral flux" />
+                            <ProgressBar Grid.Row="3" Grid.Column="1" Height="4" VerticalAlignment="Center" Minimum="0" Maximum="1" Value="{Binding SpectralFlux, Mode=OneWay}" />
+                            <TextBlock Grid.Row="3" Grid.Column="2" HorizontalAlignment="Right" FontSize="10" Foreground="{DynamicResource TextBrush}" Text="{Binding SpectralFlux, StringFormat={}{0:0.000}}" />
+                            <TextBlock Grid.Row="4" VerticalAlignment="Center" FontSize="10" Foreground="{DynamicResource SubtleTextBrush}" Text="Band agreement" />
+                            <ProgressBar Grid.Row="4" Grid.Column="1" Height="4" VerticalAlignment="Center" Minimum="0" Maximum="1" Value="{Binding CrossBandAgreement, Mode=OneWay}" />
+                            <TextBlock Grid.Row="4" Grid.Column="2" HorizontalAlignment="Right" FontSize="10" Foreground="{DynamicResource TextBrush}" Text="{Binding CrossBandAgreement, StringFormat={}{0:0.000}}" />
+                            <TextBlock Grid.Row="5" VerticalAlignment="Center" FontSize="10" Foreground="{DynamicResource SubtleTextBrush}" Text="Periodicity" />
+                            <ProgressBar Grid.Row="5" Grid.Column="1" Height="4" VerticalAlignment="Center" Minimum="0" Maximum="1" Value="{Binding BeatPeriodicity, Mode=OneWay}" />
+                            <TextBlock Grid.Row="5" Grid.Column="2" HorizontalAlignment="Right" FontSize="10" Foreground="{DynamicResource TextBrush}" Text="{Binding BeatPeriodicity, StringFormat={}{0:0.000}}" />
+                            <TextBlock Grid.Row="6" VerticalAlignment="Center" FontSize="10" Foreground="{DynamicResource SubtleTextBrush}" Text="Adaptive baseline" />
+                            <ProgressBar Grid.Row="6" Grid.Column="1" Height="4" VerticalAlignment="Center" Minimum="0" Maximum="1" Value="{Binding BeatBaseline, Mode=OneWay}" />
+                            <TextBlock Grid.Row="6" Grid.Column="2" HorizontalAlignment="Right" FontSize="10" Foreground="{DynamicResource TextBrush}" Text="{Binding BeatBaseline, StringFormat={}{0:0.000}}" />
+                            <TextBlock Grid.Row="7" VerticalAlignment="Center" FontSize="10" Foreground="{DynamicResource SubtleTextBrush}" Text="Trigger threshold" />
+                            <ProgressBar Grid.Row="7" Grid.Column="1" Height="4" VerticalAlignment="Center" Minimum="0" Maximum="0.4" Value="{Binding BeatThreshold, Mode=OneWay}" />
+                            <TextBlock Grid.Row="7" Grid.Column="2" HorizontalAlignment="Right" FontSize="10" Foreground="{DynamicResource TextBrush}" Text="{Binding BeatThreshold, StringFormat={}{0:0.000}}" />
+                            <TextBlock Grid.Row="8" VerticalAlignment="Center" FontSize="10" Foreground="{DynamicResource SubtleTextBrush}" Text="Onset strength" />
+                            <ProgressBar Grid.Row="8" Grid.Column="1" Height="4" VerticalAlignment="Center" Minimum="0" Maximum="0.4" Value="{Binding OnsetStrength, Mode=OneWay}" />
+                            <TextBlock Grid.Row="8" Grid.Column="2" HorizontalAlignment="Right" FontSize="10" Foreground="{DynamicResource TextBrush}" Text="{Binding OnsetStrength, StringFormat={}{0:0.000}}" />
+                            <TextBlock Grid.Row="9" VerticalAlignment="Center" FontSize="10" Foreground="{DynamicResource SubtleTextBrush}" Text="Beat pulse" />
+                            <ProgressBar Grid.Row="9" Grid.Column="1" Height="4" VerticalAlignment="Center" Minimum="0" Maximum="1" Value="{Binding BeatPulse, Mode=OneWay}" />
+                            <TextBlock Grid.Row="9" Grid.Column="2" HorizontalAlignment="Right" FontSize="10" Foreground="{DynamicResource TextBrush}" Text="{Binding BeatPulse, StringFormat={}{0:0.000}}" />
+                            <TextBlock Grid.Row="10" VerticalAlignment="Center" FontSize="10" Foreground="{DynamicResource SubtleTextBrush}" Text="Sensitivity" />
+                            <Slider Grid.Row="10" Grid.Column="1" Height="18" Minimum="0" Maximum="1" Value="{Binding BeatSensitivity, Mode=TwoWay}" />
+                            <TextBlock Grid.Row="10" Grid.Column="2" HorizontalAlignment="Right" VerticalAlignment="Center" FontSize="10" Foreground="{DynamicResource TextBrush}" Text="{Binding BeatSensitivity, StringFormat={}{0:0.00}}" />
+                        </Grid>
+                    </Border>
+
+                    <Grid x:Name="BoardHost"
+                          Grid.Row="2"
+                          Height="462"
+                          Margin="0,10,0,10"
+                          VerticalAlignment="Center"
+                          RenderTransformOrigin="0.5,0.5">
+                        <Grid.RenderTransform>
+                            <ScaleTransform x:Name="BoardEntranceScale" ScaleX="1" ScaleY="1" />
+                        </Grid.RenderTransform>
+                        <Grid.RowDefinitions>
+                            <RowDefinition Height="24" />
+                            <RowDefinition Height="438" />
+                        </Grid.RowDefinitions>
+                        <Grid Grid.Row="0" Width="300" Height="24" HorizontalAlignment="Center">
+                            <Grid.ColumnDefinitions>
+                                <ColumnDefinition Width="56" />
+                                <ColumnDefinition Width="*" />
+                                <ColumnDefinition Width="56" />
+                                <ColumnDefinition Width="68" />
+                            </Grid.ColumnDefinitions>
+                            <Grid VerticalAlignment="Center">
+                                <Grid.RowDefinitions>
+                                    <RowDefinition Height="12" />
+                                    <RowDefinition Height="3" />
+                                </Grid.RowDefinitions>
+                                <StackPanel Orientation="Horizontal">
+                                    <Border Style="{StaticResource RhythmPhrasePip}"
+                                            Opacity="{Binding RhythmPhraseStep, Converter={StaticResource RhythmPhraseStepOpacityConverter}, ConverterParameter=1}" />
+                                    <Border Style="{StaticResource RhythmPhrasePip}"
+                                            Opacity="{Binding RhythmPhraseStep, Converter={StaticResource RhythmPhraseStepOpacityConverter}, ConverterParameter=2}" />
+                                    <Border Style="{StaticResource RhythmPhrasePip}"
+                                            Opacity="{Binding RhythmPhraseStep, Converter={StaticResource RhythmPhraseStepOpacityConverter}, ConverterParameter=3}" />
+                                    <Border Style="{StaticResource RhythmPhrasePip}"
+                                            Opacity="{Binding RhythmPhraseStep, Converter={StaticResource RhythmPhraseStepOpacityConverter}, ConverterParameter=4}" />
+                                </StackPanel>
+                                <ProgressBar Grid.Row="1" Width="48" Height="2" HorizontalAlignment="Left"
+                                             Minimum="0" Maximum="1" Value="{Binding RhythmBeatPhase, Mode=OneWay}"
+                                             Visibility="{Binding IsTempoConfident, Converter={StaticResource BooleanToVisibilityConverter}}" />
+                            </Grid>
+                            <Grid Grid.Column="1" Margin="4,0,8,0">
+                                <Grid.RowDefinitions>
+                                    <RowDefinition Height="13" />
+                                    <RowDefinition Height="5" />
+                                </Grid.RowDefinitions>
+                                <TextBlock FontSize="9" Foreground="{DynamicResource SubtleTextBrush}" Text="Groove" />
+                                <ProgressBar Grid.Row="1" Minimum="0" Maximum="1" Value="{Binding Groove, Mode=OneWay}" />
+                            </Grid>
+                            <TextBlock Grid.Column="2" VerticalAlignment="Center" HorizontalAlignment="Right"
+                                       FontSize="9" Foreground="{DynamicResource SubtleTextBrush}"
+                                       Text="{Binding RhythmTempoText}" />
+                            <TextBlock Grid.Column="3" VerticalAlignment="Center" HorizontalAlignment="Right"
+                                       FontSize="10" FontWeight="SemiBold" Foreground="{DynamicResource AccentBrush}"
+                                       Text="{Binding RhythmTimingText}" />
+                        </Grid>
+                        <StackPanel Grid.Row="1"
+                                    Margin="4,0,0,0"
+                                    HorizontalAlignment="Left"
+                                    VerticalAlignment="Center"
+                                    Panel.ZIndex="150">
+                            <Button Style="{StaticResource GamePowerButton}"
+                                    Command="{Binding UseCannonCommand}"
+                                    ToolTip="Cannon: clear tray">
+                                <Grid Width="30" Height="30">
+                                    <Viewbox Width="28" Height="28">
+                                        <Canvas Width="32" Height="32">
+                                            <Ellipse Canvas.Left="4" Canvas.Top="19" Width="10" Height="10"
+                                                     Fill="{DynamicResource PanelBrush}"
+                                                     Stroke="{DynamicResource TextBrush}" StrokeThickness="2" />
+                                            <Path Data="M 9,19 L 20,12 L 27,15 L 14,23 Z"
+                                                  Fill="{DynamicResource AccentBrush}"
+                                                  Stroke="{DynamicResource TextBrush}" StrokeThickness="1.5" />
+                                            <Path Data="M 22,12 L 28,8 L 30,11 L 27,15 Z"
+                                                  Fill="{DynamicResource WarmBrush}" />
+                                        </Canvas>
+                                    </Viewbox>
+                                    <Border Width="14" Height="14"
+                                            HorizontalAlignment="Right"
+                                            VerticalAlignment="Bottom"
+                                            Background="{DynamicResource AccentBrush}"
+                                            CornerRadius="7"
+                                            Visibility="{Binding IsCannonAvailable, Converter={StaticResource BooleanToVisibilityConverter}}">
+                                        <TextBlock HorizontalAlignment="Center" VerticalAlignment="Center"
+                                                   FontSize="9" FontWeight="Bold" Foreground="White" Text="1" />
+                                    </Border>
+                                </Grid>
+                            </Button>
+                            <Button Style="{StaticResource GamePowerButton}"
+                                    Command="{Binding UseFanCommand}"
+                                    ToolTip="Fan: shuffle table">
+                                <Grid Width="30" Height="30">
+                                    <Viewbox Width="28" Height="28">
+                                        <Canvas Width="32" Height="32">
+                                            <Path Data="M 16,27 L 4,11 M 16,27 L 9,6 M 16,27 L 16,4 M 16,27 L 23,7 M 16,27 L 29,13"
+                                                  Stroke="{DynamicResource TextBrush}" StrokeThickness="1.6" />
+                                            <Path Data="M 4,11 Q 15,0 29,13 L 16,27 Z"
+                                                  Fill="#5538A89A"
+                                                  Stroke="{DynamicResource AccentBrush}" StrokeThickness="2" />
+                                            <Ellipse Canvas.Left="13" Canvas.Top="24" Width="6" Height="6"
+                                                     Fill="{DynamicResource WarmBrush}" />
+                                        </Canvas>
+                                    </Viewbox>
+                                    <Border Width="14" Height="14"
+                                            HorizontalAlignment="Right"
+                                            VerticalAlignment="Bottom"
+                                            Background="{DynamicResource AccentBrush}"
+                                            CornerRadius="7"
+                                            Visibility="{Binding IsFanAvailable, Converter={StaticResource BooleanToVisibilityConverter}}">
+                                        <TextBlock HorizontalAlignment="Center" VerticalAlignment="Center"
+                                                   FontSize="9" FontWeight="Bold" Foreground="White" Text="1" />
+                                    </Border>
+                                </Grid>
+                            </Button>
+                            <Button Style="{StaticResource GamePowerButton}"
+                                    Command="{Binding UseDiggerCommand}"
+                                    ToolTip="Digger: add tray slot">
+                                <Grid Width="30" Height="30">
+                                    <Viewbox Width="28" Height="28">
+                                        <Canvas Width="32" Height="32">
+                                            <Path Data="M 7,5 L 25,23"
+                                                  Stroke="{DynamicResource TextBrush}" StrokeThickness="3.2"
+                                                  StrokeStartLineCap="Round" StrokeEndLineCap="Round" />
+                                            <Path Data="M 4,8 L 10,2"
+                                                  Stroke="{DynamicResource WarmBrush}" StrokeThickness="3.2"
+                                                  StrokeStartLineCap="Round" StrokeEndLineCap="Round" />
+                                            <Path Data="M 21,20 L 29,20 L 29,28 Q 24,31 19,26 Z"
+                                                  Fill="{DynamicResource AccentBrush}"
+                                                  Stroke="{DynamicResource TextBrush}" StrokeThickness="1.4" />
+                                        </Canvas>
+                                    </Viewbox>
+                                    <Border Width="14" Height="14"
+                                            HorizontalAlignment="Right"
+                                            VerticalAlignment="Bottom"
+                                            Background="{DynamicResource AccentBrush}"
+                                            CornerRadius="7"
+                                            Visibility="{Binding IsDiggerAvailable, Converter={StaticResource BooleanToVisibilityConverter}}">
+                                        <TextBlock HorizontalAlignment="Center" VerticalAlignment="Center"
+                                                   FontSize="9" FontWeight="Bold" Foreground="White" Text="1" />
+                                    </Border>
+                                </Grid>
+                            </Button>
+                        </StackPanel>
+                        <Border Grid.Row="1" Width="300" Height="432" Margin="0,6,0,0"
+                                HorizontalAlignment="Center" VerticalAlignment="Top"
+                                Background="Transparent"
+                                BorderBrush="{DynamicResource ControlBorderBrush}"
+                                BorderThickness="1" CornerRadius="6">
+                            <Grid Width="288" Height="420">
+                                <Border Background="{DynamicResource PanelBrush}"
+                                        CornerRadius="5"
+                                        Opacity="0.5"
+                                        IsHitTestVisible="False" />
+                            <ItemsControl x:Name="BoardItemsControl" Width="288" Height="420" ItemsSource="{Binding BoardTiles}">
+                                <ItemsControl.ItemsPanel>
+                                    <ItemsPanelTemplate><Canvas /></ItemsPanelTemplate>
+                                </ItemsControl.ItemsPanel>
+                                <ItemsControl.ItemContainerStyle>
+                                    <Style TargetType="ContentPresenter">
+                                        <Setter Property="Canvas.Left" Value="{Binding Left}" />
+                                        <Setter Property="Canvas.Top" Value="{Binding Top}" />
+                                        <Setter Property="Panel.ZIndex" Value="{Binding Layer}" />
+                                    </Style>
+                                </ItemsControl.ItemContainerStyle>
+                                <ItemsControl.ItemTemplate>
+                                    <DataTemplate>
+                                        <Grid Width="48" Height="48">
+                                            <Button Width="48" Height="48" Padding="0"
+                                                    Background="{Binding Kind, Converter={StaticResource SignalTileBrushConverter}}"
+                                                    BorderBrush="{DynamicResource TextBrush}" BorderThickness="1"
+                                                    IsEnabled="{Binding IsSelectable}"
+                                                    Command="{Binding DataContext.SelectTileCommand, RelativeSource={RelativeSource AncestorType={x:Type Window}}}"
+                                                    CommandParameter="{Binding Id}">
+                                                <TextBlock FontFamily="Segoe UI Symbol" FontSize="22" Foreground="White"
+                                                           Text="{Binding Kind, Converter={StaticResource SignalTileGlyphConverter}}" />
+                                            </Button>
+                                            <Border BorderBrush="{DynamicResource AccentBrush}"
+                                                    BorderThickness="3"
+                                                    CornerRadius="3"
+                                                    IsHitTestVisible="False"
+                                                    Visibility="{Binding IsSelectable, Converter={StaticResource BooleanToVisibilityConverter}}">
+                                                <Border.Opacity>
+                                                    <MultiBinding Converter="{StaticResource SignalTileAffinityOpacityConverter}">
+                                                        <Binding Path="Kind" />
+                                                        <Binding Path="DataContext.LowRhythmAffinity" RelativeSource="{RelativeSource AncestorType={x:Type Window}}" />
+                                                        <Binding Path="DataContext.MidRhythmAffinity" RelativeSource="{RelativeSource AncestorType={x:Type Window}}" />
+                                                        <Binding Path="DataContext.HighRhythmAffinity" RelativeSource="{RelativeSource AncestorType={x:Type Window}}" />
+                                                    </MultiBinding>
+                                                </Border.Opacity>
+                                            </Border>
+                                            <Border Background="#A0060C0A"
+                                                    BorderBrush="#C0000000"
+                                                    BorderThickness="1"
+                                                    CornerRadius="3"
+                                                    IsHitTestVisible="False">
+                                                <Border.Style>
+                                                    <Style TargetType="Border">
+                                                        <Setter Property="Visibility" Value="Collapsed" />
+                                                        <Style.Triggers>
+                                                            <DataTrigger Binding="{Binding IsSelectable}" Value="False">
+                                                                <Setter Property="Visibility" Value="Visible" />
+                                                            </DataTrigger>
+                                                        </Style.Triggers>
+                                                    </Style>
+                                                </Border.Style>
+                                            </Border>
+                                        </Grid>
+                                    </DataTemplate>
+                                </ItemsControl.ItemTemplate>
+                            </ItemsControl>
+                                <Canvas x:Name="BoardEffectCanvas"
+                                        Width="288" Height="420"
+                                        Panel.ZIndex="100"
+                                        IsHitTestVisible="False" />
+                            </Grid>
+                        </Border>
+                    </Grid>
+
+                    <Grid x:Name="TrayHost" Grid.Row="3" Width="448" Height="64"
+                          HorizontalAlignment="Center" RenderTransformOrigin="0.5,0.5">
+                        <Grid.RenderTransform>
+                            <ScaleTransform x:Name="TrayPulseScale" ScaleX="1" ScaleY="1" />
+                        </Grid.RenderTransform>
+                    <ItemsControl Width="448" Height="64" ItemsSource="{Binding TraySlots}">
+                        <ItemsControl.ItemsPanel>
+                            <ItemsPanelTemplate><UniformGrid Rows="1" /></ItemsPanelTemplate>
+                        </ItemsControl.ItemsPanel>
+                        <ItemsControl.ItemTemplate>
+                            <DataTemplate>
+                                <Border Height="58" Margin="3,0"
+                                        BorderBrush="{DynamicResource ControlBorderBrush}"
+                                        BorderThickness="1" CornerRadius="5">
+                                    <Border.Style>
+                                        <Style TargetType="Border">
+                                            <Setter Property="Background" Value="{DynamicResource MeterTrackBrush}" />
+                                            <Style.Triggers>
+                                                <DataTrigger Binding="{Binding HasTile}" Value="True">
+                                                    <Setter Property="Background" Value="{Binding Kind, Converter={StaticResource SignalTileBrushConverter}}" />
+                                                    <Setter Property="BorderBrush" Value="{DynamicResource TextBrush}" />
+                                                </DataTrigger>
+                                            </Style.Triggers>
+                                        </Style>
+                                    </Border.Style>
+                                    <TextBlock HorizontalAlignment="Center" VerticalAlignment="Center"
+                                               FontFamily="Segoe UI Symbol" FontSize="25" Foreground="White"
+                                               Text="{Binding Kind, Converter={StaticResource SignalTileGlyphConverter}}" />
+                                </Border>
+                            </DataTemplate>
+                        </ItemsControl.ItemTemplate>
+                    </ItemsControl>
+                        <Canvas x:Name="TrayEffectCanvas"
+                                Width="448" Height="64"
+                                Panel.ZIndex="100"
+                                IsHitTestVisible="False" />
+                    </Grid>
+                </Grid>
+
+                <Grid x:Name="CelebrationOverlay"
+                      Panel.ZIndex="500"
+                      Margin="0,-24,0,0"
+                      HorizontalAlignment="Stretch"
+                      VerticalAlignment="Center"
+                      IsHitTestVisible="False"
+                      Opacity="0"
+                      Visibility="Collapsed"
+                      RenderTransformOrigin="0.5,0.5">
+                    <Grid.RenderTransform>
+                        <TransformGroup>
+                            <ScaleTransform x:Name="CelebrationScale" ScaleX="0.92" ScaleY="0.92" />
+                            <TranslateTransform x:Name="CelebrationTranslate" Y="-28" />
+                        </TransformGroup>
+                    </Grid.RenderTransform>
+                    <Border Height="108"
+                            Background="{DynamicResource AccentBrush}"
+                            BorderBrush="{DynamicResource WarmBrush}"
+                            BorderThickness="0,2">
+                        <Grid Margin="24,0">
+                            <Grid.ColumnDefinitions>
+                                <ColumnDefinition Width="54" />
+                                <ColumnDefinition Width="*" />
+                                <ColumnDefinition Width="54" />
+                            </Grid.ColumnDefinitions>
+                            <TextBlock VerticalAlignment="Center"
+                                       FontFamily="Segoe UI Symbol"
+                                       FontSize="32"
+                                       Foreground="White"
+                                       Text="&#x2605;" />
+                            <StackPanel Grid.Column="1"
+                                        HorizontalAlignment="Center"
+                                        VerticalAlignment="Center">
+                                <TextBlock HorizontalAlignment="Center"
+                                           FontSize="25"
+                                           FontWeight="Bold"
+                                           Foreground="White"
+                                           Text="{Binding GameStatusText}" />
+                                <TextBlock Margin="0,4,0,0"
+                                           HorizontalAlignment="Center"
+                                           FontSize="12"
+                                           Foreground="White"
+                                           Text="{Binding MatchesText}" />
+                            </StackPanel>
+                            <TextBlock Grid.Column="2"
+                                       HorizontalAlignment="Right"
+                                       VerticalAlignment="Center"
+                                       FontFamily="Segoe UI Symbol"
+                                       FontSize="32"
+                                       Foreground="White"
+                                       Text="&#x2605;" />
+                        </Grid>
+                    </Border>
+                </Grid>
+            </Grid>
+        </Grid>
+    </Border>
+</Window>

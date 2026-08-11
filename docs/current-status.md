@@ -22,6 +22,7 @@ The remaining roadmap work after this checkpoint should focus on deeper metering
 - VST3 sender discovery survives host audio-resource deactivation and renews stale unacknowledged UDP transports.
 - Plugin rows are removed from the main source list on unload; open detail views show an `Instance not found` overlay until the same instance returns or the view is switched.
 - Only one uMeter desktop instance is allowed per user session; secondary launches request activation of the primary instance and exit.
+- Sender-triggered startup checks the resolved executable in the current Windows session before launching, so a running host is left untouched.
 - Configurable installer VST3 path, defaulting to `C:\Program Files\VSTPlugins`.
 - Forced standard VST3 mirror install to `C:\Program Files\Common Files\VST3` for Cubase/VST3 host discovery.
 - Plugin receiver port-collision warning in the desktop app.

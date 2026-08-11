@@ -25,7 +25,8 @@ juce::String translatedText (dlm::PluginLanguage language, const juce::String& e
         { "dropped", "丢弃", "ドロップ", "потеряно" },
         { "uMeter app was not found.", "未找到 uMeter 应用。", "uMeter アプリが見つかりません。", "Приложение uMeter не найдено." },
         { "uMeter could not be started.", "无法启动 uMeter。", "uMeter を起動できませんでした。", "Не удалось запустить uMeter." },
-        { "uMeter started.", "uMeter 已启动。", "uMeter を起動しました。", "uMeter запущен." }
+        { "uMeter started.", "uMeter 已启动。", "uMeter を起動しました。", "uMeter запущен." },
+        { "uMeter is already running.", "uMeter 已在运行。", "uMeter はすでに実行中です。", "uMeter уже запущен." }
     };
 
     for (const auto& entry : entries)

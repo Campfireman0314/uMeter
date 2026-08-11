@@ -44,6 +44,8 @@ void selectedLanguageTranslatesEditorText()
             "Japanese source label mismatch");
     expect (russian.translate ("Mute") == juce::String::fromUTF8 ("Отключить звук"),
             "Russian mute label mismatch");
+    expect (chinese.translate ("uMeter is already running.") == juce::String::fromUTF8 ("uMeter 已在运行。"),
+            "Chinese already-running launch status mismatch");
 }
 }
 

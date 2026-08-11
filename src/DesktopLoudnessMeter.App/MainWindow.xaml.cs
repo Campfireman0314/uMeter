@@ -11,6 +11,7 @@ namespace DesktopLoudnessMeter.App;
 public partial class MainWindow : Window
 {
     private GlobalSettingsWindow? _globalSettingsWindow;
+    private GameWindow? _gameWindow;
     private Point _sourceDragStartPoint;
     private Point _inlineDetailModuleDragStartPoint;
     private bool _inlineDetailModuleDragArmed;
@@ -38,6 +39,28 @@ public partial class MainWindow : Window
     private void ThemeButton_OnClick(object sender, RoutedEventArgs e)
     {
         OpenButtonContextMenu(sender);
+    }
+
+    private void GameButton_OnClick(object sender, RoutedEventArgs e)
+    {
+        if (_gameWindow is { IsVisible: true } visibleWindow)
+        {
+            visibleWindow.Activate();
+            return;
+        }
+
+        if (DataContext is not MainViewModel viewModel)
+        {
+            return;
+        }
+
+        _gameWindow = new GameWindow(viewModel)
+        {
+            Owner = this
+        };
+        _gameWindow.Closed += (_, _) => _gameWindow = null;
+        _gameWindow.Show();
+        _gameWindow.Activate();
     }
 
     private void GlobalSettingsButton_OnClick(object sender, RoutedEventArgs e)

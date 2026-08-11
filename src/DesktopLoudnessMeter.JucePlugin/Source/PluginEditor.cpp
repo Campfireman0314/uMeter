@@ -228,7 +228,7 @@ void DesktopLoudnessMeterAudioProcessorEditor::launchHostApp()
     const auto result = hostAppLauncher.launch();
     hostLaunchStatusLabel.setText (localization.translate (result.message), juce::dontSendNotification);
     hostLaunchStatusLabel.setColour (juce::Label::textColourId,
-                                     result.started ? juce::Colour (0xff5eead4) : juce::Colour (0xfffca5a5));
+                                     result.succeeded() ? juce::Colour (0xff5eead4) : juce::Colour (0xfffca5a5));
     hostLaunchStatusTicksRemaining = 16;
 }
 

@@ -1,0 +1,317 @@
+<UserControl x:Class="DesktopLoudnessMeter.App.Controls.DancingSheepView"
+             xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+             xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+             Width="260"
+             Height="390"
+             IsHitTestVisible="False"
+             SnapsToDevicePixels="True">
+    <UserControl.Resources>
+        <SolidColorBrush x:Key="PanelBrush" Color="#F4F1EA" />
+        <SolidColorBrush x:Key="PanelAltBrush" Color="#DCE1E2" />
+        <SolidColorBrush x:Key="SubtleTextBrush" Color="#424951" />
+        <SolidColorBrush x:Key="TextBrush" Color="#293038" />
+        <SolidColorBrush x:Key="ChromeBorderBrush" Color="#252B31" />
+        <SolidColorBrush x:Key="AppChromeBrush" Color="#171B20" />
+        <Style x:Key="UpperLimb" TargetType="Border">
+            <Setter Property="Width" Value="18" />
+            <Setter Property="Height" Value="58" />
+            <Setter Property="CornerRadius" Value="9" />
+            <Setter Property="Background" Value="{DynamicResource SubtleTextBrush}" />
+            <Setter Property="BorderBrush" Value="{DynamicResource ChromeBorderBrush}" />
+            <Setter Property="BorderThickness" Value="1" />
+        </Style>
+        <Style x:Key="LowerLimb" TargetType="Border" BasedOn="{StaticResource UpperLimb}">
+            <Setter Property="Width" Value="16" />
+            <Setter Property="Height" Value="60" />
+            <Setter Property="CornerRadius" Value="8" />
+        </Style>
+    </UserControl.Resources>
+
+    <Grid Width="260" Height="390" Background="Transparent">
+        <Grid.RenderTransform>
+            <TransformGroup>
+                <ScaleTransform CenterX="130"
+                                CenterY="350"
+                                ScaleX="0.94"
+                                ScaleY="0.94" />
+                <ScaleTransform CenterX="130"
+                                CenterY="350"
+                                ScaleX="{Binding SheepScaleX}"
+                                ScaleY="{Binding SheepScaleY}" />
+                <RotateTransform CenterX="130"
+                                 CenterY="350"
+                                 Angle="{Binding SheepLean}" />
+                <TranslateTransform Y="{Binding SheepBounce}" />
+                <ScaleTransform x:Name="OutcomeScaleTransform"
+                                CenterX="130" CenterY="350"
+                                ScaleX="1" ScaleY="1" />
+                <RotateTransform x:Name="OutcomeBodyRotateTransform"
+                                 CenterX="130" CenterY="350" Angle="0" />
+                <TranslateTransform x:Name="OutcomeTranslateTransform" X="0" Y="0" />
+            </TransformGroup>
+        </Grid.RenderTransform>
+
+        <Canvas Width="260" Height="390">
+            <!-- Tail sits behind the wool body and uses two delayed joints. -->
+            <Canvas Canvas.Left="187" Canvas.Top="190" Panel.ZIndex="1">
+                <Canvas.RenderTransform>
+                    <RotateTransform x:Name="TailRootTransform" Angle="{Binding SheepTailAngle}" />
+                </Canvas.RenderTransform>
+                <Ellipse Canvas.Left="-2" Canvas.Top="-12" Width="34" Height="27"
+                         Fill="{DynamicResource PanelBrush}"
+                         Stroke="{DynamicResource TextBrush}" StrokeThickness="4" />
+                <Canvas Canvas.Left="25" Canvas.Top="0">
+                    <Canvas.RenderTransform>
+                        <RotateTransform x:Name="TailTipTransform" Angle="{Binding SheepTailTipAngle}" />
+                    </Canvas.RenderTransform>
+                    <Ellipse Canvas.Left="-3" Canvas.Top="-10" Width="25" Height="22"
+                             Fill="{DynamicResource PanelAltBrush}"
+                             Stroke="{DynamicResource TextBrush}" StrokeThickness="4" />
+                </Canvas>
+            </Canvas>
+
+            <!-- Left articulated leg: hip -> knee -> ankle/hoof. -->
+            <Canvas Canvas.Left="103" Canvas.Top="233"
+                    Panel.ZIndex="2">
+                <Canvas.RenderTransform>
+                    <RotateTransform x:Name="LeftHipTransform" Angle="{Binding SheepLeftHindLegAngle}" />
+                </Canvas.RenderTransform>
+                <Border Canvas.Left="-9" Canvas.Top="0" Style="{StaticResource UpperLimb}" Height="66" />
+                <Ellipse Canvas.Left="-12" Canvas.Top="-8" Width="24" Height="22"
+                         Fill="{DynamicResource PanelAltBrush}" />
+                <Canvas Canvas.Left="0" Canvas.Top="58">
+                    <Canvas.RenderTransform>
+                        <RotateTransform x:Name="LeftKneeTransform" Angle="{Binding SheepLeftKneeAngle}" />
+                    </Canvas.RenderTransform>
+                    <Ellipse Canvas.Left="-11" Canvas.Top="-8" Width="22" Height="22"
+                             Fill="{DynamicResource PanelAltBrush}" />
+                    <Border Canvas.Left="-8" Canvas.Top="4" Style="{StaticResource LowerLimb}" Height="68" />
+                    <Canvas Canvas.Left="0" Canvas.Top="65">
+                        <Canvas.RenderTransform>
+                            <RotateTransform x:Name="LeftHindHoofTransform" Angle="{Binding SheepLeftHindHoofAngle}" />
+                        </Canvas.RenderTransform>
+                        <Ellipse Canvas.Left="-13" Canvas.Top="-5" Width="27" Height="12"
+                                 Fill="{DynamicResource PanelBrush}" />
+                        <Path Data="M -17 2 C -18 13 -14 23 -2 27 L 0 9 L 2 27 C 14 23 18 13 17 2 Z"
+                              Fill="{DynamicResource SubtleTextBrush}"
+                              Stroke="{DynamicResource ChromeBorderBrush}" StrokeThickness="2" />
+                    </Canvas>
+                </Canvas>
+            </Canvas>
+
+            <!-- Right articulated leg. -->
+            <Canvas Canvas.Left="157" Canvas.Top="233"
+                    Panel.ZIndex="2">
+                <Canvas.RenderTransform>
+                    <RotateTransform x:Name="RightHipTransform" Angle="{Binding SheepRightHindLegAngle}" />
+                </Canvas.RenderTransform>
+                <Border Canvas.Left="-9" Canvas.Top="0" Style="{StaticResource UpperLimb}" Height="66" />
+                <Ellipse Canvas.Left="-12" Canvas.Top="-8" Width="24" Height="22"
+                         Fill="{DynamicResource PanelAltBrush}" />
+                <Canvas Canvas.Left="0" Canvas.Top="58">
+                    <Canvas.RenderTransform>
+                        <RotateTransform x:Name="RightKneeTransform" Angle="{Binding SheepRightKneeAngle}" />
+                    </Canvas.RenderTransform>
+                    <Ellipse Canvas.Left="-11" Canvas.Top="-8" Width="22" Height="22"
+                             Fill="{DynamicResource PanelAltBrush}" />
+                    <Border Canvas.Left="-8" Canvas.Top="4" Style="{StaticResource LowerLimb}" Height="68" />
+                    <Canvas Canvas.Left="0" Canvas.Top="65">
+                        <Canvas.RenderTransform>
+                            <RotateTransform x:Name="RightHindHoofTransform" Angle="{Binding SheepRightHindHoofAngle}" />
+                        </Canvas.RenderTransform>
+                        <Ellipse Canvas.Left="-13" Canvas.Top="-5" Width="27" Height="12"
+                                 Fill="{DynamicResource PanelBrush}" />
+                        <Path Data="M -17 2 C -18 13 -14 23 -2 27 L 0 9 L 2 27 C 14 23 18 13 17 2 Z"
+                              Fill="{DynamicResource SubtleTextBrush}"
+                              Stroke="{DynamicResource ChromeBorderBrush}" StrokeThickness="2" />
+                    </Canvas>
+                </Canvas>
+            </Canvas>
+
+            <!-- Both arm roots sit behind the torso wool and travel together from low V to high V. -->
+            <Canvas Canvas.Left="105" Canvas.Top="174"
+                    Panel.ZIndex="3">
+                <Canvas.RenderTransform>
+                    <RotateTransform x:Name="LeftShoulderTransform" Angle="{Binding SheepLeftForelegAngle}" />
+                </Canvas.RenderTransform>
+                <Ellipse Canvas.Left="-13" Canvas.Top="-11" Width="26" Height="24"
+                         Fill="{DynamicResource PanelBrush}"
+                         Stroke="{DynamicResource TextBrush}" StrokeThickness="3" />
+                <Border Canvas.Left="-9" Canvas.Top="4" Style="{StaticResource UpperLimb}" />
+                <Canvas Canvas.Left="0" Canvas.Top="55">
+                    <Canvas.RenderTransform>
+                        <RotateTransform x:Name="LeftElbowTransform" Angle="{Binding SheepLeftElbowAngle}" />
+                    </Canvas.RenderTransform>
+                    <Ellipse Canvas.Left="-10" Canvas.Top="-7" Width="20" Height="20"
+                             Fill="{DynamicResource PanelAltBrush}" />
+                    <Border Canvas.Left="-8" Canvas.Top="5" Style="{StaticResource LowerLimb}" />
+                    <Canvas Canvas.Left="0" Canvas.Top="59">
+                        <Canvas.RenderTransform>
+                            <RotateTransform x:Name="LeftForehoofTransform" Angle="{Binding SheepLeftForehoofAngle}" />
+                        </Canvas.RenderTransform>
+                        <Ellipse Canvas.Left="-12" Canvas.Top="-6" Width="24" Height="12"
+                                 Fill="{DynamicResource PanelBrush}" />
+                        <Path Data="M -15 1 C -16 10 -12 19 -2 23 L 0 8 L 2 23 C 12 19 16 10 15 1 Z"
+                              Fill="{DynamicResource SubtleTextBrush}"
+                              Stroke="{DynamicResource AccentBrush}" StrokeThickness="1.5" />
+                    </Canvas>
+                </Canvas>
+            </Canvas>
+
+            <!-- Right cheer arm mirrors the left chain. -->
+            <Canvas Canvas.Left="155" Canvas.Top="174"
+                    Panel.ZIndex="3">
+                <Canvas.RenderTransform>
+                    <RotateTransform x:Name="RightShoulderTransform" Angle="{Binding SheepRightForelegAngle}" />
+                </Canvas.RenderTransform>
+                <Ellipse Canvas.Left="-13" Canvas.Top="-11" Width="26" Height="24"
+                         Fill="{DynamicResource PanelBrush}"
+                         Stroke="{DynamicResource TextBrush}" StrokeThickness="3" />
+                <Border Canvas.Left="-9" Canvas.Top="4" Style="{StaticResource UpperLimb}" />
+                <Canvas Canvas.Left="0" Canvas.Top="55">
+                    <Canvas.RenderTransform>
+                        <RotateTransform x:Name="RightElbowTransform" Angle="{Binding SheepRightElbowAngle}" />
+                    </Canvas.RenderTransform>
+                    <Ellipse Canvas.Left="-10" Canvas.Top="-7" Width="20" Height="20"
+                             Fill="{DynamicResource PanelAltBrush}" />
+                    <Border Canvas.Left="-8" Canvas.Top="5" Style="{StaticResource LowerLimb}" />
+                    <Canvas Canvas.Left="0" Canvas.Top="59">
+                        <Canvas.RenderTransform>
+                            <RotateTransform x:Name="RightForehoofTransform" Angle="{Binding SheepRightForehoofAngle}" />
+                        </Canvas.RenderTransform>
+                        <Ellipse Canvas.Left="-12" Canvas.Top="-6" Width="24" Height="12"
+                                 Fill="{DynamicResource PanelBrush}" />
+                        <Path Data="M -15 1 C -16 10 -12 19 -2 23 L 0 8 L 2 23 C 12 19 16 10 15 1 Z"
+                              Fill="{DynamicResource SubtleTextBrush}"
+                              Stroke="{DynamicResource AccentBrush}" StrokeThickness="1.5" />
+                    </Canvas>
+                </Canvas>
+            </Canvas>
+
+            <!-- Seven clean wool masses form the torso; fringe pieces follow after the pose. -->
+            <Canvas Canvas.Left="65" Canvas.Top="128" Panel.ZIndex="4">
+                <Canvas.RenderTransform>
+                    <RotateTransform x:Name="TorsoTransform" CenterX="65" CenterY="70" Angle="{Binding SheepTorsoTwist}" />
+                </Canvas.RenderTransform>
+                <Ellipse Canvas.Left="12" Canvas.Top="16" Width="106" Height="120"
+                         Fill="{DynamicResource PanelAltBrush}"
+                         Stroke="{DynamicResource TextBrush}" StrokeThickness="6" />
+                <Ellipse Canvas.Left="0" Canvas.Top="30" Width="55" Height="61"
+                         Fill="{DynamicResource PanelBrush}" Stroke="{DynamicResource TextBrush}" StrokeThickness="5" />
+                <Ellipse Canvas.Left="24" Canvas.Top="4" Width="56" Height="59"
+                         Fill="{DynamicResource PanelBrush}" Stroke="{DynamicResource TextBrush}" StrokeThickness="5" />
+                <Ellipse Canvas.Left="67" Canvas.Top="2" Width="55" Height="60"
+                         Fill="{DynamicResource PanelBrush}" Stroke="{DynamicResource TextBrush}" StrokeThickness="5" />
+                <Ellipse Canvas.Left="91" Canvas.Top="31" Width="50" Height="58"
+                         Fill="{DynamicResource PanelBrush}" Stroke="{DynamicResource TextBrush}" StrokeThickness="5" />
+                <Ellipse Canvas.Left="13" Canvas.Top="76" Width="57" Height="55"
+                         Fill="{DynamicResource PanelBrush}" Stroke="{DynamicResource TextBrush}" StrokeThickness="5" />
+                <Ellipse Canvas.Left="66" Canvas.Top="77" Width="59" Height="56"
+                         Fill="{DynamicResource PanelBrush}" Stroke="{DynamicResource TextBrush}" StrokeThickness="5" />
+                <Ellipse Canvas.Left="3" Canvas.Top="102" Width="38" Height="29"
+                         Fill="{DynamicResource PanelAltBrush}" RenderTransformOrigin="0.8,0.2">
+                    <Ellipse.RenderTransform>
+                        <RotateTransform Angle="{Binding SheepLeftWoolFringeAngle}" />
+                    </Ellipse.RenderTransform>
+                </Ellipse>
+                <Ellipse Canvas.Left="101" Canvas.Top="103" Width="38" Height="29"
+                         Fill="{DynamicResource PanelAltBrush}" RenderTransformOrigin="0.2,0.2">
+                    <Ellipse.RenderTransform>
+                        <RotateTransform Angle="{Binding SheepRightWoolFringeAngle}" />
+                    </Ellipse.RenderTransform>
+                </Ellipse>
+            </Canvas>
+
+            <!-- Independent head, muzzle, eyes, and two-stage ears. -->
+            <Canvas Canvas.Left="45" Canvas.Top="35" Width="170" Height="145" Panel.ZIndex="8"
+                    RenderTransformOrigin="0.5,0.78">
+                <Canvas.RenderTransform>
+                    <TransformGroup>
+                        <RotateTransform x:Name="HeadRotateTransform" Angle="{Binding SheepHeadAngle}" />
+                        <TranslateTransform x:Name="HeadTranslateTransform" Y="{Binding SheepHeadBob}" />
+                    </TransformGroup>
+                </Canvas.RenderTransform>
+
+                <Canvas Canvas.Left="32" Canvas.Top="52">
+                    <Canvas.RenderTransform>
+                        <RotateTransform x:Name="LeftEarTransform" Angle="{Binding SheepLeftEarAngle}" />
+                    </Canvas.RenderTransform>
+                    <Path Data="M 0 0 C -17 -16 -35 -15 -49 -4 C -38 8 -18 12 0 5 Z"
+                          Fill="{DynamicResource SubtleTextBrush}"
+                          Stroke="{DynamicResource TextBrush}" StrokeThickness="4" />
+                    <Canvas Canvas.Left="-20" Canvas.Top="-3">
+                        <Canvas.RenderTransform>
+                            <RotateTransform x:Name="LeftEarTipTransform" Angle="{Binding SheepLeftEarTipAngle}" />
+                        </Canvas.RenderTransform>
+                        <Path Data="M 0 0 C -11 -4 -20 0 -25 7 C -17 13 -8 11 2 7 Z"
+                              Fill="{DynamicResource WarmBrush}" Opacity="0.78" />
+                    </Canvas>
+                </Canvas>
+                <Canvas Canvas.Left="138" Canvas.Top="52">
+                    <Canvas.RenderTransform>
+                        <RotateTransform x:Name="RightEarTransform" Angle="{Binding SheepRightEarAngle}" />
+                    </Canvas.RenderTransform>
+                    <Path Data="M 0 0 C 17 -16 35 -15 49 -4 C 38 8 18 12 0 5 Z"
+                          Fill="{DynamicResource SubtleTextBrush}"
+                          Stroke="{DynamicResource TextBrush}" StrokeThickness="4" />
+                    <Canvas Canvas.Left="20" Canvas.Top="-3">
+                        <Canvas.RenderTransform>
+                            <RotateTransform x:Name="RightEarTipTransform" Angle="{Binding SheepRightEarTipAngle}" />
+                        </Canvas.RenderTransform>
+                        <Path Data="M 0 0 C 11 -4 20 0 25 7 C 17 13 8 11 -2 7 Z"
+                              Fill="{DynamicResource WarmBrush}" Opacity="0.78" />
+                    </Canvas>
+                </Canvas>
+
+                <Ellipse Canvas.Left="25" Canvas.Top="15" Width="120" Height="116"
+                         Fill="{DynamicResource SubtleTextBrush}"
+                         Stroke="{DynamicResource TextBrush}" StrokeThickness="6" />
+
+                <Grid Canvas.Left="44" Canvas.Top="43" Width="25" Height="34" RenderTransformOrigin="0.5,0.5">
+                    <Grid.RenderTransform>
+                        <ScaleTransform x:Name="LeftEyeScaleTransform" ScaleY="{Binding SheepEyeScaleY}" />
+                    </Grid.RenderTransform>
+                    <Ellipse Fill="White" />
+                    <Ellipse Width="8" Height="13" Fill="{DynamicResource AppChromeBrush}" />
+                    <Ellipse Width="3" Height="4" Margin="-3,-5,0,0" Fill="{DynamicResource AccentBrush}" />
+                </Grid>
+                <Grid Canvas.Left="101" Canvas.Top="43" Width="25" Height="34" RenderTransformOrigin="0.5,0.5">
+                    <Grid.RenderTransform>
+                        <ScaleTransform x:Name="RightEyeScaleTransform" ScaleY="{Binding SheepEyeScaleY}" />
+                    </Grid.RenderTransform>
+                    <Ellipse Fill="White" />
+                    <Ellipse Width="8" Height="13" Fill="{DynamicResource AppChromeBrush}" />
+                    <Ellipse Width="3" Height="4" Margin="-3,-5,0,0" Fill="{DynamicResource AccentBrush}" />
+                </Grid>
+
+                <Ellipse Canvas.Left="51" Canvas.Top="76" Width="68" Height="52"
+                         Fill="White" Stroke="{DynamicResource ChromeBorderBrush}" StrokeThickness="2" />
+                <Path Data="M 76 88 Q 85 82 94 88 Q 85 98 76 88 Z"
+                      Fill="{DynamicResource AppChromeBrush}" />
+                <Ellipse Canvas.Left="72" Canvas.Top="98" Width="26" Height="21"
+                         Fill="{DynamicResource WarmBrush}"
+                         Stroke="{DynamicResource AppChromeBrush}" StrokeThickness="3"
+                         RenderTransformOrigin="0.5,0">
+                    <Ellipse.RenderTransform>
+                        <ScaleTransform x:Name="MouthScaleTransform" ScaleY="{Binding SheepMouthScaleY}" />
+                    </Ellipse.RenderTransform>
+                </Ellipse>
+                <Path Data="M 85 94 L 85 101"
+                      Stroke="{DynamicResource AppChromeBrush}" StrokeThickness="3"
+                      StrokeStartLineCap="Round" />
+
+                <Ellipse Canvas.Left="33" Canvas.Top="84" Width="13" Height="7"
+                         Fill="{DynamicResource WarmBrush}" Opacity="0.68" />
+                <Ellipse Canvas.Left="124" Canvas.Top="84" Width="13" Height="7"
+                         Fill="{DynamicResource WarmBrush}" Opacity="0.68" />
+
+                <Ellipse Canvas.Left="38" Canvas.Top="0" Width="40" Height="35"
+                         Fill="{DynamicResource PanelBrush}" Stroke="{DynamicResource TextBrush}" StrokeThickness="4" />
+                <Ellipse Canvas.Left="66" Canvas.Top="-8" Width="43" Height="39"
+                         Fill="{DynamicResource PanelBrush}" Stroke="{DynamicResource TextBrush}" StrokeThickness="4" />
+                <Ellipse Canvas.Left="98" Canvas.Top="1" Width="38" Height="34"
+                         Fill="{DynamicResource PanelBrush}" Stroke="{DynamicResource TextBrush}" StrokeThickness="4" />
+            </Canvas>
+        </Canvas>
+    </Grid>
+</UserControl>

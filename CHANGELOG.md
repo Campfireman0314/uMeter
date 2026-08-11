@@ -2,7 +2,51 @@
 
 ## Unreleased
 
-- Nothing yet.
+### Added
+
+- Added the localized `Signal Shuffle` layered triple-tile game in an owned WPF window, opened from a game icon beside the theme selector.
+- Added a selectable meter-source feed for a background sheep whose bounded bounce, lean, and squash follow bass energy and detected onsets.
+- Added deterministic solvable board generation, seven-slot tray matching, restart/new-board controls, and win/loss states without reusing the referenced game's name or assets.
+- Added an opt-in live beat monitor with adaptive bass-onset diagnostics and sensitivity tuning.
+- Added a rig-ready Plan 2 art contract covering the model sheet, pivot map, separated layer names, hidden joint overlap, and an explicit Cubism decision gate.
+- Added a dedicated tall-silhouette WPF sheep rig with seven wool masses, parent-child shoulder/elbow/wrist and hip/knee/ankle chains, split hooves, two-stage ears and tail, expression parts, and a fixed rear stack for legs and wool-occluded arm roots.
+- Added tile-local selection splashes plus a larger tray-centered glyph, ring, and particle burst when a triple clears.
+- Added cosmetic beat-window timing with `Perfect`/`On beat` feedback, a slowly decaying groove meter, and a four-pulse phrase strip without changing legal moves or difficulty.
+- Added confidence-gated BPM and beat-phase display from recent onset intervals.
+- Added fixed low/mid/high spectral affinity outlines for tile families and a board-centered match echo on the next accepted onset.
+- Added spectral-flux, cross-band agreement, cross-correlation, and onset-autocorrelation diagnostics to the beat debug overlay.
+- Added four original signal tile kinds (`Wave`, `Pulse`, `Disc`, and `Speaker`) for the initial twelve-kind hard board.
+- Added `Meter`, `Orbit`, `Bars`, and `Arrows`, bringing the low-branch board to sixteen symbol families.
+- Added explicit same-seed Restart and different-seed New Game actions with board entrance transitions.
+- Added one Cannon, Fan, and Digger per round: Cannon clears tray groups, Fan reconstructs a solvable table shuffle, and Digger adds an eighth tray slot.
+- Added a mandatory midpoint tool lock at 111 remaining cards, guaranteeing that every successful round consumes at least one prop.
+- Replaced generic prop glyphs with dedicated wheeled-cannon, folding-fan, and shovel vector icons.
+- Added per-card Cannon ballistics that launch the stack and drop it beyond the window boundary.
+- Added a two-stage Fan sequence that blows the stack above the window and restacks shuffled cards from all four corners.
+- Added a localized, non-blocking full-width celebration banner animation when the board is cleared.
+- Added three articulated high-V sheep cheer jumps for wins.
+- Added an inward articulated sheep rag-doll loss animation with loose limb chains, delayed head/ears/tail, closed eyes, and a held collapsed pose.
+
+### Changed
+
+- Rotated the layered pile into a portrait composition and narrowed the game window while keeping tile symbols upright.
+- Replaced bass-only onset detection with an adaptive multi-band detector combining spectral flux, synchronized band evidence, cross-band correlation, onset autocorrelation, and confidence-bounded periodic threshold support.
+- Reworked sheep motion into a centered 460 ms takeoff/apex/landing jump with symmetric knees; detected beats inside a 320 ms animation guard no longer restart the sheep mid-air.
+- Replaced the independent greeting wave with a beat-aligned cheerleading arm path: low V at takeoff and landing, high V at the airborne apex, and restrained opposite elbow follow-through.
+- Made the board plate 50% opaque and increased sheep visibility while preserving fully opaque tiles and controls.
+- Replaced gated spectral-affinity rims with continuous band-share envelopes using an 80 ms attack and 220 ms release.
+- Expanded the board from 42 tiles in three layers, first to 102 tiles and then to a guaranteed-solvable 222-tile, eleven-layer 5-by-7 dense-middle layout inspired by the viral mini-program's general difficulty pacing, without copying a published map.
+- Changed generation from independent per-layer triples to a constructive solution sequence with triples crossing layer boundaries, increasing tray pressure while keeping every seed winnable.
+- Deepened the 222-card board from eleven to thirteen layers with a four-card opening, and increased symbol families from twelve to sixteen.
+- Added a 48-candidate local branch-score search and spaced symbol decks to minimize immediately complete alternatives; tested seeds begin with one completable family.
+- Darkened covered cards and suppressed their rhythm rims so exposed legal cards remain clear in the denser stack.
+- Kept product, setup, shared components, VST3, AAX, and installer defaults on the `2.4.0` release line.
+
+### Fixed
+
+- Sender-driven host startup now detects the resolved uMeter executable in the current Windows session and suppresses secondary launches when the desktop host is already running.
+- The VST3 editor reports an already-running host as a successful no-op instead of starting a process that triggers single-instance activation.
+- The bonus-game audio-source selector now renders real source names and saved aliases instead of falling back to view-model type names.
 
 ## v2.4.0 - 2026-08-05
 

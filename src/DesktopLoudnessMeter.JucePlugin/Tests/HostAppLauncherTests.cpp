@@ -53,10 +53,61 @@ void hiddenLaunchAddsBackgroundArgument()
         {
             receivedArguments = arguments;
             return true;
-        });
+        },
+        [] (const juce::File&) { return false; });
 
     expect (launcher.launch (true).started, "hidden launch should use the injected process starter");
     expect (receivedArguments == "--background", "hidden launch should add the background argument");
+}
+
+void runningInstanceSkipsSecondaryProcessLaunch()
+{
+    auto processStarterCalled = false;
+    auto detectorCalled = false;
+    const auto testExecutable = juce::File::getSpecialLocation (juce::File::currentExecutableFile);
+    const dlm::HostAppLauncher launcher (
+        [testExecutable] { return testExecutable.getFullPathName(); },
+        [] { return juce::File {}; },
+        [&processStarterCalled] (const juce::File&, const juce::String&)
+        {
+            processStarterCalled = true;
+            return true;
+        },
+        [&detectorCalled, testExecutable] (const juce::File& executable)
+        {
+            detectorCalled = true;
+            return executable == testExecutable;
+        });
+
+    const auto result = launcher.launch (true);
+
+    expect (detectorCalled, "launcher should check for a running installed executable");
+    expect (! processStarterCalled, "running host should suppress a secondary process launch");
+    expect (! result.started, "already-running result should not claim a process was started");
+    expect (result.alreadyRunning, "already-running result should identify the existing instance");
+    expect (result.succeeded(), "already-running result should be a successful no-op");
+    expect (result.message == "uMeter is already running.", "already-running result message mismatch");
+}
+
+void defaultDetectorFindsCurrentExecutable()
+{
+   #if JUCE_WINDOWS
+    auto processStarterCalled = false;
+    const auto testExecutable = juce::File::getSpecialLocation (juce::File::currentExecutableFile);
+    const dlm::HostAppLauncher launcher (
+        [testExecutable] { return testExecutable.getFullPathName(); },
+        [] { return juce::File {}; },
+        [&processStarterCalled] (const juce::File&, const juce::String&)
+        {
+            processStarterCalled = true;
+            return true;
+        });
+
+    const auto result = launcher.launch();
+
+    expect (result.alreadyRunning, "default detector should find the current executable");
+    expect (! processStarterCalled, "default detector should suppress launching the current executable again");
+   #endif
 }
 
 void manualLaunchHasNoBackgroundArgument()
@@ -70,7 +121,8 @@ void manualLaunchHasNoBackgroundArgument()
         {
             receivedArguments = arguments;
             return true;
-        });
+        },
+        [] (const juce::File&) { return false; });
 
     expect (launcher.launch().started, "manual launch should use the injected process starter");
     expect (receivedArguments.isEmpty(), "manual launch should remain visible");
@@ -83,5 +135,7 @@ void runHostAppLauncherTests()
     registeredExecutableIsPreserved();
     missingRegistrationUsesPerUserInstallFallback();
     hiddenLaunchAddsBackgroundArgument();
+    runningInstanceSkipsSecondaryProcessLaunch();
+    defaultDetectorFindsCurrentExecutable();
     manualLaunchHasNoBackgroundArgument();
 }

@@ -130,7 +130,8 @@ public sealed class LocalizationManagerTests
         {
             "src/DesktopLoudnessMeter.App/MainWindow.xaml",
             "src/DesktopLoudnessMeter.App/DetailWindow.xaml",
-            "src/DesktopLoudnessMeter.App/StereoImageSettingsWindow.xaml"
+            "src/DesktopLoudnessMeter.App/StereoImageSettingsWindow.xaml",
+            "src/DesktopLoudnessMeter.App/GameWindow.xaml"
         })
         {
             var document = XDocument.Load(Path.Combine(repositoryRoot, relativePath));
@@ -162,6 +163,8 @@ public sealed class LocalizationManagerTests
             "{0} source - PID {1}",
             "{0} to {1} dB",
             "{0} to {1} LUFS",
+            "{0} tiles",
+            "{0} matches",
             "Active",
             "Inactive",
             "n/a",

@@ -9,7 +9,10 @@ namespace dlm
 struct HostAppLaunchResult
 {
     bool started = false;
+    bool alreadyRunning = false;
     juce::String message;
+
+    bool succeeded() const noexcept { return started || alreadyRunning; }
 };
 
 struct HostAppLaunchPreferences
@@ -26,10 +29,12 @@ public:
     using InstallLocationReader = std::function<juce::String()>;
     using LocalAppDataProvider = std::function<juce::File()>;
     using ProcessStarter = std::function<bool(const juce::File&, const juce::String&)>;
+    using RunningProcessDetector = std::function<bool(const juce::File&)>;
 
     HostAppLauncher (InstallLocationReader installLocationReader = {},
                      LocalAppDataProvider localAppDataProvider = {},
-                     ProcessStarter processStarter = {});
+                     ProcessStarter processStarter = {},
+                     RunningProcessDetector runningProcessDetector = {});
 
     HostAppLaunchResult launch (bool startHidden = false) const;
 
@@ -40,5 +45,6 @@ private:
     InstallLocationReader readInstallLocation;
     LocalAppDataProvider getLocalAppDataDirectory;
     ProcessStarter startProcess;
+    RunningProcessDetector isProcessRunning;
 };
 }
