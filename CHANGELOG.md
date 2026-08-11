@@ -19,7 +19,7 @@
 - Added `Meter`, `Orbit`, `Bars`, and `Arrows`, bringing the low-branch board to sixteen symbol families.
 - Added explicit same-seed Restart and different-seed New Game actions with board entrance transitions.
 - Added one Cannon, Fan, and Digger per round: Cannon clears tray groups, Fan reconstructs a solvable table shuffle, and Digger adds an eighth tray slot.
-- Added depth-aware card concealment that replaces glyphs and colors with an opaque neutral veil when a card is covered by two or more active layers.
+- Added global layer-depth concealment that replaces glyphs and colors with an opaque grey veil when a card is two or more layer indices below the highest remaining layer.
 - Replaced generic prop glyphs with dedicated wheeled-cannon, folding-fan, and shovel vector icons.
 - Added per-card Cannon ballistics that launch the stack and drop it beyond the window boundary.
 - Added a two-stage Fan sequence that blows the stack above the window and restacks shuffled cards from all four corners.
@@ -39,7 +39,7 @@
 - Changed generation from independent per-layer triples to a constructive solution sequence with triples crossing layer boundaries, increasing tray pressure while keeping every seed winnable.
 - Deepened the 222-card board from eleven to thirteen layers with a four-card opening, and increased symbol families from twelve to sixteen.
 - Added a 48-candidate local branch-score search and spaced symbol decks to minimize immediately complete alternatives; tested seeds begin with one completable family.
-- Darkened cards covered by one layer, fully obscured cards covered by two or more layers, and suppressed covered-card rhythm rims so exposed legal cards remain clear in the denser stack.
+- Kept cards on the highest remaining layer and the layer immediately below identifiable, while fully obscuring every card two or more layers below that global top layer.
 - Removed the abrupt 111-card tool lock; Cannon, Fan, and Digger are optional strategic aids, while difficulty comes from the generated layer and symbol arrangement.
 - Kept product, setup, shared components, VST3, AAX, and installer defaults on the `2.4.0` release line.
 

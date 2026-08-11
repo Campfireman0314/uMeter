@@ -649,7 +649,7 @@ public sealed class TileGameViewModel : ObservableObject, IDisposable
                 position.Top,
                 tile.Layer,
                 _game.IsSelectable(tile),
-                _game.GetCoverDepth(tile)));
+                _game.GetDepthFromTopLayer(tile)));
         }
 
         TraySlots.Clear();
@@ -809,9 +809,9 @@ public sealed record GameTileViewModel(
     double Top,
     int Layer,
     bool IsSelectable,
-    int CoverDepth)
+    int DepthFromTopLayer)
 {
-    public bool IsDeepCovered => CoverDepth >= 2;
+    public bool IsTwoOrMoreLayersBelowTop => DepthFromTopLayer >= 2;
 }
 
 public sealed record TraySlotViewModel(SignalTileKind? Kind)

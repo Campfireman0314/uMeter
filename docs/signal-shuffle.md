@@ -14,7 +14,7 @@
 - Group kinds are dealt from spaced sixteen-kind decks, preventing nearby canonical groups from repeating the same symbol.
 - Generation evaluates 48 deterministic position/kind candidates and selects the lowest local branch score. Tested seeds begin with exactly one immediately completable symbol family.
 - Generated boards remain continuously playable with no midpoint rule interruption. Cannon, Fan, and Digger are optional strategic aids rather than required progress gates.
-- Cards covered by one active layer remain dimly readable. Cards covered by two or more distinct active layers are rendered behind an opaque neutral veil, hiding both symbol and family color until enough upper layers are removed.
+- Greying uses global board depth rather than overlap count. If the highest remaining layer is `N`, cards on layers `N` and `N-1` retain their identity, while every card on layer `N-2` or lower receives an opaque grey veil that hides both symbol and family color.
 
 ## Audio Contract
 
@@ -85,7 +85,7 @@ Each restart or new game grants one of each item:
 - The board coordinates are rotated into a 5-by-7 portrait footprint while tile symbols remain upright.
 - A compact strip above the board displays four phrase pips, groove, confidence-gated BPM/phase, and transient timing feedback.
 - The portrait board backing is 50% opaque so the dancer remains visible through uncovered plate areas; tiles, borders, symbols, and input targets remain fully opaque.
-- Tiles covered by one layer receive a dark occlusion veil. Tiles covered by two or more active layers receive a fully opaque neutral veil, so their glyphs and family colors cannot be identified. All covered tiles suppress their affinity rim; selectable tiles remain saturated and visually dominant.
+- Geometrically covered tiles still receive the dark occlusion treatment and suppress their affinity rim. Separately, every tile two or more layer indices below the highest remaining layer receives a fully opaque grey veil, so its glyph and family color cannot be identified even when its position is not overlapped.
 - The power rail uses dedicated vector silhouettes for a wheeled cannon, folding fan, and shovel rather than generic target/shuffle/plus glyphs.
 - `DancingSheepView` is a replaceable 260 x 390 WPF rig prototype based on the Plan 2 direction. It uses seven torso wool masses, independent expression parts, two segments plus a hoof per limb, two-stage ears and tail, and a fixed rear stack for legs and both arm roots beneath the torso wool.
 - The production-art handoff, pivot coordinates, layer names, acceptance checks, and Cubism decision gate are defined in `docs/dancing-sheep-rig.md`.

@@ -163,16 +163,18 @@ public sealed class TileGameViewModelTests
     }
 
     [Fact]
-    public void TilesUnderTwoOrMoreLayersAreMarkedDeepCovered()
+    public void TilesTwoOrMoreLayersBelowGlobalTopAreMarkedForGreying()
     {
         using var mainViewModel = new MainViewModel(new FakeSourceService(), startTimer: false);
         using var gameViewModel = new TileGameViewModel(mainViewModel, seed: 42, startDanceTimer: false);
+        var topLayer = gameViewModel.BoardTiles.Max(tile => tile.Layer);
 
-        Assert.Contains(gameViewModel.BoardTiles, tile => tile.CoverDepth >= 2);
+        Assert.Contains(gameViewModel.BoardTiles, tile => tile.DepthFromTopLayer >= 2);
         Assert.All(gameViewModel.BoardTiles, tile =>
-            Assert.Equal(tile.CoverDepth >= 2, tile.IsDeepCovered));
-        Assert.All(gameViewModel.BoardTiles.Where(tile => tile.IsSelectable), tile =>
-            Assert.Equal(0, tile.CoverDepth));
+        {
+            Assert.Equal(topLayer - tile.Layer, tile.DepthFromTopLayer);
+            Assert.Equal(tile.Layer <= topLayer - 2, tile.IsTwoOrMoreLayersBelowTop);
+        });
     }
 
     [Fact]

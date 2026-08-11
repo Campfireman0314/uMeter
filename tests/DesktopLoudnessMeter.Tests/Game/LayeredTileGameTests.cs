@@ -166,26 +166,25 @@ public sealed class LayeredTileGameTests
     }
 
     [Fact]
-    public void CoverDepthFallsAsOverlappingLayersAreRemoved()
+    public void DepthFromTopLayerIsGlobalAndIndependentOfOverlap()
     {
         var bottom = LayeredTileGame.CreateTileForTesting(1, SignalTileKind.Star, 0, 0, 0);
-        var middle = LayeredTileGame.CreateTileForTesting(2, SignalTileKind.Note, 0, 0, 1);
-        var top = LayeredTileGame.CreateTileForTesting(3, SignalTileKind.Cloud, 0, 0, 2);
+        var middle = LayeredTileGame.CreateTileForTesting(2, SignalTileKind.Note, 2, 0, 1);
+        var top = LayeredTileGame.CreateTileForTesting(3, SignalTileKind.Cloud, 4, 0, 2);
         var game = LayeredTileGame.CreateForTesting([bottom, middle, top]);
 
-        Assert.Equal(2, game.GetCoverDepth(bottom));
-        Assert.Equal(1, game.GetCoverDepth(middle));
-        Assert.Equal(0, game.GetCoverDepth(top));
-        Assert.False(game.IsSelectable(bottom));
-        Assert.Equal(TileSelectionResult.Ignored, game.Select(bottom.Id));
+        Assert.Equal(2, game.GetDepthFromTopLayer(bottom));
+        Assert.Equal(1, game.GetDepthFromTopLayer(middle));
+        Assert.Equal(0, game.GetDepthFromTopLayer(top));
+        Assert.All(game.Tiles, tile => Assert.True(game.IsSelectable(tile)));
 
         Assert.Equal(TileSelectionResult.Added, game.Select(top.Id));
-        Assert.Equal(1, game.GetCoverDepth(bottom));
-        Assert.Equal(0, game.GetCoverDepth(middle));
-        Assert.True(game.IsSelectable(middle));
+        Assert.Equal(1, game.GetDepthFromTopLayer(bottom));
+        Assert.Equal(0, game.GetDepthFromTopLayer(middle));
+        Assert.True(game.IsSelectable(bottom));
 
         Assert.Equal(TileSelectionResult.Added, game.Select(middle.Id));
-        Assert.Equal(0, game.GetCoverDepth(bottom));
+        Assert.Equal(0, game.GetDepthFromTopLayer(bottom));
         Assert.True(game.IsSelectable(bottom));
     }
 

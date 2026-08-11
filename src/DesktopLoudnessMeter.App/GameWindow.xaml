@@ -485,8 +485,8 @@
                                                     </Style>
                                                 </Border.Style>
                                             </Border>
-                                            <Border Background="#FF303633"
-                                                    BorderBrush="#FF171A19"
+                                            <Border Background="#FF3A3D3E"
+                                                    BorderBrush="#FF202324"
                                                     BorderThickness="1"
                                                     CornerRadius="3"
                                                     IsHitTestVisible="False">
@@ -494,7 +494,7 @@
                                                     <Style TargetType="Border">
                                                         <Setter Property="Visibility" Value="Collapsed" />
                                                         <Style.Triggers>
-                                                            <DataTrigger Binding="{Binding IsDeepCovered}" Value="True">
+                                                            <DataTrigger Binding="{Binding IsTwoOrMoreLayersBelowTop}" Value="True">
                                                                 <Setter Property="Visibility" Value="Visible" />
                                                             </DataTrigger>
                                                         </Style.Triggers>

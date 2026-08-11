@@ -43,7 +43,7 @@ public sealed class WpfResourcePackagingTests
     }
 
     [Fact]
-    public void DeepCoveredGameTilesUseAnOpaqueNeutralVeil()
+    public void CardsTwoOrMoreLayersBelowTopUseAnOpaqueGreyVeil()
     {
         var repositoryRoot = FindRepositoryRoot();
         var document = XDocument.Load(Path.Combine(
@@ -54,12 +54,12 @@ public sealed class WpfResourcePackagingTests
             element.Name.LocalName == "Border"
             && element.Attributes().Any(attribute =>
                 attribute.Name.LocalName == "Background"
-                && attribute.Value == "#FF303633")
+                && attribute.Value == "#FF3A3D3E")
             && element.Descendants().Any(descendant =>
                 descendant.Name.LocalName == "DataTrigger"
                 && descendant.Attributes().Any(attribute =>
                     attribute.Name.LocalName == "Binding"
-                    && attribute.Value == "{Binding IsDeepCovered}")));
+                    && attribute.Value == "{Binding IsTwoOrMoreLayersBelowTop}")));
     }
 
     private static HashSet<string> ReadGeneratedResourceKeys(Assembly assembly)

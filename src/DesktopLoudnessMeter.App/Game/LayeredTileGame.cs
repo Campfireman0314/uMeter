@@ -201,28 +201,30 @@ public sealed class LayeredTileGame
         return new LayeredTile(id, kind, x, y, layer);
     }
 
-    public int GetCoverDepth(LayeredTile tile)
+    public int GetDepthFromTopLayer(LayeredTile tile)
     {
         if (tile.IsRemoved)
         {
             return 0;
         }
 
-        return _tiles
-            .Where(other =>
-                !other.IsRemoved
-                && other.Layer > tile.Layer
-                && Overlaps(tile, other))
-            .Select(other => other.Layer)
-            .Distinct()
-            .Count();
+        var topLayer = _tiles
+            .Where(other => !other.IsRemoved)
+            .Max(other => other.Layer);
+        return Math.Max(0, topLayer - tile.Layer);
     }
 
     public bool IsSelectable(LayeredTile tile)
     {
-        return State == TileGameState.Playing
-            && !tile.IsRemoved
-            && GetCoverDepth(tile) == 0;
+        if (State != TileGameState.Playing || tile.IsRemoved)
+        {
+            return false;
+        }
+
+        return !_tiles.Any(other =>
+            !other.IsRemoved
+            && other.Layer > tile.Layer
+            && Overlaps(tile, other));
     }
 
     public TileSelectionResult Select(int tileId)
