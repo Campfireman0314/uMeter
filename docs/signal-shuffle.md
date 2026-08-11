@@ -11,8 +11,8 @@
 - Clearing the board wins; filling the current seven- or eight-slot capacity without a match loses.
 - Sixteen original signal symbols increase tray pressure and visual scanning cost.
 - Every generated seed has a constructive solution ordered from exposed upper layers downward. Several triples intentionally cross layer boundaries, requiring partial groups to remain in the tray and increasing pressure without creating unwinnable boards.
-- Group kinds are dealt from spaced sixteen-kind decks, preventing nearby canonical groups from repeating the same symbol.
-- Generation evaluates 48 deterministic position/kind candidates and selects the lowest local branch score. Tested seeds begin with exactly one immediately completable symbol family.
+- Group kinds are dealt in sixteen-kind blocks. For each block, 96 deterministic deck permutations are sampled and scored against earlier groups, heavily penalizing same-kind cards in neighboring layers and adding extra cost when those cards overlap or sit close together.
+- Generation evaluates 48 deterministic position/kind candidates. It first preserves exactly one immediately completable opening family, then minimizes the neighboring-layer repeat score, and finally uses the local branch score as a tie-breaker.
 - Generated boards remain continuously playable with no midpoint rule interruption. Cannon, Fan, and Digger are optional strategic aids rather than required progress gates.
 - Greying uses global board depth rather than overlap count. If the highest remaining layer is `N`, cards on layers `N` and `N-1` retain their identity, while every card on layer `N-2` or lower receives an opaque grey veil that hides both symbol and family color.
 
@@ -107,7 +107,8 @@ Each restart or new game grants one of each item:
 ## Verification
 
 - Managed solution build: passed with zero warnings and zero errors.
-- Managed suite: 396 passing tests.
+- Managed suite: 397 passing tests.
+- Across fixed seeds `1, 2, 3, 10, 42, 99, 256, 1024, 2026, 65535`, cross-group same-kind card pairs in neighboring layers fell from the previous generator's `126-174` range to `41-54`; regression coverage enforces a maximum of `60`.
 - Articulated-rig controller coverage checks the timed rise/apex/landing curve, close-onset rejection, low-V/high-V cheer transition, bounded joint output, secondary follow-through, and jump settling.
 - Off-screen WPF renders of the low-V stance and high-V jumping apex: 32,992 to 33,881 nontransparent pixels per 260 x 390 frame; all alpha bounds remain inside the logical canvas.
 - Pose inspection: the white muzzle, wool-occluded shoulder roots, straight split-hoof arm lines, symmetric knee tuck, and airborne high V remain legible.

@@ -63,6 +63,8 @@ public sealed class LayeredTile
 public sealed class LayeredTileGame
 {
     public const int DefaultTrayCapacity = 7;
+    private const int BoardCandidateCount = 48;
+    private const int KindDeckPermutationSamples = 96;
     private static readonly SignalTileKind[] TileKinds = Enum.GetValues<SignalTileKind>();
     private readonly List<LayeredTile> _tiles;
     private readonly List<SignalTileKind> _tray = [];
@@ -104,8 +106,10 @@ public sealed class LayeredTileGame
     public static LayeredTileGame Create(int seed)
     {
         List<LayeredTile>? bestTiles = null;
-        var bestScore = long.MaxValue;
-        for (var candidate = 0; candidate < 48; candidate++)
+        var bestOpeningPenalty = int.MaxValue;
+        var bestNeighboringLayerScore = long.MaxValue;
+        var bestBranchScore = long.MaxValue;
+        for (var candidate = 0; candidate < BoardCandidateCount; candidate++)
         {
             var candidateSeed = unchecked(seed + (candidate * 104729));
             var random = new Random(candidateSeed);
@@ -118,13 +122,20 @@ public sealed class LayeredTileGame
                     placement.Y,
                     placement.Layer))
                 .ToList();
-            var score = EstimateBranchScore(tiles);
-            if (score >= bestScore)
+            var openingPenalty = Math.Abs(CountImmediatelyCompletableKinds(tiles) - 1);
+            var neighboringLayerScore = EstimateNeighboringLayerRepeatScore(tiles);
+            var branchScore = EstimateBranchScore(tiles);
+            if (openingPenalty > bestOpeningPenalty
+                || (openingPenalty == bestOpeningPenalty
+                    && (neighboringLayerScore > bestNeighboringLayerScore
+                        || (neighboringLayerScore == bestNeighboringLayerScore && branchScore >= bestBranchScore))))
             {
                 continue;
             }
 
-            bestScore = score;
+            bestOpeningPenalty = openingPenalty;
+            bestNeighboringLayerScore = neighboringLayerScore;
+            bestBranchScore = branchScore;
             bestTiles = tiles;
         }
 
@@ -152,6 +163,83 @@ public sealed class LayeredTileGame
         AddLayer(placements, random, ref nextId, layer: 11, CreateRingLayer());
         AddLayer(placements, random, ref nextId, layer: 12, CreateCenteredGrid(2, 2));
         return placements;
+    }
+
+    private static int CountImmediatelyCompletableKinds(IReadOnlyList<LayeredTile> tiles)
+    {
+        return tiles
+            .Where(tile => !tiles.Any(other => other.Layer > tile.Layer && Overlaps(tile, other)))
+            .GroupBy(tile => tile.Kind)
+            .Count(group => group.Count() >= 3);
+    }
+
+    private static long EstimateNeighboringLayerRepeatScore(IReadOnlyList<LayeredTile> tiles)
+    {
+        var solutionOrder = tiles
+            .OrderByDescending(tile => tile.Layer)
+            .ThenBy(tile => tile.Id)
+            .ToArray();
+        var solutionGroupById = solutionOrder
+            .Select((tile, index) => (tile.Id, Group: index / 3))
+            .ToDictionary(item => item.Id, item => item.Group);
+        var score = 0L;
+        for (var firstIndex = 0; firstIndex < tiles.Count; firstIndex++)
+        {
+            var first = tiles[firstIndex];
+            for (var secondIndex = firstIndex + 1; secondIndex < tiles.Count; secondIndex++)
+            {
+                var second = tiles[secondIndex];
+                if (first.Kind != second.Kind
+                    || solutionGroupById[first.Id] == solutionGroupById[second.Id]
+                    || Math.Abs(first.Layer - second.Layer) != 1)
+                {
+                    continue;
+                }
+
+                score += 1;
+                if (Overlaps(first, second))
+                {
+                    score += 8;
+                }
+                else if (Math.Abs(first.X - second.X) <= 1 && Math.Abs(first.Y - second.Y) <= 1)
+                {
+                    score += 2;
+                }
+            }
+        }
+
+        return score;
+    }
+
+    internal int NeighboringLayerRepeatPairCount
+    {
+        get
+        {
+            var solutionOrder = _tiles
+                .OrderByDescending(tile => tile.Layer)
+                .ThenBy(tile => tile.Id)
+                .ToArray();
+            var solutionGroupById = solutionOrder
+                .Select((tile, index) => (tile.Id, Group: index / 3))
+                .ToDictionary(item => item.Id, item => item.Group);
+            var count = 0;
+            for (var firstIndex = 0; firstIndex < _tiles.Count; firstIndex++)
+            {
+                var first = _tiles[firstIndex];
+                for (var secondIndex = firstIndex + 1; secondIndex < _tiles.Count; secondIndex++)
+                {
+                    var second = _tiles[secondIndex];
+                    if (first.Kind == second.Kind
+                        && solutionGroupById[first.Id] != solutionGroupById[second.Id]
+                        && Math.Abs(first.Layer - second.Layer) == 1)
+                    {
+                        count++;
+                    }
+                }
+            }
+
+            return count;
+        }
     }
 
     private static long EstimateBranchScore(IReadOnlyList<LayeredTile> tiles)
@@ -494,7 +582,8 @@ public sealed class LayeredTileGame
             .OrderByDescending(placement => placement.Layer)
             .ThenBy(placement => placement.Id)
             .ToArray();
-        var groupKinds = CreateSpacedKindDeck(solutionOrder.Length / 3, random);
+        var solutionGroups = solutionOrder.Chunk(3).Select(group => group.ToArray()).ToArray();
+        var groupKinds = CreateAntiClusteredKindDeck(solutionGroups, random);
 
         for (var index = 0; index < solutionOrder.Length; index += 3)
         {
@@ -507,22 +596,87 @@ public sealed class LayeredTileGame
         return assignments;
     }
 
-    private static IReadOnlyList<SignalTileKind> CreateSpacedKindDeck(int groupCount, Random random)
+    private static IReadOnlyList<SignalTileKind> CreateAntiClusteredKindDeck(
+        IReadOnlyList<TilePlacement[]> solutionGroups,
+        Random random)
     {
-        var groups = new List<SignalTileKind>(groupCount);
-        while (groups.Count < groupCount)
+        var assignments = new List<SignalTileKind>(solutionGroups.Count);
+        while (assignments.Count < solutionGroups.Count)
         {
-            var deck = TileKinds.ToList();
-            Shuffle(deck, random);
-            if (groups.Count > 0 && deck[0] == groups[^1])
+            var blockCount = Math.Min(TileKinds.Length, solutionGroups.Count - assignments.Count);
+            SignalTileKind[]? bestBlock = null;
+            var bestScore = long.MaxValue;
+            for (var sample = 0; sample < KindDeckPermutationSamples; sample++)
             {
-                (deck[0], deck[1]) = (deck[1], deck[0]);
+                var candidate = TileKinds.ToList();
+                Shuffle(candidate, random);
+                var block = candidate.Take(blockCount).ToArray();
+                var score = EstimateAssignedGroupNeighborScore(
+                    solutionGroups,
+                    assignments,
+                    block);
+                if (score >= bestScore)
+                {
+                    continue;
+                }
+
+                bestScore = score;
+                bestBlock = block;
             }
 
-            groups.AddRange(deck.Take(Math.Min(deck.Count, groupCount - groups.Count)));
+            assignments.AddRange(bestBlock
+                ?? throw new InvalidOperationException("No symbol-deck permutation was generated."));
         }
 
-        return groups;
+        return assignments;
+    }
+
+    private static long EstimateAssignedGroupNeighborScore(
+        IReadOnlyList<TilePlacement[]> solutionGroups,
+        IReadOnlyList<SignalTileKind> existingAssignments,
+        IReadOnlyList<SignalTileKind> candidateBlock)
+    {
+        var assignedCount = existingAssignments.Count + candidateBlock.Count;
+        var score = 0L;
+        for (var firstGroup = 0; firstGroup < assignedCount; firstGroup++)
+        {
+            var firstKind = firstGroup < existingAssignments.Count
+                ? existingAssignments[firstGroup]
+                : candidateBlock[firstGroup - existingAssignments.Count];
+            for (var secondGroup = firstGroup + 1; secondGroup < assignedCount; secondGroup++)
+            {
+                var secondKind = secondGroup < existingAssignments.Count
+                    ? existingAssignments[secondGroup]
+                    : candidateBlock[secondGroup - existingAssignments.Count];
+                if (firstKind != secondKind)
+                {
+                    continue;
+                }
+
+                foreach (var first in solutionGroups[firstGroup])
+                {
+                    foreach (var second in solutionGroups[secondGroup])
+                    {
+                        if (Math.Abs(first.Layer - second.Layer) != 1)
+                        {
+                            continue;
+                        }
+
+                        score += 1;
+                        if (Overlaps(first, second))
+                        {
+                            score += 8;
+                        }
+                        else if (Math.Abs(first.X - second.X) <= 1 && Math.Abs(first.Y - second.Y) <= 1)
+                        {
+                            score += 2;
+                        }
+                    }
+                }
+            }
+        }
+
+        return score;
     }
 
     private static IReadOnlyList<SignalTileKind> SpaceRepeatedKinds(
@@ -565,11 +719,21 @@ public sealed class LayeredTileGame
 
     private static bool Overlaps(LayeredTile first, LayeredTile second)
     {
+        return Overlaps(first.X, first.Y, second.X, second.Y);
+    }
+
+    private static bool Overlaps(TilePlacement first, TilePlacement second)
+    {
+        return Overlaps(first.X, first.Y, second.X, second.Y);
+    }
+
+    private static bool Overlaps(double firstX, double firstY, double secondX, double secondY)
+    {
         const double tileSpan = 1;
-        return first.X < second.X + tileSpan
-            && first.X + tileSpan > second.X
-            && first.Y < second.Y + tileSpan
-            && first.Y + tileSpan > second.Y;
+        return firstX < secondX + tileSpan
+            && firstX + tileSpan > secondX
+            && firstY < secondY + tileSpan
+            && firstY + tileSpan > secondY;
     }
 
     private static void Shuffle<T>(IList<T> values, Random random)

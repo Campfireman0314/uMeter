@@ -33,6 +33,19 @@ public sealed class LayeredTileGameTests
         Assert.Equal(1, immediateMatches);
     }
 
+    [Fact]
+    public void GeneratedBoardsStronglyLimitSameKindCardsInNeighboringLayers()
+    {
+        foreach (var seed in new[] { 1, 2, 3, 10, 42, 99, 256, 1024, 2026, 65535 })
+        {
+            var game = LayeredTileGame.Create(seed);
+
+            Assert.True(
+                game.NeighboringLayerRepeatPairCount <= 60,
+                $"Seed {seed} produced {game.NeighboringLayerRepeatPairCount} neighboring-layer repeat pairs.");
+        }
+    }
+
     [Theory]
     [InlineData(1)]
     [InlineData(42)]
