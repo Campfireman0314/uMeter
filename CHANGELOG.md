@@ -38,7 +38,8 @@
 - Expanded the board from 42 tiles in three layers, first to 102 tiles and then to a guaranteed-solvable 222-tile, eleven-layer 5-by-7 dense-middle layout inspired by the viral mini-program's general difficulty pacing, without copying a published map.
 - Changed generation from independent per-layer triples to a constructive solution sequence with triples crossing layer boundaries, increasing tray pressure while keeping every seed winnable.
 - Deepened the 222-card board from eleven to thirteen layers with a four-card opening, and increased symbol families from twelve to sixteen.
-- Added 96-sample anti-clustered symbol-deck permutations inside the 48-candidate search, prioritizing one opening family, sharply reducing same-color cards across neighboring layers, and using local branch score as the final tie-breaker.
+- Replaced adjacent-layer color separation as the difficulty proxy with automated constructed-path evaluation. After one readable opening triple, the guaranteed solution now uses twenty-four randomized nine-card pressure blocks that interleave three families and repeatedly drive the seven-slot tray to six cards.
+- The 48-candidate search now preserves one opening family and maximizes simulated tray pressure, family switching, new-family decoys, and dangerous non-completing choices while penalizing obvious alternate completions.
 - Kept cards on the highest remaining layer and the layer immediately below identifiable, while fully obscuring every card two or more layers below that global top layer.
 - Removed the abrupt 111-card tool lock; Cannon, Fan, and Digger are optional strategic aids, while difficulty comes from the generated layer and symbol arrangement.
 - Kept product, setup, shared components, VST3, AAX, and installer defaults on the `2.4.0` release line.

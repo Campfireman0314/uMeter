@@ -60,11 +60,16 @@ public sealed class LayeredTile
     public bool IsRemoved { get; internal set; }
 }
 
+internal readonly record struct ConstructedPathDifficultyMetrics(
+    long Score,
+    int PeakTrayOccupancy,
+    int RiskyDecoyChoices,
+    int NewFamilyDecoyChoices);
+
 public sealed class LayeredTileGame
 {
     public const int DefaultTrayCapacity = 7;
     private const int BoardCandidateCount = 48;
-    private const int KindDeckPermutationSamples = 96;
     private static readonly SignalTileKind[] TileKinds = Enum.GetValues<SignalTileKind>();
     private readonly List<LayeredTile> _tiles;
     private readonly List<SignalTileKind> _tray = [];
@@ -107,8 +112,7 @@ public sealed class LayeredTileGame
     {
         List<LayeredTile>? bestTiles = null;
         var bestOpeningPenalty = int.MaxValue;
-        var bestNeighboringLayerScore = long.MaxValue;
-        var bestBranchScore = long.MaxValue;
+        var bestDifficultyScore = long.MinValue;
         for (var candidate = 0; candidate < BoardCandidateCount; candidate++)
         {
             var candidateSeed = unchecked(seed + (candidate * 104729));
@@ -123,19 +127,15 @@ public sealed class LayeredTileGame
                     placement.Layer))
                 .ToList();
             var openingPenalty = Math.Abs(CountImmediatelyCompletableKinds(tiles) - 1);
-            var neighboringLayerScore = EstimateNeighboringLayerRepeatScore(tiles);
-            var branchScore = EstimateBranchScore(tiles);
+            var difficultyScore = AnalyzeConstructedPathDifficulty(tiles).Score;
             if (openingPenalty > bestOpeningPenalty
-                || (openingPenalty == bestOpeningPenalty
-                    && (neighboringLayerScore > bestNeighboringLayerScore
-                        || (neighboringLayerScore == bestNeighboringLayerScore && branchScore >= bestBranchScore))))
+                || (openingPenalty == bestOpeningPenalty && difficultyScore <= bestDifficultyScore))
             {
                 continue;
             }
 
             bestOpeningPenalty = openingPenalty;
-            bestNeighboringLayerScore = neighboringLayerScore;
-            bestBranchScore = branchScore;
+            bestDifficultyScore = difficultyScore;
             bestTiles = tiles;
         }
 
@@ -173,78 +173,10 @@ public sealed class LayeredTileGame
             .Count(group => group.Count() >= 3);
     }
 
-    private static long EstimateNeighboringLayerRepeatScore(IReadOnlyList<LayeredTile> tiles)
-    {
-        var solutionOrder = tiles
-            .OrderByDescending(tile => tile.Layer)
-            .ThenBy(tile => tile.Id)
-            .ToArray();
-        var solutionGroupById = solutionOrder
-            .Select((tile, index) => (tile.Id, Group: index / 3))
-            .ToDictionary(item => item.Id, item => item.Group);
-        var score = 0L;
-        for (var firstIndex = 0; firstIndex < tiles.Count; firstIndex++)
-        {
-            var first = tiles[firstIndex];
-            for (var secondIndex = firstIndex + 1; secondIndex < tiles.Count; secondIndex++)
-            {
-                var second = tiles[secondIndex];
-                if (first.Kind != second.Kind
-                    || solutionGroupById[first.Id] == solutionGroupById[second.Id]
-                    || Math.Abs(first.Layer - second.Layer) != 1)
-                {
-                    continue;
-                }
-
-                score += 1;
-                if (Overlaps(first, second))
-                {
-                    score += 8;
-                }
-                else if (Math.Abs(first.X - second.X) <= 1 && Math.Abs(first.Y - second.Y) <= 1)
-                {
-                    score += 2;
-                }
-            }
-        }
-
-        return score;
-    }
-
-    internal int NeighboringLayerRepeatPairCount
-    {
-        get
-        {
-            var solutionOrder = _tiles
-                .OrderByDescending(tile => tile.Layer)
-                .ThenBy(tile => tile.Id)
-                .ToArray();
-            var solutionGroupById = solutionOrder
-                .Select((tile, index) => (tile.Id, Group: index / 3))
-                .ToDictionary(item => item.Id, item => item.Group);
-            var count = 0;
-            for (var firstIndex = 0; firstIndex < _tiles.Count; firstIndex++)
-            {
-                var first = _tiles[firstIndex];
-                for (var secondIndex = firstIndex + 1; secondIndex < _tiles.Count; secondIndex++)
-                {
-                    var second = _tiles[secondIndex];
-                    if (first.Kind == second.Kind
-                        && solutionGroupById[first.Id] != solutionGroupById[second.Id]
-                        && Math.Abs(first.Layer - second.Layer) == 1)
-                    {
-                        count++;
-                    }
-                }
-            }
-
-            return count;
-        }
-    }
-
-    private static long EstimateBranchScore(IReadOnlyList<LayeredTile> tiles)
+    private static ConstructedPathDifficultyMetrics AnalyzeConstructedPathDifficulty(IReadOnlyList<LayeredTile> tiles)
     {
         var removed = new HashSet<int>();
+        var tray = new List<SignalTileKind>(DefaultTrayCapacity);
         var blockersByTileId = tiles.ToDictionary(
             tile => tile.Id,
             tile => tiles
@@ -256,27 +188,76 @@ public sealed class LayeredTileGame
             .ThenBy(tile => tile.Id)
             .ToArray();
         var score = 0L;
-        for (var index = 0; index < solutionOrder.Length; index += 3)
+        var peakTrayOccupancy = 0;
+        var riskyDecoyChoices = 0;
+        var newFamilyDecoyChoices = 0;
+        for (var index = 0; index < solutionOrder.Length; index++)
         {
-            var selectableGroups = tiles
+            var canonicalTile = solutionOrder[index];
+            var selectable = tiles
                 .Where(tile => !removed.Contains(tile.Id))
                 .Where(tile => blockersByTileId[tile.Id].All(removed.Contains))
-                .GroupBy(tile => tile.Kind)
-                .Select(group => group.Count())
                 .ToArray();
-            var weight = solutionOrder.Length - index;
-            var completeChoices = selectableGroups.Count(count => count >= 3);
-            var partialPairs = selectableGroups.Count(count => count == 2);
-            score += Math.Max(0, completeChoices - 1) * weight * 10000L;
-            score += partialPairs * weight * 100L;
-            score += selectableGroups.Length * weight;
+            var riskyDecoys = 0;
+            var newFamilyDecoys = 0;
+            var obviousCompletions = 0;
+            foreach (var option in selectable)
+            {
+                if (option.Id == canonicalTile.Id)
+                {
+                    continue;
+                }
 
-            removed.Add(solutionOrder[index].Id);
-            removed.Add(solutionOrder[index + 1].Id);
-            removed.Add(solutionOrder[index + 2].Id);
+                var matchingTrayCount = tray.Count(kind => kind == option.Kind);
+                if (matchingTrayCount == 2)
+                {
+                    obviousCompletions++;
+                }
+                else
+                {
+                    if (matchingTrayCount == 0)
+                    {
+                        newFamilyDecoys++;
+                    }
+
+                    if (tray.Count >= DefaultTrayCapacity - 1)
+                    {
+                        riskyDecoys++;
+                    }
+                }
+            }
+
+            var remainingWeight = solutionOrder.Length - index;
+            score += tray.Count * tray.Count * 1000L;
+            score += tray.Distinct().Count() * 200L;
+            score += riskyDecoys * remainingWeight * 40L;
+            score += newFamilyDecoys * remainingWeight * 3L;
+            score -= obviousCompletions * remainingWeight * 6L;
+            riskyDecoyChoices += riskyDecoys;
+            newFamilyDecoyChoices += newFamilyDecoys;
+
+            removed.Add(canonicalTile.Id);
+            AddKindToTray(tray, canonicalTile.Kind);
+            peakTrayOccupancy = Math.Max(peakTrayOccupancy, tray.Count);
         }
 
-        return score;
+        return new ConstructedPathDifficultyMetrics(
+            score,
+            peakTrayOccupancy,
+            riskyDecoyChoices,
+            newFamilyDecoyChoices);
+    }
+
+    internal ConstructedPathDifficultyMetrics ConstructedPathDifficulty => AnalyzeConstructedPathDifficulty(_tiles);
+
+    private static void AddKindToTray(List<SignalTileKind> tray, SignalTileKind kind)
+    {
+        var lastMatch = tray.FindLastIndex(candidate => candidate == kind);
+        tray.Insert(lastMatch < 0 ? tray.Count : lastMatch + 1, kind);
+        if (tray.Count(candidate => candidate == kind) == 3)
+        {
+            tray.RemoveAll(candidate => candidate == kind);
+        }
     }
 
     internal static LayeredTileGame CreateForTesting(IEnumerable<LayeredTile> tiles, int trayCapacity = DefaultTrayCapacity)
@@ -582,101 +563,81 @@ public sealed class LayeredTileGame
             .OrderByDescending(placement => placement.Layer)
             .ThenBy(placement => placement.Id)
             .ToArray();
-        var solutionGroups = solutionOrder.Chunk(3).Select(group => group.ToArray()).ToArray();
-        var groupKinds = CreateAntiClusteredKindDeck(solutionGroups, random);
+        var solutionGroups = CreateInterleavedSolutionGroups(solutionOrder, random);
+        var groupKinds = CreateSpacedKindDeck(solutionGroups.Count, random);
 
-        for (var index = 0; index < solutionOrder.Length; index += 3)
+        for (var groupIndex = 0; groupIndex < solutionGroups.Count; groupIndex++)
         {
-            var kind = groupKinds[index / 3];
-            assignments[solutionOrder[index].Id] = kind;
-            assignments[solutionOrder[index + 1].Id] = kind;
-            assignments[solutionOrder[index + 2].Id] = kind;
+            foreach (var placement in solutionGroups[groupIndex])
+            {
+                assignments[placement.Id] = groupKinds[groupIndex];
+            }
         }
 
         return assignments;
     }
 
-    private static IReadOnlyList<SignalTileKind> CreateAntiClusteredKindDeck(
-        IReadOnlyList<TilePlacement[]> solutionGroups,
+    private static IReadOnlyList<TilePlacement[]> CreateInterleavedSolutionGroups(
+        IReadOnlyList<TilePlacement> solutionOrder,
         Random random)
     {
-        var assignments = new List<SignalTileKind>(solutionGroups.Count);
-        while (assignments.Count < solutionGroups.Count)
+        if (solutionOrder.Count % 3 != 0)
         {
-            var blockCount = Math.Min(TileKinds.Length, solutionGroups.Count - assignments.Count);
-            SignalTileKind[]? bestBlock = null;
-            var bestScore = long.MaxValue;
-            for (var sample = 0; sample < KindDeckPermutationSamples; sample++)
-            {
-                var candidate = TileKinds.ToList();
-                Shuffle(candidate, random);
-                var block = candidate.Take(blockCount).ToArray();
-                var score = EstimateAssignedGroupNeighborScore(
-                    solutionGroups,
-                    assignments,
-                    block);
-                if (score >= bestScore)
-                {
-                    continue;
-                }
-
-                bestScore = score;
-                bestBlock = block;
-            }
-
-            assignments.AddRange(bestBlock
-                ?? throw new InvalidOperationException("No symbol-deck permutation was generated."));
+            throw new InvalidOperationException("The solution order must contain complete triples.");
         }
 
-        return assignments;
+        var groups = new List<TilePlacement[]>(solutionOrder.Count / 3)
+        {
+            solutionOrder.Take(3).ToArray()
+        };
+        var index = 3;
+        while (solutionOrder.Count - index >= 9)
+        {
+            var block = solutionOrder.Skip(index).Take(9).ToArray();
+            var interleaved = new[]
+            {
+                new List<TilePlacement>(3),
+                new List<TilePlacement>(3),
+                new List<TilePlacement>(3)
+            };
+            for (var pass = 0; pass < 3; pass++)
+            {
+                var groupOrder = new List<int> { 0, 1, 2 };
+                Shuffle(groupOrder, random);
+                for (var slot = 0; slot < 3; slot++)
+                {
+                    interleaved[groupOrder[slot]].Add(block[(pass * 3) + slot]);
+                }
+            }
+
+            groups.AddRange(interleaved.Select(group => group.ToArray()));
+            index += 9;
+        }
+
+        if (index < solutionOrder.Count)
+        {
+            groups.Add(solutionOrder.Skip(index).ToArray());
+        }
+
+        return groups;
     }
 
-    private static long EstimateAssignedGroupNeighborScore(
-        IReadOnlyList<TilePlacement[]> solutionGroups,
-        IReadOnlyList<SignalTileKind> existingAssignments,
-        IReadOnlyList<SignalTileKind> candidateBlock)
+    private static IReadOnlyList<SignalTileKind> CreateSpacedKindDeck(int groupCount, Random random)
     {
-        var assignedCount = existingAssignments.Count + candidateBlock.Count;
-        var score = 0L;
-        for (var firstGroup = 0; firstGroup < assignedCount; firstGroup++)
+        var groups = new List<SignalTileKind>(groupCount);
+        while (groups.Count < groupCount)
         {
-            var firstKind = firstGroup < existingAssignments.Count
-                ? existingAssignments[firstGroup]
-                : candidateBlock[firstGroup - existingAssignments.Count];
-            for (var secondGroup = firstGroup + 1; secondGroup < assignedCount; secondGroup++)
+            var deck = TileKinds.ToList();
+            Shuffle(deck, random);
+            if (groups.Count > 0 && deck[0] == groups[^1])
             {
-                var secondKind = secondGroup < existingAssignments.Count
-                    ? existingAssignments[secondGroup]
-                    : candidateBlock[secondGroup - existingAssignments.Count];
-                if (firstKind != secondKind)
-                {
-                    continue;
-                }
-
-                foreach (var first in solutionGroups[firstGroup])
-                {
-                    foreach (var second in solutionGroups[secondGroup])
-                    {
-                        if (Math.Abs(first.Layer - second.Layer) != 1)
-                        {
-                            continue;
-                        }
-
-                        score += 1;
-                        if (Overlaps(first, second))
-                        {
-                            score += 8;
-                        }
-                        else if (Math.Abs(first.X - second.X) <= 1 && Math.Abs(first.Y - second.Y) <= 1)
-                        {
-                            score += 2;
-                        }
-                    }
-                }
+                (deck[0], deck[1]) = (deck[1], deck[0]);
             }
+
+            groups.AddRange(deck.Take(Math.Min(deck.Count, groupCount - groups.Count)));
         }
 
-        return score;
+        return groups;
     }
 
     private static IReadOnlyList<SignalTileKind> SpaceRepeatedKinds(
@@ -722,10 +683,6 @@ public sealed class LayeredTileGame
         return Overlaps(first.X, first.Y, second.X, second.Y);
     }
 
-    private static bool Overlaps(TilePlacement first, TilePlacement second)
-    {
-        return Overlaps(first.X, first.Y, second.X, second.Y);
-    }
 
     private static bool Overlaps(double firstX, double firstY, double secondX, double secondY)
     {

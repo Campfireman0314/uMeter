@@ -10,9 +10,10 @@
 - Three identical tray tiles disappear immediately.
 - Clearing the board wins; filling the current seven- or eight-slot capacity without a match loses.
 - Sixteen original signal symbols increase tray pressure and visual scanning cost.
-- Every generated seed has a constructive solution ordered from exposed upper layers downward. Several triples intentionally cross layer boundaries, requiring partial groups to remain in the tray and increasing pressure without creating unwinnable boards.
-- Group kinds are dealt in sixteen-kind blocks. For each block, 96 deterministic deck permutations are sampled and scored against earlier groups, heavily penalizing same-kind cards in neighboring layers and adding extra cost when those cards overlap or sit close together.
-- Generation evaluates 48 deterministic position/kind candidates. It first preserves exactly one immediately completable opening family, then minimizes the neighboring-layer repeat score, and finally uses the local branch score as a tie-breaker.
+- Every generated seed has a constructive solution ordered from exposed upper layers downward. The first and last triples are direct; the 216 cards between them form twenty-four nine-card pressure blocks.
+- Each pressure block interleaves three families over three shuffled passes. Following the guaranteed path therefore holds six cards in the seven-slot tray before the first family resolves, then closes the other two in a randomized order.
+- Logical triple kinds are dealt from spaced sixteen-kind decks, keeping long-range repetition controlled without turning neighboring-layer color separation into the primary objective.
+- Generation evaluates 48 deterministic position/kind candidates. It first preserves exactly one immediately completable opening family, then maximizes a scripted-play difficulty score based on tray occupancy, family switching, new-family decoys, and dangerous choices available when six slots are occupied; obvious alternate completions reduce the score.
 - Generated boards remain continuously playable with no midpoint rule interruption. Cannon, Fan, and Digger are optional strategic aids rather than required progress gates.
 - Greying uses global board depth rather than overlap count. If the highest remaining layer is `N`, cards on layers `N` and `N-1` retain their identity, while every card on layer `N-2` or lower receives an opaque grey veil that hides both symbol and family color.
 
@@ -102,13 +103,16 @@ Each restart or new game grants one of each item:
 
 - A 2022 numerical-design analysis describes the viral mini-program's second-stage pacing as many symbol types across a small-start, dense-middle, small-end layer distribution. Signal Shuffle adopts that general information-pressure curve at smaller scale, not the original map: https://maimai.cn/article/detail?fid=1756056437&efid=uAe2sNMx5ilsv0k8NxruWw
 - The public SheepSolver project characterizes the game as a backtracking/topology problem whose draw strategy materially affects solvability. Signal Shuffle retains a guaranteed constructive solution sequence instead of copying captured map data: https://github.com/NB-Dragon/SheepSolver
+- `Improving Conditional Level Generation using Automated Validation in Match-3 Games` conditions generation on difficulty statistics from scripted bot playthroughs and reports better validity than generation without gameplay-derived difficulty information. Signal Shuffle similarly scores complete candidates through simulated legal play rather than static color layout alone: https://arxiv.org/html/2409.06349
+- `Difficulty Modelling in Mobile Puzzle Games` reports that simulated agent data captures dynamic traps and is materially more useful than static level descriptors alone for cold-start difficulty prediction. Signal Shuffle therefore records tray pressure and decoy actions along a guaranteed playthrough: https://arxiv.org/html/2401.17436v1
+- `Data-Driven Sokoban Puzzle Generation with Monte Carlo Tree Search` combines simulated gameplay, guaranteed solvability, and efficiently computed difficulty features. Signal Shuffle follows the same broad generate-valid-then-optimize principle without adopting Sokoban-specific mechanics: https://motion.cs.umn.edu/pub/SokobanMCTS/DataDrivenSokobanMCTS.pdf
 - The detector direction follows established beat-tracking practice that uses spectral event flux and autocorrelation to estimate periodicities, including `Template-Based Estimation of Time-Varying Tempo`: https://doi.org/10.1155/2007/67215
 
 ## Verification
 
 - Managed solution build: passed with zero warnings and zero errors.
 - Managed suite: 397 passing tests.
-- Across fixed seeds `1, 2, 3, 10, 42, 99, 256, 1024, 2026, 65535`, cross-group same-kind card pairs in neighboring layers fell from the previous generator's `126-174` range to `41-54`; regression coverage enforces a maximum of `60`.
+- Across fixed seeds `1, 2, 3, 10, 42, 99, 256, 1024, 2026, 65535`, the constructed path reaches six occupied tray slots and exposes both new-family decoys and dangerous non-completing choices; regression coverage requires all three properties.
 - Articulated-rig controller coverage checks the timed rise/apex/landing curve, close-onset rejection, low-V/high-V cheer transition, bounded joint output, secondary follow-through, and jump settling.
 - Off-screen WPF renders of the low-V stance and high-V jumping apex: 32,992 to 33,881 nontransparent pixels per 260 x 390 frame; all alpha bounds remain inside the logical canvas.
 - Pose inspection: the white muzzle, wool-occluded shoulder roots, straight split-hoof arm lines, symmetric knee tuck, and airborne high V remain legible.

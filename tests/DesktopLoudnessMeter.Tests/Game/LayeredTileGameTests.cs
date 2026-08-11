@@ -34,15 +34,15 @@ public sealed class LayeredTileGameTests
     }
 
     [Fact]
-    public void GeneratedBoardsStronglyLimitSameKindCardsInNeighboringLayers()
+    public void GeneratedBoardsExposeDangerousDecoysAlongTheConstructedPath()
     {
         foreach (var seed in new[] { 1, 2, 3, 10, 42, 99, 256, 1024, 2026, 65535 })
         {
-            var game = LayeredTileGame.Create(seed);
+            var metrics = LayeredTileGame.Create(seed).ConstructedPathDifficulty;
 
-            Assert.True(
-                game.NeighboringLayerRepeatPairCount <= 60,
-                $"Seed {seed} produced {game.NeighboringLayerRepeatPairCount} neighboring-layer repeat pairs.");
+            Assert.Equal(6, metrics.PeakTrayOccupancy);
+            Assert.True(metrics.RiskyDecoyChoices > 0, $"Seed {seed} exposed no tray-filling decoy choices.");
+            Assert.True(metrics.NewFamilyDecoyChoices > 0, $"Seed {seed} exposed no new-family decoy choices.");
         }
     }
 
@@ -50,16 +50,19 @@ public sealed class LayeredTileGameTests
     [InlineData(1)]
     [InlineData(42)]
     [InlineData(2026)]
-    public void GeneratedBoardCanBeClearedWithoutPowerUps(int seed)
+    public void GeneratedBoardCanBeClearedWithoutPowerUpsUnderHighTrayPressure(int seed)
     {
         var game = LayeredTileGame.Create(seed);
+        var maximumTrayOccupancy = 0;
 
         foreach (var tile in game.Tiles.OrderByDescending(tile => tile.Layer).ThenBy(tile => tile.Id))
         {
             Assert.True(game.IsSelectable(tile));
             game.Select(tile.Id);
+            maximumTrayOccupancy = Math.Max(maximumTrayOccupancy, game.Tray.Count);
         }
 
+        Assert.Equal(6, maximumTrayOccupancy);
         Assert.Equal(TileGameState.Won, game.State);
         Assert.Equal(0, game.RemainingTileCount);
         Assert.Empty(game.Tray);
@@ -90,18 +93,26 @@ public sealed class LayeredTileGameTests
     }
 
     [Fact]
-    public void ConstructedSolutionCarriesSomeTriplesAcrossLayerBoundaries()
+    public void ConstructedSolutionInterleavesThreeFamiliesPerPressureBlock()
     {
         var game = LayeredTileGame.Create(42);
-        var solutionGroups = game.Tiles
+        var solutionOrder = game.Tiles
             .OrderByDescending(tile => tile.Layer)
             .ThenBy(tile => tile.Id)
-            .Chunk(3)
             .ToArray();
+        var opening = solutionOrder.Take(3).ToArray();
+        var pressureBlocks = solutionOrder.Skip(3).Take(216).Chunk(9).ToArray();
+        var closing = solutionOrder.TakeLast(3).ToArray();
 
-        Assert.All(solutionGroups, group => Assert.Single(group.Select(tile => tile.Kind).Distinct()));
-        Assert.Contains(solutionGroups, group => group.Select(tile => tile.Layer).Distinct().Count() > 1);
-        Assert.Equal(16, solutionGroups.Take(16).Select(group => group[0].Kind).Distinct().Count());
+        Assert.Single(opening.Select(tile => tile.Kind).Distinct());
+        Assert.All(pressureBlocks, block =>
+        {
+            var families = block.GroupBy(tile => tile.Kind).ToArray();
+            Assert.Equal(3, families.Length);
+            Assert.All(families, family => Assert.Equal(3, family.Count()));
+            Assert.All(block.Chunk(3), pass => Assert.Equal(3, pass.Select(tile => tile.Kind).Distinct().Count()));
+        });
+        Assert.Single(closing.Select(tile => tile.Kind).Distinct());
     }
 
     [Fact]
