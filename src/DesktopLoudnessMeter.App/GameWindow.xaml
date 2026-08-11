@@ -485,6 +485,22 @@
                                                     </Style>
                                                 </Border.Style>
                                             </Border>
+                                            <Border Background="#FF303633"
+                                                    BorderBrush="#FF171A19"
+                                                    BorderThickness="1"
+                                                    CornerRadius="3"
+                                                    IsHitTestVisible="False">
+                                                <Border.Style>
+                                                    <Style TargetType="Border">
+                                                        <Setter Property="Visibility" Value="Collapsed" />
+                                                        <Style.Triggers>
+                                                            <DataTrigger Binding="{Binding IsDeepCovered}" Value="True">
+                                                                <Setter Property="Visibility" Value="Visible" />
+                                                            </DataTrigger>
+                                                        </Style.Triggers>
+                                                    </Style>
+                                                </Border.Style>
+                                            </Border>
                                         </Grid>
                                     </DataTemplate>
                                 </ItemsControl.ItemTemplate>

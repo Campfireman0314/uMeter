@@ -37,17 +37,12 @@ public sealed class LayeredTileGameTests
     [InlineData(1)]
     [InlineData(42)]
     [InlineData(2026)]
-    public void GeneratedBoardCanBeClearedWithOnePowerUp(int seed)
+    public void GeneratedBoardCanBeClearedWithoutPowerUps(int seed)
     {
         var game = LayeredTileGame.Create(seed);
 
         foreach (var tile in game.Tiles.OrderByDescending(tile => tile.Layer).ThenBy(tile => tile.Id))
         {
-            if (game.IsToolGateActive)
-            {
-                Assert.True(game.UseDigger());
-            }
-
             Assert.True(game.IsSelectable(tile));
             game.Select(tile.Id);
         }
@@ -55,28 +50,29 @@ public sealed class LayeredTileGameTests
         Assert.Equal(TileGameState.Won, game.State);
         Assert.Equal(0, game.RemainingTileCount);
         Assert.Empty(game.Tray);
+        Assert.True(game.CannonAvailable);
+        Assert.True(game.FanAvailable);
+        Assert.True(game.DiggerAvailable);
     }
 
     [Fact]
-    public void GeneratedBoardCannotPassMidpointWithoutUsingPowerUp()
+    public void GeneratedBoardRemainsPlayableThroughMidpointWithoutPowerUp()
     {
         var game = LayeredTileGame.Create(42);
-        foreach (var tile in game.Tiles.OrderByDescending(tile => tile.Layer).ThenBy(tile => tile.Id))
-        {
-            if (game.IsToolGateActive)
-            {
-                break;
-            }
+        var firstHalf = game.Tiles
+            .OrderByDescending(tile => tile.Layer)
+            .ThenBy(tile => tile.Id)
+            .Take(111)
+            .ToArray();
 
+        foreach (var tile in firstHalf)
+        {
+            Assert.True(game.IsSelectable(tile));
             game.Select(tile.Id);
         }
 
-        Assert.True(game.IsToolGateActive);
         Assert.Equal(111, game.RemainingTileCount);
-        Assert.False(game.HasUsedPowerUp);
-        Assert.DoesNotContain(game.Tiles, game.IsSelectable);
-        Assert.True(game.UseFan());
-        Assert.True(game.HasUsedPowerUp);
+        Assert.Equal(TileGameState.Playing, game.State);
         Assert.Contains(game.Tiles, game.IsSelectable);
     }
 
@@ -170,16 +166,26 @@ public sealed class LayeredTileGameTests
     }
 
     [Fact]
-    public void CoveredTileCannotBeSelectedUntilOverlappingTileIsRemoved()
+    public void CoverDepthFallsAsOverlappingLayersAreRemoved()
     {
         var bottom = LayeredTileGame.CreateTileForTesting(1, SignalTileKind.Star, 0, 0, 0);
-        var top = LayeredTileGame.CreateTileForTesting(2, SignalTileKind.Note, 0.5, 0.5, 1);
-        var game = LayeredTileGame.CreateForTesting([bottom, top]);
+        var middle = LayeredTileGame.CreateTileForTesting(2, SignalTileKind.Note, 0, 0, 1);
+        var top = LayeredTileGame.CreateTileForTesting(3, SignalTileKind.Cloud, 0, 0, 2);
+        var game = LayeredTileGame.CreateForTesting([bottom, middle, top]);
 
+        Assert.Equal(2, game.GetCoverDepth(bottom));
+        Assert.Equal(1, game.GetCoverDepth(middle));
+        Assert.Equal(0, game.GetCoverDepth(top));
         Assert.False(game.IsSelectable(bottom));
         Assert.Equal(TileSelectionResult.Ignored, game.Select(bottom.Id));
 
         Assert.Equal(TileSelectionResult.Added, game.Select(top.Id));
+        Assert.Equal(1, game.GetCoverDepth(bottom));
+        Assert.Equal(0, game.GetCoverDepth(middle));
+        Assert.True(game.IsSelectable(middle));
+
+        Assert.Equal(TileSelectionResult.Added, game.Select(middle.Id));
+        Assert.Equal(0, game.GetCoverDepth(bottom));
         Assert.True(game.IsSelectable(bottom));
     }
 

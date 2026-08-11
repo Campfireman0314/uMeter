@@ -42,6 +42,26 @@ public sealed class WpfResourcePackagingTests
                 && attribute.Value == "{Binding DisplayTitle}"));
     }
 
+    [Fact]
+    public void DeepCoveredGameTilesUseAnOpaqueNeutralVeil()
+    {
+        var repositoryRoot = FindRepositoryRoot();
+        var document = XDocument.Load(Path.Combine(
+            repositoryRoot,
+            "src/DesktopLoudnessMeter.App/GameWindow.xaml"));
+
+        Assert.Contains(document.Descendants(), element =>
+            element.Name.LocalName == "Border"
+            && element.Attributes().Any(attribute =>
+                attribute.Name.LocalName == "Background"
+                && attribute.Value == "#FF303633")
+            && element.Descendants().Any(descendant =>
+                descendant.Name.LocalName == "DataTrigger"
+                && descendant.Attributes().Any(attribute =>
+                    attribute.Name.LocalName == "Binding"
+                    && attribute.Value == "{Binding IsDeepCovered}")));
+    }
+
     private static HashSet<string> ReadGeneratedResourceKeys(Assembly assembly)
     {
         var resourceName = Assert.Single(

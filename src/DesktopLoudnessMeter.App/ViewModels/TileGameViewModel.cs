@@ -165,7 +165,6 @@ public sealed class TileGameViewModel : ObservableObject, IDisposable
     {
         TileGameState.Won => LocalizationManager.Translate("Board cleared!"),
         TileGameState.Lost => LocalizationManager.Translate("Tray full"),
-        _ when _game.IsToolGateActive => LocalizationManager.Translate("Tool lock"),
         _ => LocalizationManager.Translate("Playing")
     };
 
@@ -649,7 +648,8 @@ public sealed class TileGameViewModel : ObservableObject, IDisposable
                 position.Left,
                 position.Top,
                 tile.Layer,
-                _game.IsSelectable(tile)));
+                _game.IsSelectable(tile),
+                _game.GetCoverDepth(tile)));
         }
 
         TraySlots.Clear();
@@ -808,7 +808,11 @@ public sealed record GameTileViewModel(
     double Left,
     double Top,
     int Layer,
-    bool IsSelectable);
+    bool IsSelectable,
+    int CoverDepth)
+{
+    public bool IsDeepCovered => CoverDepth >= 2;
+}
 
 public sealed record TraySlotViewModel(SignalTileKind? Kind)
 {

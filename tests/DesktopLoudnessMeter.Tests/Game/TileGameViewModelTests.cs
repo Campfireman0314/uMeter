@@ -138,7 +138,7 @@ public sealed class TileGameViewModelTests
     }
 
     [Fact]
-    public void MidpointLocksBoardUntilPowerUpIsUsed()
+    public void MidpointRemainsPlayableWithoutPowerUp()
     {
         using var mainViewModel = new MainViewModel(new FakeSourceService(), startTimer: false);
         using var gameViewModel = new TileGameViewModel(mainViewModel, seed: 42, startDanceTimer: false);
@@ -154,14 +154,25 @@ public sealed class TileGameViewModelTests
             gameViewModel.SelectTileCommand.Execute(tileId);
         }
 
-        Assert.Equal("Tool lock", gameViewModel.GameStatusText);
-        Assert.DoesNotContain(gameViewModel.BoardTiles, tile => tile.IsSelectable);
-        Assert.True(gameViewModel.UseFanCommand.CanExecute(null));
-
-        gameViewModel.UseFanCommand.Execute(null);
-
         Assert.Equal("Playing", gameViewModel.GameStatusText);
+        Assert.Equal(111, gameViewModel.BoardTiles.Count);
         Assert.Contains(gameViewModel.BoardTiles, tile => tile.IsSelectable);
+        Assert.True(gameViewModel.IsCannonAvailable);
+        Assert.True(gameViewModel.IsFanAvailable);
+        Assert.True(gameViewModel.IsDiggerAvailable);
+    }
+
+    [Fact]
+    public void TilesUnderTwoOrMoreLayersAreMarkedDeepCovered()
+    {
+        using var mainViewModel = new MainViewModel(new FakeSourceService(), startTimer: false);
+        using var gameViewModel = new TileGameViewModel(mainViewModel, seed: 42, startDanceTimer: false);
+
+        Assert.Contains(gameViewModel.BoardTiles, tile => tile.CoverDepth >= 2);
+        Assert.All(gameViewModel.BoardTiles, tile =>
+            Assert.Equal(tile.CoverDepth >= 2, tile.IsDeepCovered));
+        Assert.All(gameViewModel.BoardTiles.Where(tile => tile.IsSelectable), tile =>
+            Assert.Equal(0, tile.CoverDepth));
     }
 
     [Fact]
@@ -209,7 +220,6 @@ public sealed class TileGameViewModelTests
         using var gameViewModel = new TileGameViewModel(mainViewModel, seed: 42, startDanceTimer: false);
         var presentations = new List<GameRoundPresentation>();
         gameViewModel.RoundPresentationRequested += presentations.Add;
-        gameViewModel.UseDiggerCommand.Execute(null);
         var solutionIds = gameViewModel.BoardTiles
             .OrderByDescending(tile => tile.Layer)
             .ThenBy(tile => tile.Id)

@@ -66,21 +66,17 @@ public sealed class LayeredTileGame
     private static readonly SignalTileKind[] TileKinds = Enum.GetValues<SignalTileKind>();
     private readonly List<LayeredTile> _tiles;
     private readonly List<SignalTileKind> _tray = [];
-    private const int ToolGateRemainingCount = 111;
     private readonly Random _powerUpRandom;
-    private readonly bool _requiresPowerUp;
     private int _trayCapacity;
 
     private LayeredTileGame(
         IEnumerable<LayeredTile> tiles,
         int trayCapacity,
-        Random powerUpRandom,
-        bool requiresPowerUp)
+        Random powerUpRandom)
     {
         _tiles = tiles.OrderBy(tile => tile.Layer).ThenBy(tile => tile.Id).ToList();
         _trayCapacity = trayCapacity;
         _powerUpRandom = powerUpRandom;
-        _requiresPowerUp = requiresPowerUp;
     }
 
     public IReadOnlyList<LayeredTile> Tiles => _tiles;
@@ -100,13 +96,6 @@ public sealed class LayeredTileGame
     public bool CanUseFan => FanAvailable && State == TileGameState.Playing && RemainingTileCount > 0;
 
     public bool CanUseDigger => DiggerAvailable && State != TileGameState.Won;
-
-    public bool HasUsedPowerUp { get; private set; }
-
-    public bool IsToolGateActive => _requiresPowerUp
-        && !HasUsedPowerUp
-        && RemainingTileCount is > 0 and <= ToolGateRemainingCount
-        && State == TileGameState.Playing;
 
     public TileGameState State { get; private set; } = TileGameState.Playing;
 
@@ -142,8 +131,7 @@ public sealed class LayeredTileGame
         return new LayeredTileGame(
             bestTiles ?? throw new InvalidOperationException("No board candidate was generated."),
             DefaultTrayCapacity,
-            new Random(seed ^ 0x51A7F00D),
-            requiresPowerUp: true);
+            new Random(seed ^ 0x51A7F00D));
     }
 
     private static List<TilePlacement> CreatePlacements(Random random)
@@ -205,7 +193,7 @@ public sealed class LayeredTileGame
 
     internal static LayeredTileGame CreateForTesting(IEnumerable<LayeredTile> tiles, int trayCapacity = DefaultTrayCapacity)
     {
-        return new LayeredTileGame(tiles, trayCapacity, new Random(0), requiresPowerUp: false);
+        return new LayeredTileGame(tiles, trayCapacity, new Random(0));
     }
 
     internal static LayeredTile CreateTileForTesting(int id, SignalTileKind kind, double x, double y, int layer)
@@ -213,17 +201,28 @@ public sealed class LayeredTileGame
         return new LayeredTile(id, kind, x, y, layer);
     }
 
-    public bool IsSelectable(LayeredTile tile)
+    public int GetCoverDepth(LayeredTile tile)
     {
-        if (State != TileGameState.Playing || tile.IsRemoved || IsToolGateActive)
+        if (tile.IsRemoved)
         {
-            return false;
+            return 0;
         }
 
-        return !_tiles.Any(other =>
-            !other.IsRemoved
-            && other.Layer > tile.Layer
-            && Overlaps(tile, other));
+        return _tiles
+            .Where(other =>
+                !other.IsRemoved
+                && other.Layer > tile.Layer
+                && Overlaps(tile, other))
+            .Select(other => other.Layer)
+            .Distinct()
+            .Count();
+    }
+
+    public bool IsSelectable(LayeredTile tile)
+    {
+        return State == TileGameState.Playing
+            && !tile.IsRemoved
+            && GetCoverDepth(tile) == 0;
     }
 
     public TileSelectionResult Select(int tileId)
@@ -289,7 +288,6 @@ public sealed class LayeredTileGame
 
         _tray.Clear();
         CannonAvailable = false;
-        HasUsedPowerUp = true;
         RebuildGuaranteedKindOrder();
         RecoverFromLoss();
         CompleteIfCleared();
@@ -310,7 +308,6 @@ public sealed class LayeredTileGame
         }
 
         FanAvailable = false;
-        HasUsedPowerUp = true;
         return true;
     }
 
@@ -323,7 +320,6 @@ public sealed class LayeredTileGame
 
         _trayCapacity++;
         DiggerAvailable = false;
-        HasUsedPowerUp = true;
         RecoverFromLoss();
         return true;
     }

@@ -13,7 +13,8 @@
 - Every generated seed has a constructive solution ordered from exposed upper layers downward. Several triples intentionally cross layer boundaries, requiring partial groups to remain in the tray and increasing pressure without creating unwinnable boards.
 - Group kinds are dealt from spaced sixteen-kind decks, preventing nearby canonical groups from repeating the same symbol.
 - Generation evaluates 48 deterministic position/kind candidates and selects the lowest local branch score. Tested seeds begin with exactly one immediately completable symbol family.
-- Generated hard boards engage a mandatory tool lock at 111 remaining cards. All table cards become illegal until Cannon, Fan, or Digger has been consumed, so no round can be cleared tool-free.
+- Generated boards remain continuously playable with no midpoint rule interruption. Cannon, Fan, and Digger are optional strategic aids rather than required progress gates.
+- Cards covered by one active layer remain dimly readable. Cards covered by two or more distinct active layers are rendered behind an opaque neutral veil, hiding both symbol and family color until enough upper layers are removed.
 
 ## Audio Contract
 
@@ -59,7 +60,7 @@ Each restart or new game grants one of each item:
 - `Fan`: preserves the current table-card multiset, moves kinds among existing positions, and reconstructs at least one completion that first resolves partial tray groups. It must be used before the tray reaches an unrecoverable timing point.
 - `Digger`: permanently increases tray capacity from seven to eight for the current round and can immediately recover a seven-card loss.
 - Each item is single-use. Restart and New Game restore all three.
-- Using any item before or at the 111-card midpoint unlocks the second half of the board. Cannon therefore needs tray contents and rewards earlier timing; Fan or Digger can break the lock directly.
+- No item is mandatory. Cannon rewards tray-aware timing, Fan can repair a difficult partial-group state, and Digger provides one additional margin slot.
 
 ## Feedback Effects
 
@@ -84,7 +85,7 @@ Each restart or new game grants one of each item:
 - The board coordinates are rotated into a 5-by-7 portrait footprint while tile symbols remain upright.
 - A compact strip above the board displays four phrase pips, groove, confidence-gated BPM/phase, and transient timing feedback.
 - The portrait board backing is 50% opaque so the dancer remains visible through uncovered plate areas; tiles, borders, symbols, and input targets remain fully opaque.
-- Covered tiles receive a dark occlusion veil and suppress their affinity rim. Selectable tiles remain saturated and visually dominant.
+- Tiles covered by one layer receive a dark occlusion veil. Tiles covered by two or more active layers receive a fully opaque neutral veil, so their glyphs and family colors cannot be identified. All covered tiles suppress their affinity rim; selectable tiles remain saturated and visually dominant.
 - The power rail uses dedicated vector silhouettes for a wheeled cannon, folding fan, and shovel rather than generic target/shuffle/plus glyphs.
 - `DancingSheepView` is a replaceable 260 x 390 WPF rig prototype based on the Plan 2 direction. It uses seven torso wool masses, independent expression parts, two segments plus a hoof per limb, two-stage ears and tail, and a fixed rear stack for legs and both arm roots beneath the torso wool.
 - The production-art handoff, pivot coordinates, layer names, acceptance checks, and Cubism decision gate are defined in `docs/dancing-sheep-rig.md`.
@@ -93,7 +94,7 @@ Each restart or new game grants one of each item:
 ## Current Limits
 
 - No persistent score or saved in-progress board.
-- No undo or unlimited assistance. Cannon, Fan, and Digger are each available once per round, and at least one is mandatory.
+- No undo or unlimited assistance. Cannon, Fan, and Digger are each available once per round and remain optional.
 - Final painted sheep, tile, background, motion, and sound art remain open; the WPF rig and layer contract are now fixed for the next asset pass.
 - Tempo confidence and phase are visual only; jump takeoff still follows accepted onset timing rather than rescheduling gameplay or animation to a predicted future beat.
 
@@ -106,7 +107,7 @@ Each restart or new game grants one of each item:
 ## Verification
 
 - Managed solution build: passed with zero warnings and zero errors.
-- Managed suite: 393 passing tests.
+- Managed suite: 396 passing tests.
 - Articulated-rig controller coverage checks the timed rise/apex/landing curve, close-onset rejection, low-V/high-V cheer transition, bounded joint output, secondary follow-through, and jump settling.
 - Off-screen WPF renders of the low-V stance and high-V jumping apex: 32,992 to 33,881 nontransparent pixels per 260 x 390 frame; all alpha bounds remain inside the logical canvas.
 - Pose inspection: the white muzzle, wool-occluded shoulder roots, straight split-hoof arm lines, symmetric knee tuck, and airborne high V remain legible.
