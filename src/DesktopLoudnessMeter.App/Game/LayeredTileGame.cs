@@ -70,6 +70,7 @@ public sealed class LayeredTileGame
 {
     public const int DefaultTrayCapacity = 7;
     private const int BoardCandidateCount = 48;
+    private static readonly int[] LayerTileCounts = [4, 8, 13, 18, 23, 28, 34, 28, 23, 18, 13, 8, 4];
     private static readonly SignalTileKind[] TileKinds = Enum.GetValues<SignalTileKind>();
     private readonly List<LayeredTile> _tiles;
     private readonly List<SignalTileKind> _tray = [];
@@ -149,19 +150,16 @@ public sealed class LayeredTileGame
     {
         var placements = new List<TilePlacement>(222);
         var nextId = 0;
-        AddLayer(placements, random, ref nextId, layer: 0, CreateCenteredGrid(2, 2));
-        AddLayer(placements, random, ref nextId, layer: 1, CreateRingLayer());
-        AddLayer(placements, random, ref nextId, layer: 2, CreateCrossLayer());
-        AddLayer(placements, random, ref nextId, layer: 3, CreateCornerCutGrid(5, 4));
-        AddLayer(placements, random, ref nextId, layer: 4, CreateCornerCutGrid(5, 5));
-        AddLayer(placements, random, ref nextId, layer: 5, CreateCornerCutGrid(6, 5));
-        AddLayer(placements, random, ref nextId, layer: 6, CreateDenseMiddle());
-        AddLayer(placements, random, ref nextId, layer: 7, CreateCornerCutGrid(6, 5));
-        AddLayer(placements, random, ref nextId, layer: 8, CreateCornerCutGrid(5, 5));
-        AddLayer(placements, random, ref nextId, layer: 9, CreateCornerCutGrid(5, 4));
-        AddLayer(placements, random, ref nextId, layer: 10, CreateCrossLayer());
-        AddLayer(placements, random, ref nextId, layer: 11, CreateRingLayer());
-        AddLayer(placements, random, ref nextId, layer: 12, CreateCenteredGrid(2, 2));
+        for (var layer = 0; layer < LayerTileCounts.Length; layer++)
+        {
+            AddLayer(
+                placements,
+                random,
+                ref nextId,
+                layer,
+                CreateSplitGateLayer(layer, LayerTileCounts[layer]));
+        }
+
         return placements;
     }
 
@@ -249,6 +247,16 @@ public sealed class LayeredTileGame
     }
 
     internal ConstructedPathDifficultyMetrics ConstructedPathDifficulty => AnalyzeConstructedPathDifficulty(_tiles);
+
+    internal int MaximumImmediateLowerLayerFanOut => _tiles.Max(upper =>
+        _tiles.Count(lower => lower.Layer == upper.Layer - 1 && Overlaps(lower, upper)));
+
+    internal int MultiRouteBlockerCount => _tiles.Count(upper =>
+        _tiles.Count(lower => lower.Layer == upper.Layer - 1 && Overlaps(lower, upper)) >= 2);
+
+    internal int FractionallyOffsetTileCount => _tiles.Count(tile =>
+        Math.Abs(tile.X - Math.Round(tile.X)) > 0.001
+        || Math.Abs(tile.Y - Math.Round(tile.Y)) > 0.001);
 
     private static void AddKindToTray(List<SignalTileKind> tray, SignalTileKind kind)
     {
@@ -478,61 +486,130 @@ public sealed class LayeredTileGame
         }
     }
 
-    private static IReadOnlyList<(double X, double Y)> CreateDenseMiddle()
+    private static IReadOnlyList<(double X, double Y)> CreateSplitGateLayer(int layer, int expectedCount)
     {
-        return CreateGrid(7, 5, 0, 0)
-            .Where(position => position != (3, 2))
+        var visiblePositions = expectedCount switch
+        {
+            4 => CreateSplitGateCapstones(layer),
+            8 => CreateSplitGateRails(layer),
+            13 => CreateSparseGate(),
+            18 => CreateTwinTowerGate(),
+            23 => CreateCrossBridgeGate(),
+            28 => CreatePocketedField(),
+            34 => CreateDenseGateCore(),
+            _ => throw new InvalidOperationException($"Unsupported split-gate layer size: {expectedCount}.")
+        };
+        if (visiblePositions.Count != expectedCount)
+        {
+            throw new InvalidOperationException(
+                $"Split-gate layer {layer} generated {visiblePositions.Count} positions instead of {expectedCount}.");
+        }
+
+        var columnShift = new[] { -0.35, 0.2, 0.4, -0.2, 0.3, -0.4, 0d }[layer % 7];
+        var rowShift = new[] { 0.25, -0.35, 0.15, 0.4, -0.2, -0.4, 0d }[(layer * 3) % 7];
+        var mirror = layer < LayerTileCounts.Length / 2;
+        return visiblePositions
+            .Select(position => mirror
+                ? (Column: 4d - position.Column, Row: 6d - position.Row)
+                : position)
+            .Select(position => (
+                Column: Math.Clamp(position.Column + columnShift, 0d, 4d),
+                Row: Math.Clamp(position.Row + rowShift, 0d, 6d)))
+            .Select(position => (X: 6d - position.Row, Y: position.Column))
             .ToArray();
     }
 
-    private static IReadOnlyList<(double X, double Y)> CreateRingLayer()
+    private static IReadOnlyList<(double Column, double Row)> CreateSplitGateCapstones(int layer)
     {
-        return CreateCenteredGrid(3, 3)
-            .Where(position => position != (3, 2))
-            .ToArray();
+        return layer >= LayerTileCounts.Length / 2
+            ? [(1, 2), (3, 2), (1, 4), (3, 4)]
+            : [(0.5, 1.5), (3.5, 1.5), (0.5, 4.5), (3.5, 4.5)];
     }
 
-    private static IReadOnlyList<(double X, double Y)> CreateCrossLayer()
+    private static IReadOnlyList<(double Column, double Row)> CreateSplitGateRails(int layer)
+    {
+        return layer >= LayerTileCounts.Length / 2
+            ?
+            [
+                (0.5, 1), (1.5, 1), (2.5, 1), (3.5, 1),
+                (0.5, 5), (1.5, 5), (2.5, 5), (3.5, 5)
+            ]
+            :
+            [
+                (0.5, 1), (0.5, 2), (0.5, 4), (0.5, 5),
+                (3.5, 1), (3.5, 2), (3.5, 4), (3.5, 5)
+            ];
+    }
+
+    private static IReadOnlyList<(double Column, double Row)> CreateSparseGate()
     {
         return
         [
-            (2, 0), (3, 0), (4, 0),
-            (1, 1), (2, 1), (3, 1), (4, 1), (5, 1),
-            (2, 2), (3, 2), (4, 2),
-            (3, 3),
-            (3, 4)
+            (0, 1), (1, 1), (3, 1), (4, 1),
+            (0, 2), (4, 2),
+            (0, 3), (1, 3), (2, 3), (3, 3), (4, 3),
+            (1, 5), (3, 5)
         ];
     }
 
-    private static IReadOnlyList<(double X, double Y)> CreateCornerCutGrid(int columns, int rows)
+    private static IReadOnlyList<(double Column, double Row)> CreateTwinTowerGate()
     {
-        var positions = CreateCenteredGrid(columns, rows).ToList();
-        positions.RemoveAt(positions.Count - 1);
-        positions.RemoveAt(0);
+        var positions = new List<(double Column, double Row)>();
+        for (var row = 0; row < 7; row++)
+        {
+            positions.Add((0, row));
+            positions.Add((4, row));
+        }
+
+        positions.AddRange([(1, 3), (2, 3), (3, 3), (2, 1)]);
         return positions;
     }
 
-    private static IReadOnlyList<(double X, double Y)> CreateCenteredGrid(int columns, int rows)
+    private static IReadOnlyList<(double Column, double Row)> CreateCrossBridgeGate()
     {
-        return CreateGrid(
-            columns,
-            rows,
-            (7 - columns) / 2d,
-            (5 - rows) / 2d);
+        var positions = new List<(double Column, double Row)>();
+        for (var row = 0; row < 7; row++)
+        {
+            positions.Add((0, row));
+            positions.Add((4, row));
+        }
+
+        foreach (var row in new[] { 1, 3, 5 })
+        {
+            positions.Add((1, row));
+            positions.Add((2, row));
+            positions.Add((3, row));
+        }
+
+        return positions;
     }
 
-    private static IReadOnlyList<(double X, double Y)> CreateGrid(
-        int columns,
-        int rows,
-        double offsetX,
-        double offsetY)
+    private static IReadOnlyList<(double Column, double Row)> CreatePocketedField()
     {
-        var positions = new List<(double X, double Y)>(columns * rows);
-        for (var row = 0; row < rows; row++)
+        var holes = new HashSet<(int Column, int Row)>
         {
-            for (var column = 0; column < columns; column++)
+            (2, 0), (1, 2), (3, 2), (2, 3), (1, 4), (3, 4), (2, 6)
+        };
+        return CreateVisibleGrid()
+            .Where(position => !holes.Contains(((int)position.Column, (int)position.Row)))
+            .ToArray();
+    }
+
+    private static IReadOnlyList<(double Column, double Row)> CreateDenseGateCore()
+    {
+        return CreateVisibleGrid()
+            .Where(position => position != (2, 3))
+            .ToArray();
+    }
+
+    private static IReadOnlyList<(double Column, double Row)> CreateVisibleGrid()
+    {
+        var positions = new List<(double Column, double Row)>(35);
+        for (var row = 0; row < 7; row++)
+        {
+            for (var column = 0; column < 5; column++)
             {
-                positions.Add((column + offsetX, row + offsetY));
+                positions.Add((column, row));
             }
         }
 

@@ -35,7 +35,8 @@
 - Replaced the independent greeting wave with a beat-aligned cheerleading arm path: low V at takeoff and landing, high V at the airborne apex, and restrained opposite elbow follow-through.
 - Made the board plate 50% opaque and increased sheep visibility while preserving fully opaque tiles and controls.
 - Replaced gated spectral-affinity rims with continuous band-share envelopes using an 80 ms attack and 220 ms release.
-- Expanded the board from 42 tiles in three layers, first to 102 tiles and then to a guaranteed-solvable 222-tile, eleven-layer 5-by-7 dense-middle layout inspired by the viral mini-program's general difficulty pacing, without copying a published map.
+- Expanded the board from 42 tiles in three layers, first to 102 tiles and then to a guaranteed-solvable 222-tile, thirteen-layer 5-by-7 layout inspired by the viral mini-program's general difficulty pacing, without copying a published map.
+- Replaced the concentric pyramid masks with an original split-gate topology derived from the reference image's structural principles: separated towers, side rails, narrow cross-bridges, hollow pockets, alternating capstones, and fractional layer offsets that let upper cards obstruct multiple lower routes.
 - Changed generation from independent per-layer triples to a constructive solution sequence with triples crossing layer boundaries, increasing tray pressure while keeping every seed winnable.
 - Deepened the 222-card board from eleven to thirteen layers with a four-card opening, and increased symbol families from twelve to sixteen.
 - Replaced adjacent-layer color separation as the difficulty proxy with automated constructed-path evaluation. After one readable opening triple, the guaranteed solution now uses twenty-four randomized nine-card pressure blocks that interleave three families and repeatedly drive the seven-slot tray to six cards.

@@ -4,7 +4,9 @@
 
 ## Play Contract
 
-- The board contains 222 tiles across thirteen layers with counts `4, 8, 13, 18, 23, 28, 34, 28, 23, 18, 13, 8, 4`, creating a narrow opening and dense hidden middle.
+- The board contains 222 tiles across thirteen layers with counts `4, 8, 13, 18, 23, 28, 34, 28, 23, 18, 13, 8, 4`.
+- Its original split-gate topology uses two side towers, alternating horizontal and vertical capstone rails, three narrow cross-bridges, diagonal and central pockets, and a hollow dense core. Upper and lower halves mirror at the structural level without copying the reference map's exact coordinates.
+- Every layer applies a deterministic fractional shift before portrait rotation. The offsets create multi-card blocker fan-out and prevent the stack from collapsing into simple aligned columns.
 - A tile can be selected only when no higher-layer tile overlaps it.
 - Selected tiles enter a seven-slot base tray and are grouped beside tiles of the same kind; Digger can expand it to eight once per round.
 - Three identical tray tiles disappear immediately.
@@ -111,8 +113,9 @@ Each restart or new game grants one of each item:
 ## Verification
 
 - Managed solution build: passed with zero warnings and zero errors.
-- Managed suite: 397 passing tests.
+- Managed suite: 398 passing tests.
 - Across fixed seeds `1, 2, 3, 10, 42, 99, 256, 1024, 2026, 65535`, the constructed path reaches six occupied tray slots and exposes both new-family decoys and dangerous non-completing choices; regression coverage requires all three properties.
+- Topology regression coverage requires the dense-core pocket, split-tower span, at least 150 fractionally offset cards, immediate-layer blocker fan-out of at least two, and at least forty upper cards that directly obstruct multiple lower routes.
 - Articulated-rig controller coverage checks the timed rise/apex/landing curve, close-onset rejection, low-V/high-V cheer transition, bounded joint output, secondary follow-through, and jump settling.
 - Off-screen WPF renders of the low-V stance and high-V jumping apex: 32,992 to 33,881 nontransparent pixels per 260 x 390 frame; all alpha bounds remain inside the logical canvas.
 - Pose inspection: the white muzzle, wool-occluded shoulder roots, straight split-hoof arm lines, symmetric knee tuck, and airborne high V remain legible.

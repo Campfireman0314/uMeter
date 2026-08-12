@@ -18,6 +18,20 @@ public sealed class LayeredTileGameTests
         Assert.Contains(game.Tiles.Where(tile => tile.Layer == 6), tile => !game.IsSelectable(tile));
     }
 
+    [Fact]
+    public void GeneratedBoardUsesSplitGateObstructionTopology()
+    {
+        var game = LayeredTileGame.Create(42);
+        var denseCore = game.Tiles.Where(tile => tile.Layer == 6).ToArray();
+        var twinTowerLayer = game.Tiles.Where(tile => tile.Layer == 3).ToArray();
+
+        Assert.DoesNotContain(denseCore, tile => tile.X == 3 && tile.Y == 2);
+        Assert.True(twinTowerLayer.Select(tile => tile.X).Distinct().Count() >= 7);
+        Assert.True(game.FractionallyOffsetTileCount >= 150);
+        Assert.True(game.MaximumImmediateLowerLayerFanOut >= 2);
+        Assert.True(game.MultiRouteBlockerCount >= 40);
+    }
+
     [Theory]
     [InlineData(1)]
     [InlineData(42)]
