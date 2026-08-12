@@ -17,6 +17,7 @@ public sealed class WpfResourcePackagingTests
         Assert.Contains("mainwindow.baml", resources);
         Assert.Contains("detailwindow.baml", resources);
         Assert.Contains("globalsettingswindow.baml", resources);
+        Assert.Contains("aboutwindow.baml", resources);
         Assert.Contains("stereoimagesettingswindow.baml", resources);
         Assert.Contains("gamewindow.baml", resources);
         Assert.Contains("controls/dancingsheepview.baml", resources);

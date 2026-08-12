@@ -4,6 +4,7 @@
 
 ### Added
 
+- Added an About entry to Global Settings with runtime version information, Campfireman Studio attribution, initial credits for Lin Yudong and wangzhe10, and a project-repository action.
 - Added the localized `Signal Shuffle` layered triple-tile game in an owned WPF window, opened from a game icon beside the theme selector.
 - Added a selectable meter-source feed for a background sheep whose bounded bounce, lean, and squash follow bass energy and detected onsets.
 - Added deterministic solvable board generation, seven-slot tray matching, restart/new-board controls, and win/loss states without reusing the referenced game's name or assets.

@@ -130,6 +130,8 @@ public sealed class LocalizationManagerTests
         {
             "src/DesktopLoudnessMeter.App/MainWindow.xaml",
             "src/DesktopLoudnessMeter.App/DetailWindow.xaml",
+            "src/DesktopLoudnessMeter.App/GlobalSettingsWindow.xaml",
+            "src/DesktopLoudnessMeter.App/AboutWindow.xaml",
             "src/DesktopLoudnessMeter.App/StereoImageSettingsWindow.xaml",
             "src/DesktopLoudnessMeter.App/GameWindow.xaml"
         })

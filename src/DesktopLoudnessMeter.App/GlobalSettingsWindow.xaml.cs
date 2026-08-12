@@ -24,6 +24,14 @@ public partial class GlobalSettingsWindow : Window
         Close();
     }
 
+    private void AboutButton_OnClick(object sender, RoutedEventArgs e)
+    {
+        new AboutWindow
+        {
+            Owner = this
+        }.ShowDialog();
+    }
+
     private void SettingsTextBox_OnGotKeyboardFocus(object sender, KeyboardFocusChangedEventArgs e)
     {
         if (sender is TextBox textBox)
