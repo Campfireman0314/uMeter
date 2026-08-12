@@ -39,15 +39,16 @@ public sealed class TileGameViewModelTests
     }
 
     [Fact]
-    public void BoardCoordinatesUseExpandedDemoPortraitFootprint()
+    public void BoardCoordinatesUseCompactDenseDemoFootprint()
     {
         using var mainViewModel = new MainViewModel(new FakeSourceService(), startTimer: false);
         using var gameViewModel = new TileGameViewModel(mainViewModel, seed: 42, startDanceTimer: false);
         var denseMiddle = gameViewModel.BoardTiles.Where(tile => tile.Layer == 6).ToArray();
 
-        Assert.Equal(9, denseMiddle.Select(tile => tile.Left).Distinct().Count());
-        Assert.True(denseMiddle.Select(tile => tile.Top).Distinct().Count() >= 6);
-        Assert.True(denseMiddle.Max(tile => tile.Left) - denseMiddle.Min(tile => tile.Left) >= 400);
+        Assert.Equal(7, denseMiddle.Select(tile => tile.Left).Distinct().Count());
+        Assert.Equal(6, denseMiddle.Select(tile => tile.Top).Distinct().Count());
+        Assert.InRange(denseMiddle.Max(tile => tile.Left) - denseMiddle.Min(tile => tile.Left), 290, 310);
+        Assert.InRange(denseMiddle.Max(tile => tile.Top) - denseMiddle.Min(tile => tile.Top), 290, 310);
         Assert.True(gameViewModel.BoardTiles.Max(tile => tile.Top) < TileGameViewModel.BoardHeight);
         Assert.True(gameViewModel.BoardTiles.Max(tile => tile.Left) < TileGameViewModel.BoardWidth);
     }

@@ -10,12 +10,12 @@ namespace DesktopLoudnessMeter.App.ViewModels;
 
 public sealed class TileGameViewModel : ObservableObject, IDisposable
 {
-    public const double BoardWidth = 504;
-    public const double BoardHeight = 594;
+    public const double BoardWidth = 470;
+    public const double BoardHeight = 480;
     private const double TileSize = 48;
-    private const double TileStep = 54;
-    private const double BoardOffsetX = 12;
-    private const double BoardOffsetY = 21;
+    private const double TileStep = 50;
+    private const double BoardOffsetX = 10;
+    private const double BoardOffsetY = 20;
     private const double LayerRise = 1.5;
     private readonly MainViewModel _mainViewModel;
     private readonly DispatcherTimer _danceTimer;

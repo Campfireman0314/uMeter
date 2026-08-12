@@ -5,8 +5,8 @@
 ## Play Contract
 
 - The board contains 222 tiles across thirteen layers with counts `4, 8, 13, 18, 23, 28, 34, 28, 23, 18, 13, 8, 4`.
-- Its expanded 9-by-11 demo-shaped topology uses paired upper shelves, outer ladders, twin side towers, a full-width central bridge, a narrow waist, separated lower towers, and a dense bottom basin. These structural ideas follow the supplied reference's silhouette without copying its exact coordinates, symbols, or artwork.
-- Every layer applies a deterministic fractional shift directly in portrait coordinates. The offsets create multi-card blocker fan-out and prevent the stack from collapsing into simple aligned columns.
+- Its compact demo-shaped topology uses paired upper shelves, aligned outer ladders, twin side towers, a continuous central bridge, a deliberate waist, and a unified lower basin. These structural ideas follow the supplied reference's silhouette without copying its exact coordinates, symbols, or artwork.
+- Cards use 50-pixel center spacing for 48-pixel faces, leaving a two-pixel seam. Layer offsets are restricted to an aligned quarter/half-card vocabulary so shelves and towers stay visually continuous while still producing multi-card blocker fan-out.
 - A tile can be selected only when no higher-layer tile overlaps it.
 - Selected tiles enter a seven-slot base tray and are grouped beside tiles of the same kind; Digger can expand it to eight once per round.
 - Three identical tray tiles disappear immediately.
@@ -85,7 +85,7 @@ Each restart or new game grants one of each item:
 - One modeless `GameWindow` can be open at a time.
 - The game window is owned by the main window and closes with it.
 - Theme resources and the existing four-language localization traversal are reused.
-- The board uses a direct 9-by-11 portrait coordinate system on a 504 x 594 table; tile symbols remain upright.
+- The board uses direct portrait coordinates with a seven-column core on a 470 x 480 table; tile symbols remain upright.
 - A compact strip above the board displays four phrase pips, groove, confidence-gated BPM/phase, and transient timing feedback.
 - The portrait board backing is 50% opaque so the dancer remains visible through uncovered plate areas; tiles, borders, symbols, and input targets remain fully opaque.
 - Geometrically covered tiles receive the dark occlusion treatment and suppress their affinity rim. Non-overlapped cards retain their glyph and family color regardless of layer depth.
@@ -115,7 +115,8 @@ Each restart or new game grants one of each item:
 - Managed solution build: passed with zero warnings and zero errors.
 - Managed suite: 396 passing tests.
 - Across fixed seeds `1, 2, 3, 10, 42, 99, 256, 1024, 2026, 65535`, the constructed path reaches six occupied tray slots and exposes both new-family decoys and dangerous non-completing choices; regression coverage requires all three properties.
-- Topology regression coverage requires the 9-by-11 span, bottom basin, twin-tower rails, full-width bridge, at least 150 fractionally offset cards, immediate-layer blocker fan-out of at least two, and at least forty upper cards that directly obstruct multiple lower routes.
+- Topology regression coverage constrains the pile to a compact seven-column/eight-band span, requires the bottom basin, twin-tower rails, continuous bridge, at least 150 fractionally offset cards, immediate-layer blocker fan-out of at least two, and at least forty upper cards that directly obstruct multiple lower routes.
+- Fixed-seed opening coverage requires a dense 14-20-card frontier, at least ten visible families, and no family represented by more than three exposed cards.
 - WPF regression coverage forbids the removed global layer-depth concealment binding and opaque grey veil from returning.
 - Articulated-rig controller coverage checks the timed rise/apex/landing curve, close-onset rejection, low-V/high-V cheer transition, bounded joint output, secondary follow-through, and jump settling.
 - Off-screen WPF renders of the low-V stance and high-V jumping apex: 32,992 to 33,881 nontransparent pixels per 260 x 390 frame; all alpha bounds remain inside the logical canvas.

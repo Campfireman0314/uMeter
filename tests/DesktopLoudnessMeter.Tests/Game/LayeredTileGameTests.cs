@@ -26,12 +26,11 @@ public sealed class LayeredTileGameTests
         var twinTowerLayer = game.Tiles.Where(tile => tile.Layer == 3).ToArray();
         var bridgeLayer = game.Tiles.Where(tile => tile.Layer == 4).ToArray();
 
-        Assert.True(game.Tiles.Max(tile => tile.X) - game.Tiles.Min(tile => tile.X) >= 7.5);
-        Assert.True(game.Tiles.Max(tile => tile.Y) - game.Tiles.Min(tile => tile.Y) >= 9);
-        Assert.Contains(denseBasin, tile => tile.Y >= 6.5);
-        Assert.DoesNotContain(denseBasin, tile => Math.Abs(tile.X - 4) < 0.1 && Math.Abs(tile.Y - 4) < 0.1);
-        Assert.True(twinTowerLayer.Count(tile => tile.X <= 1.5 || tile.X >= 6.5) >= 16);
-        Assert.True(bridgeLayer.Select(tile => Math.Round(tile.X)).Distinct().Count() >= 8);
+        Assert.True(game.Tiles.Max(tile => tile.X) - game.Tiles.Min(tile => tile.X) <= 7);
+        Assert.True(game.Tiles.Max(tile => tile.Y) - game.Tiles.Min(tile => tile.Y) <= 8);
+        Assert.Contains(denseBasin, tile => tile.Y >= 7);
+        Assert.True(twinTowerLayer.Count(tile => tile.X <= 2.5 || tile.X >= 5.5) >= 16);
+        Assert.True(bridgeLayer.Select(tile => Math.Round(tile.X)).Distinct().Count() >= 7);
         Assert.True(game.FractionallyOffsetTileCount >= 150);
         Assert.True(game.MaximumImmediateLowerLayerFanOut >= 2);
         Assert.True(game.MultiRouteBlockerCount >= 40);
@@ -47,10 +46,10 @@ public sealed class LayeredTileGameTests
         var selectable = game.Tiles.Where(game.IsSelectable).ToArray();
         var familyCounts = selectable.GroupBy(tile => tile.Kind).Select(group => group.Count()).ToArray();
 
-        Assert.True(selectable.Length >= 10);
+        Assert.InRange(selectable.Length, 14, 20);
         Assert.True(selectable.Max(tile => tile.X) - selectable.Min(tile => tile.X) >= 6);
-        Assert.True(selectable.Max(tile => tile.Y) - selectable.Min(tile => tile.Y) >= 5);
-        Assert.True(familyCounts.Max() <= selectable.Length / 5);
+        Assert.True(selectable.Max(tile => tile.Y) - selectable.Min(tile => tile.Y) >= 6);
+        Assert.True(familyCounts.Max() <= 3);
         Assert.True(familyCounts.Length >= 10);
     }
 
