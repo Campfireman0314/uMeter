@@ -10,28 +10,40 @@ public sealed class LayeredTileGameTests
         var game = LayeredTileGame.Create(42);
 
         Assert.Equal(222, game.Tiles.Count);
-        Assert.Equal([4, 8, 13, 18, 23, 28, 34, 28, 23, 18, 13, 8, 4],
+        Assert.Equal([48, 48, 46, 34, 24, 10, 4, 4, 4],
             game.Tiles.GroupBy(tile => tile.Layer).OrderBy(group => group.Key).Select(group => group.Count()));
         Assert.Equal(16, Enum.GetValues<SignalTileKind>().Length);
         Assert.Equal(7, game.TrayCapacity);
-        Assert.All(game.Tiles.Where(tile => tile.Layer == 12), tile => Assert.True(game.IsSelectable(tile)));
-        Assert.Contains(game.Tiles.Where(tile => tile.Layer == 6), tile => !game.IsSelectable(tile));
+        Assert.All(game.Tiles.Where(tile => tile.Layer == 8), tile => Assert.True(game.IsSelectable(tile)));
+        Assert.Contains(game.Tiles.Where(tile => tile.Layer == 4), tile => !game.IsSelectable(tile));
     }
 
     [Fact]
-    public void GeneratedBoardUsesDemoShapedObstructionTopology()
+    public void GeneratedBoardUsesNestedSymmetricReferenceTopology()
     {
         var game = LayeredTileGame.Create(42);
-        var denseBasin = game.Tiles.Where(tile => tile.Layer == 6).ToArray();
-        var twinTowerLayer = game.Tiles.Where(tile => tile.Layer == 3).ToArray();
-        var bridgeLayer = game.Tiles.Where(tile => tile.Layer == 4).ToArray();
+        var baseLayer = game.Tiles.Where(tile => tile.Layer == 0).ToArray();
+        var rowCounts = baseLayer
+            .GroupBy(tile => Math.Round(tile.Y, 2))
+            .OrderBy(group => group.Key)
+            .Select(group => group.Count())
+            .ToArray();
+        var centerX = (game.Tiles.Min(tile => tile.X) + game.Tiles.Max(tile => tile.X)) / 2;
 
-        Assert.True(game.Tiles.Max(tile => tile.X) - game.Tiles.Min(tile => tile.X) <= 7);
-        Assert.True(game.Tiles.Max(tile => tile.Y) - game.Tiles.Min(tile => tile.Y) <= 8);
-        Assert.Contains(denseBasin, tile => tile.Y >= 7);
-        Assert.True(twinTowerLayer.Count(tile => tile.X <= 2.5 || tile.X >= 5.5) >= 16);
-        Assert.True(bridgeLayer.Select(tile => Math.Round(tile.X)).Distinct().Count() >= 7);
-        Assert.True(game.FractionallyOffsetTileCount >= 150);
+        Assert.InRange(game.Tiles.Max(tile => tile.X) - game.Tiles.Min(tile => tile.X), 6.5, 6.7);
+        Assert.InRange(game.Tiles.Max(tile => tile.Y) - game.Tiles.Min(tile => tile.Y), 8.4, 8.5);
+        Assert.Equal([4, 4, 4, 4, 8, 4, 2, 4, 8, 6], rowCounts);
+        Assert.All(game.Tiles, tile => Assert.Contains(
+            game.Tiles,
+            mirror => mirror.Layer == tile.Layer
+                && Math.Abs(mirror.Y - tile.Y) < 0.001
+                && Math.Abs(mirror.X - ((2 * centerX) - tile.X)) < 0.001));
+        Assert.All(game.Tiles.Where(tile => tile.Layer > 0), upper => Assert.Contains(
+            game.Tiles,
+            lower => lower.Layer == upper.Layer - 1
+                && Math.Abs(lower.X - upper.X) < 1
+                && Math.Abs(lower.Y - upper.Y) < 1));
+        Assert.True(game.FractionallyOffsetTileCount >= 200);
         Assert.True(game.MaximumImmediateLowerLayerFanOut >= 2);
         Assert.True(game.MultiRouteBlockerCount >= 40);
     }
@@ -40,15 +52,15 @@ public sealed class LayeredTileGameTests
     [InlineData(1)]
     [InlineData(42)]
     [InlineData(2026)]
-    public void GeneratedBoardStartsWithAWideNonDominantFrontier(int seed)
+    public void GeneratedBoardStartsWithCompactNonDominantFrontier(int seed)
     {
         var game = LayeredTileGame.Create(seed);
         var selectable = game.Tiles.Where(game.IsSelectable).ToArray();
         var familyCounts = selectable.GroupBy(tile => tile.Kind).Select(group => group.Count()).ToArray();
 
-        Assert.InRange(selectable.Length, 14, 20);
-        Assert.True(selectable.Max(tile => tile.X) - selectable.Min(tile => tile.X) >= 6);
-        Assert.True(selectable.Max(tile => tile.Y) - selectable.Min(tile => tile.Y) >= 6);
+        Assert.Equal(16, selectable.Length);
+        Assert.InRange(selectable.Max(tile => tile.X) - selectable.Min(tile => tile.X), 4.3, 4.4);
+        Assert.InRange(selectable.Max(tile => tile.Y) - selectable.Min(tile => tile.Y), 8.4, 8.5);
         Assert.True(familyCounts.Max() <= 3);
         Assert.True(familyCounts.Length >= 10);
     }

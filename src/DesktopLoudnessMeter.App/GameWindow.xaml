@@ -6,9 +6,9 @@
         Title="Signal Shuffle"
         Icon="Assets/desktop-loudness-meter.ico"
         Width="700"
-        Height="900"
+        Height="950"
         MinWidth="640"
-        MinHeight="820"
+        MinHeight="870"
         WindowStyle="None"
         ResizeMode="CanResize"
         WindowStartupLocation="CenterOwner"
@@ -122,13 +122,13 @@
                   Background="{DynamicResource AppChromeBrush}"
                   ClipToBounds="True">
 
-                <Viewbox Width="260"
-                         Height="350"
-                         Margin="0,0,24,42"
+                <Viewbox Width="112"
+                         Height="151"
+                         Margin="0,0,4,82"
                          HorizontalAlignment="Right"
                          VerticalAlignment="Bottom"
                          IsHitTestVisible="False"
-                         Opacity="0.68">
+                         Opacity="0.82">
                     <controls:DancingSheepView x:Name="DancingSheep" />
                 </Viewbox>
 
@@ -283,7 +283,7 @@
 
                     <Grid x:Name="BoardHost"
                           Grid.Row="2"
-                          Height="522"
+                          Height="572"
                           Margin="0,10,0,10"
                           VerticalAlignment="Center"
                           RenderTransformOrigin="0.5,0.5">
@@ -292,7 +292,7 @@
                         </Grid.RenderTransform>
                         <Grid.RowDefinitions>
                             <RowDefinition Height="24" />
-                            <RowDefinition Height="498" />
+                            <RowDefinition Height="548" />
                         </Grid.RowDefinitions>
                         <Grid Grid.Row="0" Width="482" Height="24" HorizontalAlignment="Center">
                             <Grid.ColumnDefinitions>
@@ -422,17 +422,17 @@
                                 </Grid>
                             </Button>
                         </StackPanel>
-                        <Border Grid.Row="1" Width="482" Height="492" Margin="0,6,0,0"
+                        <Border Grid.Row="1" Width="482" Height="542" Margin="0,6,0,0"
                                 HorizontalAlignment="Center" VerticalAlignment="Top"
                                 Background="Transparent"
                                 BorderBrush="{DynamicResource ControlBorderBrush}"
                                 BorderThickness="1" CornerRadius="6">
-                            <Grid Width="470" Height="480">
+                            <Grid Width="470" Height="530">
                                 <Border Background="{DynamicResource PanelBrush}"
                                         CornerRadius="5"
                                         Opacity="0.5"
                                         IsHitTestVisible="False" />
-                            <ItemsControl x:Name="BoardItemsControl" Width="470" Height="480" ItemsSource="{Binding BoardTiles}">
+                            <ItemsControl x:Name="BoardItemsControl" Width="470" Height="530" ItemsSource="{Binding BoardTiles}">
                                 <ItemsControl.ItemsPanel>
                                     <ItemsPanelTemplate><Canvas /></ItemsPanelTemplate>
                                 </ItemsControl.ItemsPanel>
@@ -469,7 +469,7 @@
                                                     </MultiBinding>
                                                 </Border.Opacity>
                                             </Border>
-                                            <Border Background="#A0060C0A"
+                                            <Border Background="#4D060C0A"
                                                     BorderBrush="#C0000000"
                                                     BorderThickness="1"
                                                     CornerRadius="3"
@@ -490,7 +490,7 @@
                                 </ItemsControl.ItemTemplate>
                             </ItemsControl>
                                 <Canvas x:Name="BoardEffectCanvas"
-                                        Width="470" Height="480"
+                                        Width="470" Height="530"
                                         Panel.ZIndex="100"
                                         IsHitTestVisible="False" />
                             </Grid>

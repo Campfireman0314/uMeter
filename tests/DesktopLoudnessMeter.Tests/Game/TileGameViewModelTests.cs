@@ -39,18 +39,21 @@ public sealed class TileGameViewModelTests
     }
 
     [Fact]
-    public void BoardCoordinatesUseCompactDenseDemoFootprint()
+    public void BoardCoordinatesContainReferenceTopologyWithoutClipping()
     {
         using var mainViewModel = new MainViewModel(new FakeSourceService(), startTimer: false);
         using var gameViewModel = new TileGameViewModel(mainViewModel, seed: 42, startDanceTimer: false);
-        var denseMiddle = gameViewModel.BoardTiles.Where(tile => tile.Layer == 6).ToArray();
+        var baseLayer = gameViewModel.BoardTiles.Where(tile => tile.Layer == 0).ToArray();
 
-        Assert.Equal(7, denseMiddle.Select(tile => tile.Left).Distinct().Count());
-        Assert.Equal(6, denseMiddle.Select(tile => tile.Top).Distinct().Count());
-        Assert.InRange(denseMiddle.Max(tile => tile.Left) - denseMiddle.Min(tile => tile.Left), 290, 310);
-        Assert.InRange(denseMiddle.Max(tile => tile.Top) - denseMiddle.Min(tile => tile.Top), 290, 310);
-        Assert.True(gameViewModel.BoardTiles.Max(tile => tile.Top) < TileGameViewModel.BoardHeight);
-        Assert.True(gameViewModel.BoardTiles.Max(tile => tile.Left) < TileGameViewModel.BoardWidth);
+        Assert.Equal(8, baseLayer.Select(tile => tile.Left).Distinct().Count());
+        Assert.Equal(10, baseLayer.Select(tile => tile.Top).Distinct().Count());
+        Assert.InRange(baseLayer.Max(tile => tile.Left) - baseLayer.Min(tile => tile.Left), 328, 330);
+        Assert.InRange(baseLayer.Max(tile => tile.Top) - baseLayer.Min(tile => tile.Top), 422, 424);
+        Assert.All(gameViewModel.BoardTiles, tile =>
+        {
+            Assert.InRange(tile.Left, 0, TileGameViewModel.BoardWidth - 48);
+            Assert.InRange(tile.Top, 0, TileGameViewModel.BoardHeight - 48);
+        });
     }
 
     [Fact]

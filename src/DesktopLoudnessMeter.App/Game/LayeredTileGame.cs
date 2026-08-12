@@ -70,7 +70,6 @@ public sealed class LayeredTileGame
 {
     public const int DefaultTrayCapacity = 7;
     private const int BoardCandidateCount = 48;
-    private static readonly int[] LayerTileCounts = [4, 8, 13, 18, 23, 28, 34, 28, 23, 18, 13, 8, 4];
     private static readonly SignalTileKind[] TileKinds = Enum.GetValues<SignalTileKind>();
     private readonly List<LayeredTile> _tiles;
     private readonly List<SignalTileKind> _tray = [];
@@ -146,14 +145,14 @@ public sealed class LayeredTileGame
     {
         var placements = new List<TilePlacement>(222);
         var nextId = 0;
-        for (var layer = 0; layer < LayerTileCounts.Length; layer++)
+        for (var layer = 0; layer < SignalShuffleTopology.LayerTileCounts.Count; layer++)
         {
             AddLayer(
                 placements,
                 random,
                 ref nextId,
                 layer,
-                CreateSplitGateLayer(layer, LayerTileCounts[layer]));
+                SignalShuffleTopology.CreateLayer(layer));
         }
 
         return placements;
@@ -459,118 +458,6 @@ public sealed class LayeredTileGame
         {
             State = TileGameState.Won;
         }
-    }
-
-    private static IReadOnlyList<(double X, double Y)> CreateSplitGateLayer(int layer, int expectedCount)
-    {
-        var positions = expectedCount switch
-        {
-            4 => CreateDemoCapstones(layer),
-            8 => CreateDemoShelves(layer),
-            13 => CreateDemoOuterLadders(),
-            18 => CreateDemoTwinTowers(),
-            23 => CreateDemoBridgeFrame(),
-            28 => CreateDemoPocketField(),
-            34 => CreateDemoDenseBasin(),
-            _ => throw new InvalidOperationException($"Unsupported demo layer size: {expectedCount}.")
-        };
-        if (positions.Count != expectedCount)
-        {
-            throw new InvalidOperationException(
-                $"Demo-shaped layer {layer} generated {positions.Count} positions instead of {expectedCount}.");
-        }
-
-        var offsets = new (double X, double Y)[]
-        {
-            (0, 0), (0.25, 0.25), (0, 0.5), (0.5, 0), (0.25, 0.5), (0.5, 0.25), (0, 0),
-            (0.5, 0.25), (0.25, 0.5), (0.5, 0), (0, 0.5), (0.25, 0.25), (0, 0)
-        };
-        var offset = offsets[layer];
-        return positions
-            .Select(position => (X: position.X + offset.X, Y: position.Y + offset.Y))
-            .ToArray();
-    }
-
-    private static IReadOnlyList<(double X, double Y)> CreateDemoCapstones(int layer)
-    {
-        return layer % 2 == 0
-            ? [(2.5, 2), (5.5, 2), (2.5, 7.5), (5.5, 7.5)]
-            : [(2, 2.5), (6, 2.5), (2, 7), (6, 7)];
-    }
-
-    private static IReadOnlyList<(double X, double Y)> CreateDemoShelves(int layer)
-    {
-        return layer % 2 == 0
-            ?
-            [
-                (2, 1.5), (3, 1.5), (5, 1.5), (6, 1.5),
-                (2, 7.5), (3, 7.5), (5, 7.5), (6, 7.5)
-            ]
-            :
-            [
-                (1.5, 2), (2.5, 2), (5.5, 2), (6.5, 2),
-                (1.5, 7), (2.5, 7), (5.5, 7), (6.5, 7)
-            ];
-    }
-
-    private static IReadOnlyList<(double X, double Y)> CreateDemoOuterLadders()
-    {
-        return
-        [
-            (1, 1.5), (2, 1.5), (3, 1.5), (5, 1.5), (6, 1.5), (7, 1.5),
-            (1, 2.5), (7, 2.5),
-            (1, 3.5), (3, 3.5), (4, 3.5), (5, 3.5), (7, 3.5)
-        ];
-    }
-
-    private static IReadOnlyList<(double X, double Y)> CreateDemoTwinTowers()
-    {
-        return
-        [
-            (1, 1), (2, 1), (6, 1), (7, 1),
-            (1, 2), (2, 2), (6, 2), (7, 2),
-            (1, 3), (2, 3), (6, 3), (7, 3),
-            (1, 4), (2, 4), (6, 4), (7, 4),
-            (3.5, 4), (4.5, 4)
-        ];
-    }
-
-    private static IReadOnlyList<(double X, double Y)> CreateDemoBridgeFrame()
-    {
-        return
-        [
-            (1, 1), (2, 1), (6, 1), (7, 1),
-            (1, 2), (2, 2), (6, 2), (7, 2),
-            (1, 3), (2, 3), (3, 3), (4, 3), (5, 3), (6, 3), (7, 3),
-            (1, 4), (2, 4), (3, 4), (4, 4), (5, 4), (6, 4), (7, 4),
-            (4, 5)
-        ];
-    }
-
-    private static IReadOnlyList<(double X, double Y)> CreateDemoPocketField()
-    {
-        return
-        [
-            (1, 1), (2, 1), (3, 1), (5, 1), (6, 1), (7, 1),
-            (1, 2), (2, 2), (6, 2), (7, 2),
-            (1, 3), (2, 3), (3, 3), (4, 3), (5, 3), (6, 3), (7, 3),
-            (2, 4), (3, 4), (4, 4), (5, 4), (6, 4),
-            (2, 6.5), (3, 6.5), (4, 6.5), (5, 6.5), (6, 6.5),
-            (4, 7.5)
-        ];
-    }
-
-    private static IReadOnlyList<(double X, double Y)> CreateDemoDenseBasin()
-    {
-        return
-        [
-            (1, 1), (2, 1), (3, 1), (5, 1), (6, 1), (7, 1),
-            (1, 2), (2, 2), (3, 2), (5, 2), (6, 2), (7, 2),
-            (1, 3), (2, 3), (3, 3), (4, 3), (5, 3), (6, 3), (7, 3),
-            (2, 4), (3, 4), (4, 4), (5, 4), (6, 4),
-            (2, 6), (3, 6), (4, 6), (5, 6), (6, 6),
-            (2, 7), (3, 7), (4, 7), (5, 7), (6, 7)
-        ];
     }
 
     private static void AddLayer(
