@@ -43,23 +43,15 @@ public sealed class WpfResourcePackagingTests
     }
 
     [Fact]
-    public void CardsTwoOrMoreLayersBelowTopUseAnOpaqueGreyVeil()
+    public void GameWindowDoesNotApplyGlobalLayerDepthConcealment()
     {
         var repositoryRoot = FindRepositoryRoot();
-        var document = XDocument.Load(Path.Combine(
+        var xaml = File.ReadAllText(Path.Combine(
             repositoryRoot,
             "src/DesktopLoudnessMeter.App/GameWindow.xaml"));
 
-        Assert.Contains(document.Descendants(), element =>
-            element.Name.LocalName == "Border"
-            && element.Attributes().Any(attribute =>
-                attribute.Name.LocalName == "Background"
-                && attribute.Value == "#FF3A3D3E")
-            && element.Descendants().Any(descendant =>
-                descendant.Name.LocalName == "DataTrigger"
-                && descendant.Attributes().Any(attribute =>
-                    attribute.Name.LocalName == "Binding"
-                    && attribute.Value == "{Binding IsTwoOrMoreLayersBelowTop}")));
+        Assert.DoesNotContain("IsTwoOrMoreLayersBelowTop", xaml);
+        Assert.DoesNotContain("#FF3A3D3E", xaml);
     }
 
     private static HashSet<string> ReadGeneratedResourceKeys(Assembly assembly)

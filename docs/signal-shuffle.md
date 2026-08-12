@@ -5,8 +5,8 @@
 ## Play Contract
 
 - The board contains 222 tiles across thirteen layers with counts `4, 8, 13, 18, 23, 28, 34, 28, 23, 18, 13, 8, 4`.
-- Its original split-gate topology uses two side towers, alternating horizontal and vertical capstone rails, three narrow cross-bridges, diagonal and central pockets, and a hollow dense core. Upper and lower halves mirror at the structural level without copying the reference map's exact coordinates.
-- Every layer applies a deterministic fractional shift before portrait rotation. The offsets create multi-card blocker fan-out and prevent the stack from collapsing into simple aligned columns.
+- Its expanded 9-by-11 demo-shaped topology uses paired upper shelves, outer ladders, twin side towers, a full-width central bridge, a narrow waist, separated lower towers, and a dense bottom basin. These structural ideas follow the supplied reference's silhouette without copying its exact coordinates, symbols, or artwork.
+- Every layer applies a deterministic fractional shift directly in portrait coordinates. The offsets create multi-card blocker fan-out and prevent the stack from collapsing into simple aligned columns.
 - A tile can be selected only when no higher-layer tile overlaps it.
 - Selected tiles enter a seven-slot base tray and are grouped beside tiles of the same kind; Digger can expand it to eight once per round.
 - Three identical tray tiles disappear immediately.
@@ -17,7 +17,7 @@
 - Logical triple kinds are dealt from spaced sixteen-kind decks, keeping long-range repetition controlled without turning neighboring-layer color separation into the primary objective.
 - Generation evaluates 48 deterministic position/kind candidates. It first preserves exactly one immediately completable opening family, then maximizes a scripted-play difficulty score based on tray occupancy, family switching, new-family decoys, and dangerous choices available when six slots are occupied; obvious alternate completions reduce the score.
 - Generated boards remain continuously playable with no midpoint rule interruption. Cannon, Fan, and Digger are optional strategic aids rather than required progress gates.
-- Greying uses global board depth rather than overlap count. If the highest remaining layer is `N`, cards on layers `N` and `N-1` retain their identity, while every card on layer `N-2` or lower receives an opaque grey veil that hides both symbol and family color.
+- Layer depth alone does not hide a card. A card remains identifiable unless a higher card genuinely overlaps it.
 
 ## Audio Contract
 
@@ -85,10 +85,10 @@ Each restart or new game grants one of each item:
 - One modeless `GameWindow` can be open at a time.
 - The game window is owned by the main window and closes with it.
 - Theme resources and the existing four-language localization traversal are reused.
-- The board coordinates are rotated into a 5-by-7 portrait footprint while tile symbols remain upright.
+- The board uses a direct 9-by-11 portrait coordinate system on a 504 x 594 table; tile symbols remain upright.
 - A compact strip above the board displays four phrase pips, groove, confidence-gated BPM/phase, and transient timing feedback.
 - The portrait board backing is 50% opaque so the dancer remains visible through uncovered plate areas; tiles, borders, symbols, and input targets remain fully opaque.
-- Geometrically covered tiles still receive the dark occlusion treatment and suppress their affinity rim. Separately, every tile two or more layer indices below the highest remaining layer receives a fully opaque grey veil, so its glyph and family color cannot be identified even when its position is not overlapped.
+- Geometrically covered tiles receive the dark occlusion treatment and suppress their affinity rim. Non-overlapped cards retain their glyph and family color regardless of layer depth.
 - The power rail uses dedicated vector silhouettes for a wheeled cannon, folding fan, and shovel rather than generic target/shuffle/plus glyphs.
 - `DancingSheepView` is a replaceable 260 x 390 WPF rig prototype based on the Plan 2 direction. It uses seven torso wool masses, independent expression parts, two segments plus a hoof per limb, two-stage ears and tail, and a fixed rear stack for legs and both arm roots beneath the torso wool.
 - The production-art handoff, pivot coordinates, layer names, acceptance checks, and Cubism decision gate are defined in `docs/dancing-sheep-rig.md`.
@@ -113,9 +113,10 @@ Each restart or new game grants one of each item:
 ## Verification
 
 - Managed solution build: passed with zero warnings and zero errors.
-- Managed suite: 398 passing tests.
+- Managed suite: 396 passing tests.
 - Across fixed seeds `1, 2, 3, 10, 42, 99, 256, 1024, 2026, 65535`, the constructed path reaches six occupied tray slots and exposes both new-family decoys and dangerous non-completing choices; regression coverage requires all three properties.
-- Topology regression coverage requires the dense-core pocket, split-tower span, at least 150 fractionally offset cards, immediate-layer blocker fan-out of at least two, and at least forty upper cards that directly obstruct multiple lower routes.
+- Topology regression coverage requires the 9-by-11 span, bottom basin, twin-tower rails, full-width bridge, at least 150 fractionally offset cards, immediate-layer blocker fan-out of at least two, and at least forty upper cards that directly obstruct multiple lower routes.
+- WPF regression coverage forbids the removed global layer-depth concealment binding and opaque grey veil from returning.
 - Articulated-rig controller coverage checks the timed rise/apex/landing curve, close-onset rejection, low-V/high-V cheer transition, bounded joint output, secondary follow-through, and jump settling.
 - Off-screen WPF renders of the low-V stance and high-V jumping apex: 32,992 to 33,881 nontransparent pixels per 260 x 390 frame; all alpha bounds remain inside the logical canvas.
 - Pose inspection: the white muzzle, wool-occluded shoulder roots, straight split-hoof arm lines, symmetric knee tuck, and airborne high V remain legible.

@@ -112,7 +112,6 @@ public sealed class LayeredTileGame
     public static LayeredTileGame Create(int seed)
     {
         List<LayeredTile>? bestTiles = null;
-        var bestOpeningPenalty = int.MaxValue;
         var bestDifficultyScore = long.MinValue;
         for (var candidate = 0; candidate < BoardCandidateCount; candidate++)
         {
@@ -127,15 +126,12 @@ public sealed class LayeredTileGame
                     placement.Y,
                     placement.Layer))
                 .ToList();
-            var openingPenalty = Math.Abs(CountImmediatelyCompletableKinds(tiles) - 1);
             var difficultyScore = AnalyzeConstructedPathDifficulty(tiles).Score;
-            if (openingPenalty > bestOpeningPenalty
-                || (openingPenalty == bestOpeningPenalty && difficultyScore <= bestDifficultyScore))
+            if (difficultyScore <= bestDifficultyScore)
             {
                 continue;
             }
 
-            bestOpeningPenalty = openingPenalty;
             bestDifficultyScore = difficultyScore;
             bestTiles = tiles;
         }
@@ -161,14 +157,6 @@ public sealed class LayeredTileGame
         }
 
         return placements;
-    }
-
-    private static int CountImmediatelyCompletableKinds(IReadOnlyList<LayeredTile> tiles)
-    {
-        return tiles
-            .Where(tile => !tiles.Any(other => other.Layer > tile.Layer && Overlaps(tile, other)))
-            .GroupBy(tile => tile.Kind)
-            .Count(group => group.Count() >= 3);
     }
 
     private static ConstructedPathDifficultyMetrics AnalyzeConstructedPathDifficulty(IReadOnlyList<LayeredTile> tiles)
@@ -276,19 +264,6 @@ public sealed class LayeredTileGame
     internal static LayeredTile CreateTileForTesting(int id, SignalTileKind kind, double x, double y, int layer)
     {
         return new LayeredTile(id, kind, x, y, layer);
-    }
-
-    public int GetDepthFromTopLayer(LayeredTile tile)
-    {
-        if (tile.IsRemoved)
-        {
-            return 0;
-        }
-
-        var topLayer = _tiles
-            .Where(other => !other.IsRemoved)
-            .Max(other => other.Layer);
-        return Math.Max(0, topLayer - tile.Layer);
     }
 
     public bool IsSelectable(LayeredTile tile)
@@ -488,132 +463,116 @@ public sealed class LayeredTileGame
 
     private static IReadOnlyList<(double X, double Y)> CreateSplitGateLayer(int layer, int expectedCount)
     {
-        var visiblePositions = expectedCount switch
+        var positions = expectedCount switch
         {
-            4 => CreateSplitGateCapstones(layer),
-            8 => CreateSplitGateRails(layer),
-            13 => CreateSparseGate(),
-            18 => CreateTwinTowerGate(),
-            23 => CreateCrossBridgeGate(),
-            28 => CreatePocketedField(),
-            34 => CreateDenseGateCore(),
-            _ => throw new InvalidOperationException($"Unsupported split-gate layer size: {expectedCount}.")
+            4 => CreateDemoCapstones(layer),
+            8 => CreateDemoShelves(layer),
+            13 => CreateDemoOuterLadders(),
+            18 => CreateDemoTwinTowers(),
+            23 => CreateDemoBridgeFrame(),
+            28 => CreateDemoPocketField(),
+            34 => CreateDemoDenseBasin(),
+            _ => throw new InvalidOperationException($"Unsupported demo layer size: {expectedCount}.")
         };
-        if (visiblePositions.Count != expectedCount)
+        if (positions.Count != expectedCount)
         {
             throw new InvalidOperationException(
-                $"Split-gate layer {layer} generated {visiblePositions.Count} positions instead of {expectedCount}.");
+                $"Demo-shaped layer {layer} generated {positions.Count} positions instead of {expectedCount}.");
         }
 
-        var columnShift = new[] { -0.35, 0.2, 0.4, -0.2, 0.3, -0.4, 0d }[layer % 7];
-        var rowShift = new[] { 0.25, -0.35, 0.15, 0.4, -0.2, -0.4, 0d }[(layer * 3) % 7];
+        var xShift = new[] { -0.3, 0.2, 0.45, -0.2, 0.3, -0.45, 0d }[layer % 7];
+        var yShift = new[] { 0.25, -0.35, 0.15, 0.4, -0.2, -0.4, 0d }[(layer * 3) % 7];
         var mirror = layer < LayerTileCounts.Length / 2;
-        return visiblePositions
+        return positions
             .Select(position => mirror
-                ? (Column: 4d - position.Column, Row: 6d - position.Row)
+                ? (X: 8d - position.X, Y: 10d - position.Y)
                 : position)
             .Select(position => (
-                Column: Math.Clamp(position.Column + columnShift, 0d, 4d),
-                Row: Math.Clamp(position.Row + rowShift, 0d, 6d)))
-            .Select(position => (X: 6d - position.Row, Y: position.Column))
+                X: Math.Clamp(position.X + xShift, 0d, 8d),
+                Y: Math.Clamp(position.Y + yShift, 0d, 10d)))
             .ToArray();
     }
 
-    private static IReadOnlyList<(double Column, double Row)> CreateSplitGateCapstones(int layer)
+    private static IReadOnlyList<(double X, double Y)> CreateDemoCapstones(int layer)
     {
         return layer >= LayerTileCounts.Length / 2
-            ? [(1, 2), (3, 2), (1, 4), (3, 4)]
-            : [(0.5, 1.5), (3.5, 1.5), (0.5, 4.5), (3.5, 4.5)];
+            ? [(2, 1), (3, 1), (5, 1), (6, 1)]
+            : [(1.5, 8.5), (3, 8.5), (5, 8.5), (6.5, 8.5)];
     }
 
-    private static IReadOnlyList<(double Column, double Row)> CreateSplitGateRails(int layer)
+    private static IReadOnlyList<(double X, double Y)> CreateDemoShelves(int layer)
     {
         return layer >= LayerTileCounts.Length / 2
             ?
             [
-                (0.5, 1), (1.5, 1), (2.5, 1), (3.5, 1),
-                (0.5, 5), (1.5, 5), (2.5, 5), (3.5, 5)
+                (0.5, 0.5), (1.5, 0.5), (2.5, 0.5), (3.5, 0.5),
+                (4.5, 0.5), (5.5, 0.5), (6.5, 0.5), (7.5, 0.5)
             ]
             :
             [
-                (0.5, 1), (0.5, 2), (0.5, 4), (0.5, 5),
-                (3.5, 1), (3.5, 2), (3.5, 4), (3.5, 5)
+                (1, 7.5), (1, 8.5), (1, 9.5), (3, 9.5),
+                (5, 9.5), (7, 7.5), (7, 8.5), (7, 9.5)
             ];
     }
 
-    private static IReadOnlyList<(double Column, double Row)> CreateSparseGate()
+    private static IReadOnlyList<(double X, double Y)> CreateDemoOuterLadders()
     {
         return
         [
-            (0, 1), (1, 1), (3, 1), (4, 1),
-            (0, 2), (4, 2),
-            (0, 3), (1, 3), (2, 3), (3, 3), (4, 3),
-            (1, 5), (3, 5)
+            (0, 1), (1, 1), (7, 1), (8, 1),
+            (0, 2), (8, 2), (0, 3), (8, 3),
+            (0, 4), (8, 4), (2, 4), (4, 4), (6, 4)
         ];
     }
 
-    private static IReadOnlyList<(double Column, double Row)> CreateTwinTowerGate()
+    private static IReadOnlyList<(double X, double Y)> CreateDemoTwinTowers()
     {
-        var positions = new List<(double Column, double Row)>();
-        for (var row = 0; row < 7; row++)
-        {
-            positions.Add((0, row));
-            positions.Add((4, row));
-        }
-
-        positions.AddRange([(1, 3), (2, 3), (3, 3), (2, 1)]);
-        return positions;
+        return
+        [
+            (0, 1), (1, 1), (7, 1), (8, 1),
+            (0, 2), (1, 2), (7, 2), (8, 2),
+            (0, 3), (1, 3), (7, 3), (8, 3),
+            (0, 4), (1, 4), (7, 4), (8, 4),
+            (3, 4), (5, 4)
+        ];
     }
 
-    private static IReadOnlyList<(double Column, double Row)> CreateCrossBridgeGate()
+    private static IReadOnlyList<(double X, double Y)> CreateDemoBridgeFrame()
     {
-        var positions = new List<(double Column, double Row)>();
-        for (var row = 0; row < 7; row++)
-        {
-            positions.Add((0, row));
-            positions.Add((4, row));
-        }
-
-        foreach (var row in new[] { 1, 3, 5 })
-        {
-            positions.Add((1, row));
-            positions.Add((2, row));
-            positions.Add((3, row));
-        }
-
-        return positions;
+        return
+        [
+            (0, 1), (1, 1), (7, 1), (8, 1),
+            (0, 2), (1, 2), (7, 2), (8, 2),
+            (0, 3), (1, 3), (2, 3), (3, 3), (4, 3), (5, 3), (6, 3), (7, 3), (8, 3),
+            (0, 4), (2, 4), (4, 4), (6, 4), (8, 4),
+            (4, 5)
+        ];
     }
 
-    private static IReadOnlyList<(double Column, double Row)> CreatePocketedField()
+    private static IReadOnlyList<(double X, double Y)> CreateDemoPocketField()
     {
-        var holes = new HashSet<(int Column, int Row)>
-        {
-            (2, 0), (1, 2), (3, 2), (2, 3), (1, 4), (3, 4), (2, 6)
-        };
-        return CreateVisibleGrid()
-            .Where(position => !holes.Contains(((int)position.Column, (int)position.Row)))
-            .ToArray();
+        return
+        [
+            (0, 1), (1, 1), (7, 1), (8, 1),
+            (0, 2), (1, 2), (7, 2), (8, 2),
+            (0, 3), (1, 3), (2, 3), (3, 3), (4, 3), (5, 3), (6, 3), (7, 3), (8, 3),
+            (1, 4), (3, 4), (5, 4), (7, 4),
+            (1, 6), (4, 6), (7, 6),
+            (1, 7), (3, 7), (5, 7), (7, 7)
+        ];
     }
 
-    private static IReadOnlyList<(double Column, double Row)> CreateDenseGateCore()
+    private static IReadOnlyList<(double X, double Y)> CreateDemoDenseBasin()
     {
-        return CreateVisibleGrid()
-            .Where(position => position != (2, 3))
-            .ToArray();
-    }
-
-    private static IReadOnlyList<(double Column, double Row)> CreateVisibleGrid()
-    {
-        var positions = new List<(double Column, double Row)>(35);
-        for (var row = 0; row < 7; row++)
-        {
-            for (var column = 0; column < 5; column++)
-            {
-                positions.Add((column, row));
-            }
-        }
-
-        return positions;
+        return
+        [
+            (0, 1), (1, 1), (7, 1), (8, 1),
+            (0, 2), (1, 2), (7, 2), (8, 2),
+            (0, 3), (1, 3), (2, 3), (3, 3), (4, 3), (5, 3), (6, 3), (7, 3), (8, 3),
+            (1, 4), (2, 4), (3, 4), (5, 4), (6, 4), (7, 4),
+            (1, 6), (2, 6), (6, 6), (7, 6),
+            (1, 7), (2, 7), (3, 7), (4, 7), (5, 7), (6, 7), (7, 7)
+        ];
     }
 
     private static void AddLayer(

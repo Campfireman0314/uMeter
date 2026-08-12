@@ -19,14 +19,19 @@ public sealed class LayeredTileGameTests
     }
 
     [Fact]
-    public void GeneratedBoardUsesSplitGateObstructionTopology()
+    public void GeneratedBoardUsesDemoShapedObstructionTopology()
     {
         var game = LayeredTileGame.Create(42);
-        var denseCore = game.Tiles.Where(tile => tile.Layer == 6).ToArray();
+        var denseBasin = game.Tiles.Where(tile => tile.Layer == 6).ToArray();
         var twinTowerLayer = game.Tiles.Where(tile => tile.Layer == 3).ToArray();
+        var bridgeLayer = game.Tiles.Where(tile => tile.Layer == 4).ToArray();
 
-        Assert.DoesNotContain(denseCore, tile => tile.X == 3 && tile.Y == 2);
-        Assert.True(twinTowerLayer.Select(tile => tile.X).Distinct().Count() >= 7);
+        Assert.True(game.Tiles.Max(tile => tile.X) - game.Tiles.Min(tile => tile.X) >= 7.5);
+        Assert.True(game.Tiles.Max(tile => tile.Y) - game.Tiles.Min(tile => tile.Y) >= 9);
+        Assert.Contains(denseBasin, tile => tile.Y >= 6.5);
+        Assert.DoesNotContain(denseBasin, tile => Math.Abs(tile.X - 4) < 0.1 && Math.Abs(tile.Y - 4) < 0.1);
+        Assert.True(twinTowerLayer.Count(tile => tile.X <= 1.5 || tile.X >= 6.5) >= 16);
+        Assert.True(bridgeLayer.Select(tile => Math.Round(tile.X)).Distinct().Count() >= 8);
         Assert.True(game.FractionallyOffsetTileCount >= 150);
         Assert.True(game.MaximumImmediateLowerLayerFanOut >= 2);
         Assert.True(game.MultiRouteBlockerCount >= 40);
@@ -36,15 +41,17 @@ public sealed class LayeredTileGameTests
     [InlineData(1)]
     [InlineData(42)]
     [InlineData(2026)]
-    public void GeneratedBoardStartsWithOneImmediatelyCompletableKind(int seed)
+    public void GeneratedBoardStartsWithAWideNonDominantFrontier(int seed)
     {
         var game = LayeredTileGame.Create(seed);
-        var immediateMatches = game.Tiles
-            .Where(game.IsSelectable)
-            .GroupBy(tile => tile.Kind)
-            .Count(group => group.Count() >= 3);
+        var selectable = game.Tiles.Where(game.IsSelectable).ToArray();
+        var familyCounts = selectable.GroupBy(tile => tile.Kind).Select(group => group.Count()).ToArray();
 
-        Assert.Equal(1, immediateMatches);
+        Assert.True(selectable.Length >= 10);
+        Assert.True(selectable.Max(tile => tile.X) - selectable.Min(tile => tile.X) >= 6);
+        Assert.True(selectable.Max(tile => tile.Y) - selectable.Min(tile => tile.Y) >= 5);
+        Assert.True(familyCounts.Max() <= selectable.Length / 5);
+        Assert.True(familyCounts.Length >= 10);
     }
 
     [Fact]
@@ -201,29 +208,6 @@ public sealed class LayeredTileGameTests
         Assert.Equal(8, game.TrayCapacity);
         Assert.True(game.IsSelectable(game.Tiles[^1]));
         Assert.False(game.DiggerAvailable);
-    }
-
-    [Fact]
-    public void DepthFromTopLayerIsGlobalAndIndependentOfOverlap()
-    {
-        var bottom = LayeredTileGame.CreateTileForTesting(1, SignalTileKind.Star, 0, 0, 0);
-        var middle = LayeredTileGame.CreateTileForTesting(2, SignalTileKind.Note, 2, 0, 1);
-        var top = LayeredTileGame.CreateTileForTesting(3, SignalTileKind.Cloud, 4, 0, 2);
-        var game = LayeredTileGame.CreateForTesting([bottom, middle, top]);
-
-        Assert.Equal(2, game.GetDepthFromTopLayer(bottom));
-        Assert.Equal(1, game.GetDepthFromTopLayer(middle));
-        Assert.Equal(0, game.GetDepthFromTopLayer(top));
-        Assert.All(game.Tiles, tile => Assert.True(game.IsSelectable(tile)));
-
-        Assert.Equal(TileSelectionResult.Added, game.Select(top.Id));
-        Assert.Equal(1, game.GetDepthFromTopLayer(bottom));
-        Assert.Equal(0, game.GetDepthFromTopLayer(middle));
-        Assert.True(game.IsSelectable(bottom));
-
-        Assert.Equal(TileSelectionResult.Added, game.Select(middle.Id));
-        Assert.Equal(0, game.GetDepthFromTopLayer(bottom));
-        Assert.True(game.IsSelectable(bottom));
     }
 
     [Fact]

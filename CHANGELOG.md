@@ -19,7 +19,7 @@
 - Added `Meter`, `Orbit`, `Bars`, and `Arrows`, bringing the low-branch board to sixteen symbol families.
 - Added explicit same-seed Restart and different-seed New Game actions with board entrance transitions.
 - Added one Cannon, Fan, and Digger per round: Cannon clears tray groups, Fan reconstructs a solvable table shuffle, and Digger adds an eighth tray slot.
-- Added global layer-depth concealment that replaces glyphs and colors with an opaque grey veil when a card is two or more layer indices below the highest remaining layer.
+- Removed global layer-depth concealment; cards now remain identifiable unless they are genuinely overlapped by a higher card.
 - Replaced generic prop glyphs with dedicated wheeled-cannon, folding-fan, and shovel vector icons.
 - Added per-card Cannon ballistics that launch the stack and drop it beyond the window boundary.
 - Added a two-stage Fan sequence that blows the stack above the window and restacks shuffled cards from all four corners.
@@ -29,14 +29,14 @@
 
 ### Changed
 
-- Rotated the layered pile into a portrait composition and narrowed the game window while keeping tile symbols upright.
+- Expanded the game window and table to a direct 9-by-11 portrait footprint while keeping tile symbols upright.
 - Replaced bass-only onset detection with an adaptive multi-band detector combining spectral flux, synchronized band evidence, cross-band correlation, onset autocorrelation, and confidence-bounded periodic threshold support.
 - Reworked sheep motion into a centered 460 ms takeoff/apex/landing jump with symmetric knees; detected beats inside a 320 ms animation guard no longer restart the sheep mid-air.
 - Replaced the independent greeting wave with a beat-aligned cheerleading arm path: low V at takeoff and landing, high V at the airborne apex, and restrained opposite elbow follow-through.
 - Made the board plate 50% opaque and increased sheep visibility while preserving fully opaque tiles and controls.
 - Replaced gated spectral-affinity rims with continuous band-share envelopes using an 80 ms attack and 220 ms release.
 - Expanded the board from 42 tiles in three layers, first to 102 tiles and then to a guaranteed-solvable 222-tile, thirteen-layer 5-by-7 layout inspired by the viral mini-program's general difficulty pacing, without copying a published map.
-- Replaced the concentric pyramid masks with an original split-gate topology derived from the reference image's structural principles: separated towers, side rails, narrow cross-bridges, hollow pockets, alternating capstones, and fractional layer offsets that let upper cards obstruct multiple lower routes.
+- Replaced the concentric pyramid masks with an expanded 9-by-11 demo-shaped topology: paired upper shelves, outer ladders, twin side towers, a full-width central bridge, a narrow waist, separated lower towers, and a dense bottom basin, using original coordinates and symbols rather than copying the reference map.
 - Changed generation from independent per-layer triples to a constructive solution sequence with triples crossing layer boundaries, increasing tray pressure while keeping every seed winnable.
 - Deepened the 222-card board from eleven to thirteen layers with a four-card opening, and increased symbol families from twelve to sixteen.
 - Replaced adjacent-layer color separation as the difficulty proxy with automated constructed-path evaluation. After one readable opening triple, the guaranteed solution now uses twenty-four randomized nine-card pressure blocks that interleave three families and repeatedly drive the seven-slot tray to six cards.

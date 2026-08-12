@@ -10,11 +10,13 @@ namespace DesktopLoudnessMeter.App.ViewModels;
 
 public sealed class TileGameViewModel : ObservableObject, IDisposable
 {
+    public const double BoardWidth = 504;
+    public const double BoardHeight = 594;
     private const double TileSize = 48;
     private const double TileStep = 54;
-    private const double BoardOffsetX = 18;
-    private const double BoardOffsetY = 25;
-    private const double LayerRise = 2;
+    private const double BoardOffsetX = 12;
+    private const double BoardOffsetY = 21;
+    private const double LayerRise = 1.5;
     private readonly MainViewModel _mainViewModel;
     private readonly DispatcherTimer _danceTimer;
     private readonly AudioDanceController _danceController = new();
@@ -648,8 +650,7 @@ public sealed class TileGameViewModel : ObservableObject, IDisposable
                 position.Left,
                 position.Top,
                 tile.Layer,
-                _game.IsSelectable(tile),
-                _game.GetDepthFromTopLayer(tile)));
+                _game.IsSelectable(tile)));
         }
 
         TraySlots.Clear();
@@ -774,8 +775,8 @@ public sealed class TileGameViewModel : ObservableObject, IDisposable
     private static (double Left, double Top) GetBoardPosition(LayeredTile tile)
     {
         return (
-            BoardOffsetX + (tile.Y * TileStep),
-            BoardOffsetY + ((6 - tile.X) * TileStep) - (tile.Layer * LayerRise));
+            BoardOffsetX + (tile.X * TileStep),
+            BoardOffsetY + (tile.Y * TileStep) - (tile.Layer * LayerRise));
     }
 
     private void AudioSourcesOnCollectionChanged(object? sender, NotifyCollectionChangedEventArgs e)
@@ -808,11 +809,7 @@ public sealed record GameTileViewModel(
     double Left,
     double Top,
     int Layer,
-    bool IsSelectable,
-    int DepthFromTopLayer)
-{
-    public bool IsTwoOrMoreLayersBelowTop => DepthFromTopLayer >= 2;
-}
+    bool IsSelectable);
 
 public sealed record TraySlotViewModel(SignalTileKind? Kind)
 {

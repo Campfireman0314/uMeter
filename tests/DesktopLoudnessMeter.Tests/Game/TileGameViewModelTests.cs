@@ -39,15 +39,17 @@ public sealed class TileGameViewModelTests
     }
 
     [Fact]
-    public void BoardCoordinatesAreRotatedIntoPortraitOrientation()
+    public void BoardCoordinatesUseExpandedDemoPortraitFootprint()
     {
         using var mainViewModel = new MainViewModel(new FakeSourceService(), startTimer: false);
         using var gameViewModel = new TileGameViewModel(mainViewModel, seed: 42, startDanceTimer: false);
         var denseMiddle = gameViewModel.BoardTiles.Where(tile => tile.Layer == 6).ToArray();
 
-        Assert.Equal(5, denseMiddle.Select(tile => tile.Left).Distinct().Count());
-        Assert.Equal(7, denseMiddle.Select(tile => tile.Top).Distinct().Count());
-        Assert.True(denseMiddle.Max(tile => tile.Top) > denseMiddle.Max(tile => tile.Left));
+        Assert.Equal(9, denseMiddle.Select(tile => tile.Left).Distinct().Count());
+        Assert.True(denseMiddle.Select(tile => tile.Top).Distinct().Count() >= 6);
+        Assert.True(denseMiddle.Max(tile => tile.Left) - denseMiddle.Min(tile => tile.Left) >= 400);
+        Assert.True(gameViewModel.BoardTiles.Max(tile => tile.Top) < TileGameViewModel.BoardHeight);
+        Assert.True(gameViewModel.BoardTiles.Max(tile => tile.Left) < TileGameViewModel.BoardWidth);
     }
 
     [Fact]
@@ -83,8 +85,8 @@ public sealed class TileGameViewModelTests
         Assert.Equal(triple[0].Kind, rhythmEcho.TileKind);
         Assert.All(effects, effect =>
         {
-            Assert.InRange(effect.CenterX, 0, 288);
-            Assert.InRange(effect.CenterY, 0, 420);
+            Assert.InRange(effect.CenterX, 0, TileGameViewModel.BoardWidth);
+            Assert.InRange(effect.CenterY, 0, TileGameViewModel.BoardHeight);
         });
     }
 
@@ -160,21 +162,6 @@ public sealed class TileGameViewModelTests
         Assert.True(gameViewModel.IsCannonAvailable);
         Assert.True(gameViewModel.IsFanAvailable);
         Assert.True(gameViewModel.IsDiggerAvailable);
-    }
-
-    [Fact]
-    public void TilesTwoOrMoreLayersBelowGlobalTopAreMarkedForGreying()
-    {
-        using var mainViewModel = new MainViewModel(new FakeSourceService(), startTimer: false);
-        using var gameViewModel = new TileGameViewModel(mainViewModel, seed: 42, startDanceTimer: false);
-        var topLayer = gameViewModel.BoardTiles.Max(tile => tile.Layer);
-
-        Assert.Contains(gameViewModel.BoardTiles, tile => tile.DepthFromTopLayer >= 2);
-        Assert.All(gameViewModel.BoardTiles, tile =>
-        {
-            Assert.Equal(topLayer - tile.Layer, tile.DepthFromTopLayer);
-            Assert.Equal(tile.Layer <= topLayer - 2, tile.IsTwoOrMoreLayersBelowTop);
-        });
     }
 
     [Fact]

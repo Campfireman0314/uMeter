@@ -5,10 +5,10 @@
         xmlns:shell="clr-namespace:System.Windows.Shell;assembly=PresentationFramework"
         Title="Signal Shuffle"
         Icon="Assets/desktop-loudness-meter.ico"
-        Width="560"
-        Height="850"
-        MinWidth="500"
-        MinHeight="760"
+        Width="760"
+        Height="1010"
+        MinWidth="700"
+        MinHeight="900"
         WindowStyle="None"
         ResizeMode="CanResize"
         WindowStartupLocation="CenterOwner"
@@ -283,7 +283,7 @@
 
                     <Grid x:Name="BoardHost"
                           Grid.Row="2"
-                          Height="462"
+                          Height="636"
                           Margin="0,10,0,10"
                           VerticalAlignment="Center"
                           RenderTransformOrigin="0.5,0.5">
@@ -292,9 +292,9 @@
                         </Grid.RenderTransform>
                         <Grid.RowDefinitions>
                             <RowDefinition Height="24" />
-                            <RowDefinition Height="438" />
+                            <RowDefinition Height="612" />
                         </Grid.RowDefinitions>
-                        <Grid Grid.Row="0" Width="300" Height="24" HorizontalAlignment="Center">
+                        <Grid Grid.Row="0" Width="516" Height="24" HorizontalAlignment="Center">
                             <Grid.ColumnDefinitions>
                                 <ColumnDefinition Width="56" />
                                 <ColumnDefinition Width="*" />
@@ -422,17 +422,17 @@
                                 </Grid>
                             </Button>
                         </StackPanel>
-                        <Border Grid.Row="1" Width="300" Height="432" Margin="0,6,0,0"
+                        <Border Grid.Row="1" Width="516" Height="606" Margin="0,6,0,0"
                                 HorizontalAlignment="Center" VerticalAlignment="Top"
                                 Background="Transparent"
                                 BorderBrush="{DynamicResource ControlBorderBrush}"
                                 BorderThickness="1" CornerRadius="6">
-                            <Grid Width="288" Height="420">
+                            <Grid Width="504" Height="594">
                                 <Border Background="{DynamicResource PanelBrush}"
                                         CornerRadius="5"
                                         Opacity="0.5"
                                         IsHitTestVisible="False" />
-                            <ItemsControl x:Name="BoardItemsControl" Width="288" Height="420" ItemsSource="{Binding BoardTiles}">
+                            <ItemsControl x:Name="BoardItemsControl" Width="504" Height="594" ItemsSource="{Binding BoardTiles}">
                                 <ItemsControl.ItemsPanel>
                                     <ItemsPanelTemplate><Canvas /></ItemsPanelTemplate>
                                 </ItemsControl.ItemsPanel>
@@ -485,28 +485,12 @@
                                                     </Style>
                                                 </Border.Style>
                                             </Border>
-                                            <Border Background="#FF3A3D3E"
-                                                    BorderBrush="#FF202324"
-                                                    BorderThickness="1"
-                                                    CornerRadius="3"
-                                                    IsHitTestVisible="False">
-                                                <Border.Style>
-                                                    <Style TargetType="Border">
-                                                        <Setter Property="Visibility" Value="Collapsed" />
-                                                        <Style.Triggers>
-                                                            <DataTrigger Binding="{Binding IsTwoOrMoreLayersBelowTop}" Value="True">
-                                                                <Setter Property="Visibility" Value="Visible" />
-                                                            </DataTrigger>
-                                                        </Style.Triggers>
-                                                    </Style>
-                                                </Border.Style>
-                                            </Border>
                                         </Grid>
                                     </DataTemplate>
                                 </ItemsControl.ItemTemplate>
                             </ItemsControl>
                                 <Canvas x:Name="BoardEffectCanvas"
-                                        Width="288" Height="420"
+                                        Width="504" Height="594"
                                         Panel.ZIndex="100"
                                         IsHitTestVisible="False" />
                             </Grid>
