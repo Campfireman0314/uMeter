@@ -13,6 +13,7 @@ public sealed class SpectrumRollView : FrameworkElement
 {
     private const double PreferredPlotHeight = 140;
     private const int PendingBitmapLockHResult = unchecked((int)0x88982F0D);
+    private static readonly Thickness CursorLabelPadding = new(7, 3, 7, 4);
     private static readonly double MinimumMel = SpectrumScale.HertzToMel(SpectrumScale.MinimumFrequencyHz);
     private static readonly double MaximumMel = SpectrumScale.HertzToMel(SpectrumScale.MaximumFrequencyHz);
     private static readonly double[] MajorFrequencies = [20d, 100d, 1000d, 4000d, 12000d, 22000d];
@@ -20,8 +21,7 @@ public sealed class SpectrumRollView : FrameworkElement
     private WriteableBitmap? _bitmap;
     private int[] _pixels = [];
     private int[] _columnPixels = [];
-    private double[] _columnLevels = [];
-    private double[] _levels = [];
+    private readonly SpectrumHistoryLevels _historyLevels = new();
     private int _historyColumnCount;
     private int _bitmapBucketCount;
     private int _sourceBucketCount;
@@ -372,13 +372,8 @@ public sealed class SpectrumRollView : FrameworkElement
 
     private void DrawFrequencyHover(DrawingContext drawingContext, Rect plot)
     {
-        if (_hoverPosition is not { } hoverPosition)
-        {
-            return;
-        }
-
-        var viewport = GetEffectiveViewport(plot);
-        if (SpectrumFrequencyHoverMapper.Map(hoverPosition, plot, viewport.Minimum, viewport.Span) is not { } frequency)
+        if (_hoverPosition is not { } hoverPosition
+            || ResolveCursorReadout(hoverPosition) is not { } readout)
         {
             return;
         }
@@ -389,7 +384,85 @@ public sealed class SpectrumRollView : FrameworkElement
             new Point(plot.Left, y),
             new Point(plot.Right, y));
 
-        var text = FormatFrequencyReadout(frequency);
+        var padding = CursorLabelPadding;
+        var formatted = CreateCursorLabel(readout, plot);
+        var placement = SpectrumCursorLabelPlacement.Place(
+            hoverPosition,
+            plot,
+            new Size(formatted.Width, formatted.Height),
+            padding);
+        if (placement.Label.Width <= 0 || placement.Label.Height <= 0)
+        {
+            return;
+        }
+
+        drawingContext.DrawRoundedRectangle(
+            ThemedDrawing.GetBrush(this, PlotColorRole.ControlPressed, 236),
+            ThemedDrawing.GetPen(this, PlotColorRole.Signal, 144, 1),
+            placement.Label,
+            5,
+            5);
+        drawingContext.PushClip(new RectangleGeometry(placement.Label));
+        drawingContext.DrawText(
+            formatted,
+            new Point(placement.TextOriginX, placement.TextOriginY));
+        drawingContext.Pop();
+    }
+
+    /// <summary>
+    /// Resolves the cursor label for a pointer position from the retained raw
+    /// source bucket level at the drawn history column. Rendering and tests share
+    /// this path, and it never re-runs FFT or audio analysis.
+    /// </summary>
+    internal SpectrumCursorReadout? ResolveCursorReadout(Point position)
+    {
+        var plot = GetPlotRect();
+        var viewport = GetEffectiveViewport(plot);
+        var layout = new SpectrumHistoryLayout(
+            _historyColumnCount,
+            _sourceBucketCount,
+            _filledColumns,
+            _nextColumnIndex,
+            VisualTreeHelper.GetDpi(this).DpiScaleX);
+        if (SpectrumHistoryCursorMapper.Map(position, plot, viewport.Minimum, viewport.Span, layout) is not { } target)
+        {
+            return null;
+        }
+
+        var storedLevel = 0d;
+        var hasRetainedLevel = target.HistoryColumn >= 0
+            && target.SourceBucket >= 0
+            && _historyLevels.TryReadLevel(target.HistoryColumn, target.SourceBucket, out storedLevel);
+
+        return SpectrumCursorReadout.Create(
+            target.FrequencyHz,
+            target.SourceBucket,
+            target.HistoryColumn,
+            hasRetainedLevel,
+            storedLevel);
+    }
+
+    private FormattedText CreateCursorLabel(SpectrumCursorReadout readout, Rect plot)
+    {
+        var pixelsPerDip = VisualTreeHelper.GetDpi(this).PixelsPerDip;
+        var availableWidth = Math.Max(1, plot.Width - (SpectrumCursorLabelPlacement.EdgeInset * 2) - 12);
+        var singleLine = CreateCursorText(
+            $"{readout.FrequencyText}  ·  {readout.LevelText}",
+            pixelsPerDip,
+            maxWidth: null);
+        if (singleLine.Width <= availableWidth)
+        {
+            return singleLine;
+        }
+
+        return CreateCursorText(
+            $"{readout.FrequencyText}\n{readout.LevelText}",
+            pixelsPerDip,
+            availableWidth);
+    }
+
+    private FormattedText CreateCursorText(string text, double pixelsPerDip, double? maxWidth)
+    {
         var formatted = new FormattedText(
             text,
             CultureInfo.InvariantCulture,
@@ -397,26 +470,13 @@ public sealed class SpectrumRollView : FrameworkElement
             new Typeface("Segoe UI"),
             10.5,
             ThemedDrawing.GetBrush(this, PlotColorRole.Text),
-            VisualTreeHelper.GetDpi(this).PixelsPerDip);
-        var padding = new Thickness(7, 3, 7, 4);
-        var width = formatted.Width + padding.Left + padding.Right;
-        var height = formatted.Height + padding.Top + padding.Bottom;
-        var left = hoverPosition.X + 10;
-        if (left + width > plot.Right - 3)
+            pixelsPerDip);
+        if (maxWidth is double width)
         {
-            left = hoverPosition.X - width - 10;
+            formatted.MaxTextWidth = width;
         }
 
-        left = Math.Clamp(left, plot.Left + 4, Math.Max(plot.Left + 4, plot.Right - width - 4));
-        var top = Math.Clamp(y - (height / 2), plot.Top + 3, Math.Max(plot.Top + 3, plot.Bottom - height - 3));
-        var labelRect = new Rect(left, top, width, height);
-        drawingContext.DrawRoundedRectangle(
-            ThemedDrawing.GetBrush(this, PlotColorRole.ControlPressed, 236),
-            ThemedDrawing.GetPen(this, PlotColorRole.Signal, 144, 1),
-            labelRect,
-            5,
-            5);
-        drawingContext.DrawText(formatted, new Point(labelRect.Left + padding.Left, labelRect.Top + padding.Top));
+        return formatted;
     }
 
     private void DrawBitmapSegment(DrawingContext drawingContext, int sourceX, int sourceWidth, Rect destination)
@@ -456,11 +516,6 @@ public sealed class SpectrumRollView : FrameworkElement
         return frequency >= 1000 ? $"{frequency / 1000:0.#}k" : $"{frequency:0}";
     }
 
-    private static string FormatFrequencyReadout(double frequency)
-    {
-        return frequency >= 1000 ? $"{frequency / 1000:0.##} kHz" : $"{frequency:0} Hz";
-    }
-
     private double FrequencyToY(Rect plot, double frequency)
     {
         return MelToY(plot, SpectrumScale.HertzToMel(Math.Clamp(frequency, SpectrumScale.MinimumFrequencyHz, SpectrumScale.MaximumFrequencyHz)));
@@ -478,7 +533,7 @@ public sealed class SpectrumRollView : FrameworkElement
         return GetPlotRect(ActualWidth, ActualHeight);
     }
 
-    private static Rect GetPlotRect(double width, double height)
+    internal static Rect GetPlotRect(double width, double height)
     {
         return new Rect(42, 9, Math.Max(1, width - 52), Math.Max(1, height - 20));
     }
@@ -666,8 +721,7 @@ public sealed class SpectrumRollView : FrameworkElement
         _nextColumnIndex = 0;
         _pixels = new int[_historyColumnCount * _bitmapBucketCount];
         _columnPixels = new int[_bitmapBucketCount];
-        _columnLevels = new double[_bitmapBucketCount];
-        _levels = new double[_historyColumnCount * _bitmapBucketCount];
+        _historyLevels.Reset(_historyColumnCount, _sourceBucketCount);
         _bitmap = new WriteableBitmap(
             _historyColumnCount,
             _bitmapBucketCount,
@@ -685,22 +739,11 @@ public sealed class SpectrumRollView : FrameworkElement
     {
         var (floorDb, ceilingDb) = DisplayRange();
         var transform = SpectrumRollColumnRasterizer.CreateDisplayTransform(floorDb, ceilingDb);
-        var accent = CurrentAccent();
-        var warm = CurrentWarm();
-
+        _historyLevels.WriteColumn(x, buckets);
+        SpectrumRollColumnRasterizer.WriteColumn(buckets, _columnPixels, transform, CurrentAccent(), CurrentWarm());
         for (var row = 0; row < _bitmapBucketCount; row++)
         {
-            _pixels[(row * _historyColumnCount) + x] = 0;
-            _levels[(row * _historyColumnCount) + x] = 0;
-        }
-
-        SpectrumRollColumnRasterizer.WriteLevels(buckets, _columnLevels);
-        SpectrumRollColumnRasterizer.WriteColumn(buckets, _columnPixels, transform, accent, warm);
-        for (var row = 0; row < _bitmapBucketCount; row++)
-        {
-            var index = (row * _historyColumnCount) + x;
-            _levels[index] = _columnLevels[row];
-            _pixels[index] = _columnPixels[row];
+            _pixels[(row * _historyColumnCount) + x] = _columnPixels[row];
         }
     }
 
@@ -709,7 +752,7 @@ public sealed class SpectrumRollView : FrameworkElement
         if (_pixels.Length > 0)
         {
             Array.Clear(_pixels);
-            Array.Clear(_levels);
+            _historyLevels.Clear();
             if (!TryWriteFullBitmap())
             {
                 MarkBitmapWritePending();
@@ -768,7 +811,7 @@ public sealed class SpectrumRollView : FrameworkElement
 
     private void RecolorBitmapIfNeeded()
     {
-        if (_bitmap is null || _pixels.Length == 0 || _levels.Length == 0)
+        if (_bitmap is null || _pixels.Length == 0 || _historyLevels.ColumnCount == 0)
         {
             return;
         }
@@ -794,7 +837,11 @@ public sealed class SpectrumRollView : FrameworkElement
             for (var column = 0; column < _historyColumnCount; column++)
             {
                 var index = (row * _historyColumnCount) + column;
-                _pixels[index] = SpectrumRollColumnRasterizer.LevelPixel(_levels[index], transform, accent, warm);
+                _pixels[index] = SpectrumRollColumnRasterizer.LevelPixel(
+                    _historyLevels.ReadRowLevel(column, row, _bitmapBucketCount),
+                    transform,
+                    accent,
+                    warm);
             }
         }
 

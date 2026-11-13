@@ -14,7 +14,9 @@ internal sealed record BenchmarkOptions
     public const int DefaultWarmupRuns = 1;
     public const int DefaultRepeats = 3;
     public const int DefaultOversampling = 4;
+    public const int DefaultSources = 1;
     public static readonly double[] DefaultDurationsSeconds = [10, 60];
+    public static readonly int[] DefaultGateBlockCounts = [1_000, 5_000, 30_000];
 
     public int SampleRate { get; init; } = DefaultSampleRate;
 
@@ -33,9 +35,20 @@ internal sealed record BenchmarkOptions
     public PcmAnalysisPerformanceMode[] Modes { get; init; } =
         [PcmAnalysisPerformanceMode.Normal, PcmAnalysisPerformanceMode.Eco];
 
+    /// <summary>Number of independent analyzers fed the same workload, mirroring several metered sources.</summary>
+    public int Sources { get; init; } = DefaultSources;
+
+    public bool ChannelWaveform { get; init; }
+
+    public bool ChannelSpectrum { get; init; }
+
+    public int[] GateBlockCounts { get; init; } = DefaultGateBlockCounts;
+
     public bool RunTruePeak { get; init; } = true;
 
     public bool RunAnalyzer { get; init; } = true;
+
+    public bool RunGate { get; init; } = true;
 
     public static BenchmarkOptions Parse(string[] args)
     {
@@ -44,13 +57,25 @@ internal sealed record BenchmarkOptions
         {
             if (argument is "--analyzer-only")
             {
-                options = options with { RunTruePeak = false };
+                options = options with { RunTruePeak = false, RunGate = false };
                 continue;
             }
 
             if (argument is "--true-peak-only")
             {
-                options = options with { RunAnalyzer = false };
+                options = options with { RunAnalyzer = false, RunGate = false };
+                continue;
+            }
+
+            if (argument is "--gate-only")
+            {
+                options = options with { RunAnalyzer = false, RunTruePeak = false, RunGate = true };
+                continue;
+            }
+
+            if (argument is "--no-gate")
+            {
+                options = options with { RunGate = false };
                 continue;
             }
 
@@ -73,6 +98,10 @@ internal sealed record BenchmarkOptions
                 "oversampling" => options with { Oversampling = ParsePositiveInt(key, value) },
                 "seconds" => options with { DurationsSeconds = ParseDurations(value) },
                 "mode" => options with { Modes = ParseModes(value) },
+                "sources" => options with { Sources = ParsePositiveInt(key, value) },
+                "channel-waveform" => options with { ChannelWaveform = ParseBool(key, value) },
+                "channel-spectrum" => options with { ChannelSpectrum = ParseBool(key, value) },
+                "gate-blocks" => options with { GateBlockCounts = ParseBlockCounts(value) },
                 _ => throw new ArgumentException($"Unknown benchmark option '--{key}'.")
             };
         }
@@ -88,6 +117,26 @@ internal sealed record BenchmarkOptions
         }
 
         return options;
+    }
+
+    private static bool ParseBool(string key, string value)
+    {
+        return bool.TryParse(value, out var parsed)
+            ? parsed
+            : throw new ArgumentException($"--{key} accepts true or false, got '{value}'.");
+    }
+
+    private static int[] ParseBlockCounts(string value)
+    {
+        var counts = value
+            .Split(',', StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries)
+            .Select(item => int.TryParse(item, out var count) && count > 0
+                ? count
+                : throw new ArgumentException($"--gate-blocks values must be positive integers, got '{item}'."))
+            .Distinct()
+            .ToArray();
+
+        return counts.Length > 0 ? counts : throw new ArgumentException("--gate-blocks needs at least one value.");
     }
 
     private static int ParsePositiveInt(string key, string value)

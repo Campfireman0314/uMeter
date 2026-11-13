@@ -36,13 +36,37 @@ internal static class SpectrumRollColumnRasterizer
         }
     }
 
-    public static void WriteLevels(IReadOnlyList<double> buckets, Span<double> levels)
+    /// <summary>
+    /// Source bucket range rendered by one displayed row. The roll keeps the
+    /// strongest bucket of the range, so row rendering and any later replay from
+    /// retained raw buckets share this single mapping.
+    /// </summary>
+    public static (int Low, int High) RowBucketRange(int row, int rowCount, int bucketCount)
     {
-        levels.Clear();
-        for (var row = 0; row < levels.Length; row++)
+        if (bucketCount <= 0 || rowCount <= 0)
         {
-            levels[row] = RowValue(buckets, row, levels.Length);
+            return (0, 0);
         }
+
+        var low = (rowCount - 1 - row) * bucketCount / rowCount;
+        var high = Math.Max(low + 1, (rowCount - row) * bucketCount / rowCount);
+        return (low, Math.Min(high, bucketCount));
+    }
+
+    public static double RowValue(ReadOnlySpan<double> columnLevels, int row, int rowCount)
+    {
+        var (low, high) = RowBucketRange(row, rowCount, columnLevels.Length);
+        var strongest = 0d;
+        for (var bucket = low; bucket < high; bucket++)
+        {
+            var level = columnLevels[bucket];
+            if (double.IsFinite(level))
+            {
+                strongest = Math.Max(strongest, Math.Clamp(level, 0, 1));
+            }
+        }
+
+        return strongest;
     }
 
     public static int LevelPixel(double value, DisplayTransform transform, Color accent, Color warm)
@@ -83,12 +107,15 @@ internal static class SpectrumRollColumnRasterizer
             return 0;
         }
 
-        var lowBucket = (rowCount - 1 - row) * buckets.Count / rowCount;
-        var highBucket = Math.Max(lowBucket + 1, (rowCount - row) * buckets.Count / rowCount);
+        var (lowBucket, highBucket) = RowBucketRange(row, rowCount, buckets.Count);
         var strongest = 0d;
-        for (var bucket = lowBucket; bucket < highBucket && bucket < buckets.Count; bucket++)
+        for (var bucket = lowBucket; bucket < highBucket; bucket++)
         {
-            strongest = Math.Max(strongest, Math.Clamp(buckets[bucket], 0, 1));
+            var level = buckets[bucket];
+            if (double.IsFinite(level))
+            {
+                strongest = Math.Max(strongest, Math.Clamp(level, 0, 1));
+            }
         }
 
         return strongest;

@@ -31,6 +31,11 @@ if (options.RunAnalyzer)
     AnalyzerBenchmark.Run(options);
 }
 
+if (options.RunGate)
+{
+    GateBenchmark.Run(options);
+}
+
 if (options.RunTruePeak)
 {
     TruePeakBenchmark.Run(options.SampleRate, options.Channels, nativeBackend);
