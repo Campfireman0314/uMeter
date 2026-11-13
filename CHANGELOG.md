@@ -2,8 +2,15 @@
 
 ## Unreleased
 
+## v2.5.0 - 2026-11-13
+
+Metering precision, analyzer performance, accessibility, spectrum cursor levels, and the previously unreleased About/Signal Shuffle work.
+
 ### Added
 
+- Spectrum cursor labels now show frequency and one-decimal FFT-bucket dBFS from the hovered historical column, independent of display colors and range. Unavailable, floor, and ceiling readings remain explicit.
+- Added keyboard editing, focus visuals, localized accessible names, and real UI Automation value/range providers for the core slider controls.
+- Expanded independent-reference, analytical true-peak, streaming/reset, exact-gate, immutable-snapshot, and spectrum-history regression coverage.
 - Added an About entry to Global Settings with runtime version information, Campfireman Studio attribution, initial credits for Lin Yudong and wangzhe10, and a project-repository action.
 - Added the localized `Signal Shuffle` layered triple-tile game in an owned WPF window, opened from a game icon beside the theme selector.
 - Added a selectable meter-source feed for a background sheep whose bounded bounce, lean, and squash follow bass energy and detected onsets.
@@ -30,6 +37,10 @@
 
 ### Changed
 
+- K-weighting follows the configured sample rate, preserving 48 kHz calibration while adding reference coverage at 44.1/48/96 kHz.
+- Analyzer sliding windows use fixed-capacity storage, stereo-point sampling avoids transient collection work, and published waveform/spectrum snapshots remain immutable.
+- Integrated loudness caches unchanged results and uses an exact-power aggregate index for completed-block queries instead of rescanning the full history. Strict gate membership is preserved; the numerical comparison budget is 1e-10 LU, not bit identity.
+- Synthetic follow-up measurements showed lower processing time and cumulative allocations; retained index memory still grows with distinct measured powers. See the release notes for measured scope and memory tradeoffs.
 - Tightened the game window and table around the compact reference-shaped pile while keeping tile symbols upright.
 - Replaced bass-only onset detection with an adaptive multi-band detector combining spectral flux, synchronized band evidence, cross-band correlation, onset autocorrelation, and confidence-bounded periodic threshold support.
 - Reworked sheep motion into a centered 460 ms takeoff/apex/landing jump with symmetric knees; detected beats inside a 320 ms animation guard no longer restart the sheep mid-air.
@@ -47,13 +58,24 @@
 - The 48-candidate search now preserves one opening family and maximizes simulated tray pressure, family switching, new-family decoys, and dangerous non-completing choices while penalizing obvious alternate completions.
 - Kept cards on the highest remaining layer and the layer immediately below identifiable, while fully obscuring every card two or more layers below that global top layer.
 - Removed the abrupt 111-card tool lock; Cannon, Fan, and Digger are optional strategic aids, while difficulty comes from the generated layer and symbol arrangement.
-- Kept product, setup, shared components, VST3, AAX, and installer defaults on the `2.4.0` release line.
+- Advanced product, setup/uninstall registration, shared components, About fallback, VST3, AAX source metadata, and installer defaults to `2.5.0`. AAX binaries are not part of the Windows installer.
 
 ### Fixed
 
 - Sender-driven host startup now detects the resolved uMeter executable in the current Windows session and suppresses secondary launches when the desktop host is already running.
 - The VST3 editor reports an already-running host as a successful no-op instead of starting a process that triggers single-instance activation.
 - The bonus-game audio-source selector now renders real source names and saved aliases instead of falling back to view-model type names.
+
+### Verification and Packaging
+
+- Release solution build: 0 warnings, 0 errors. Managed suite: **557 passing**, 0 failed/skipped.
+- Release JUCE native suite: **1 CTest executable, 6 internal groups passing**. Scoped formatting and whitespace verification passed.
+- Installer build passed using the new 2.5.0 default, with app/native-DSP/VST3 payloads and self-contained .NET 8.0.34.
+- All 476 payload files match the publish tree by size and SHA-256; source/binary/plugin version metadata agree.
+- `uMeter-Setup-2.5.0.exe`: **145,931,729 bytes**; SHA-256: `26D3570BDA2142AC0F6661686C605B07CDCF8834BDED82037CA14E42B0004884`.
+- Detailed verification, measured performance/memory qualifications, unsigned-installer status, and open real-device acceptance gates: `docs/v2.5.0-release.md`.
+
+Historical entries below retain their original artifact hashes and test counts.
 
 ## v2.4.0 - 2026-08-05
 

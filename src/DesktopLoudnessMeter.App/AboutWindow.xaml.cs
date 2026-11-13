@@ -57,6 +57,6 @@ public partial class AboutWindow : Window
         var assembly = typeof(AboutWindow).Assembly;
         return assembly.GetCustomAttribute<AssemblyInformationalVersionAttribute>()?.InformationalVersion
             ?? assembly.GetName().Version?.ToString(3)
-            ?? "2.4.0";
+            ?? "2.5.0";
     }
 }

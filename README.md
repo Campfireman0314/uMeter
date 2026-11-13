@@ -4,7 +4,7 @@ Fast floating Windows desktop meter for seeing which app, DAW, or plugin sender 
 
 ## Current Version
 
-`v2.4.0` is the current public release. It localizes the app, VST3 editor, and installer for Simplified Chinese, Japanese, and Russian; adds Windows and sender-driven automatic startup controls; and lets a VST3 sender launch uMeter manually from its editor.
+`v2.5.0` is the current release version. It adds sample-rate-aware metering, lower analyzer processing/allocation overhead, keyboard and UI Automation improvements, and historical spectrum-cursor dBFS readings. It also includes the About/credits and Signal Shuffle changes developed since v2.4.0. See `docs/v2.5.0-release.md` for the installer, verification, and remaining real-device acceptance limits.
 
 ## Usable Baseline
 
@@ -15,7 +15,7 @@ Fast floating Windows desktop meter for seeing which app, DAW, or plugin sender 
 - **Detail graphs:** Stereo image plus correlation, loudness clock, waveform, and spectrograph are separate graph modules. Stereo/waveform/spectrograph/clock modules are resizeable where useful; the collision analyzer is a compact fixed-height module.
 - **Metering:** Peak/LUFS display, true-peak oversampling options, momentary/short-term/integrated loudness, recent-window true peak, 100 ms RMS, polar stereo image, and correlation. Each detailed numeric meter independently selects Overall, Mid, or Side content through a compact marked-title selector.
 - **Waveform:** Oversampled dBFS waveform display with overall/channel modes, viewport-bounded rendering, vertical pan, mouse-wheel zoom, double-click reset, and inactive hidden-module gating.
-- **Spectrograph:** Horizontally rolling Mel-scaled FFT display from 20 Hz to 22 kHz using raw PCM history, dynamic viewport resolution, adjustable display range, hover frequency readout, sharp bucket rendering, and rollover-stripe protection.
+- **Spectrograph:** Horizontally rolling Mel-scaled FFT display from 20 Hz to 22 kHz using raw PCM history, dynamic viewport resolution, adjustable display range, historical frequency and FFT-bucket dBFS hover readout, sharp bucket rendering, and rollover-stripe protection.
 - **Loudness clock:** Configurable cycle length, loudness range, warning threshold, fan-fill plotting, scan line, time markers, hover readout, and over-range danger coloring.
 - **Collision analyzer:** Prominent spectrum-overlap comparison between sources with source selection, logarithmic/Mel scale, level floor, prominence, match tolerance, frequency cursor marker, and double-click numeric slider entry.
 - **Events and settings:** Recent Events strip for source lifecycle, true-peak max, loudness jumps, and conservative collision overlaps, with type filtering and configurable retained entry count. Global settings cover language, Windows startup, sender-driven host invocation, notification-area startup, event history, future event output folder selection, default detail-layout loading, and optional title/banner explanations.
@@ -64,7 +64,7 @@ The generated installers are written to:
 
 ```text
 artifacts\uMeter.Setup.exe
-artifacts\uMeter-Setup-2.4.0.exe
+artifacts\uMeter-Setup-2.5.0.exe
 ```
 
 The installer contains the desktop app and `uMeter Sender.vst3`. The VST3 install path defaults to:
@@ -109,6 +109,7 @@ For mixed-source behavior, duplicate names, and reconnect preference memory, see
 - `docs/current-status.md` - current release status and remaining known limits.
 - `docs/product-roadmap/` - post-v2.2.4 product roadmap and planning notes.
 - `docs/rendering-architecture.md` - graph rendering cleanup notes.
+- `docs/v2.5.0-release.md` - v2.5.0 release notes, installer fingerprint, and verification limits.
 - `docs/v2.4.0-release.md` - v2.4.0 release notes.
 - `docs/v2.3.5-release.md` - v2.3.5 release notes.
 - `docs/v2.3.4-release.md` - v2.3.4 release notes.
@@ -151,3 +152,4 @@ For mixed-source behavior, duplicate names, and reconnect preference memory, see
 19. Done: v2.3.4 draggable detail-graph polish and fixed-height collision analyzer.
 20. Done: v2.3.5 sender recovery, deterministic detail dragging, selectable Mid/Side detail metering, popup lifecycle, and responsive hover hints.
 21. Done: v2.4.0 Chinese/Japanese/Russian localization, startup controls, and VST3 host launching.
+22. Done: v2.5.0 metering precision, analyzer performance, keyboard/UI Automation, spectrum cursor levels, About/credits, and Signal Shuffle. Real-device acceptance limits remain documented in the release notes.
