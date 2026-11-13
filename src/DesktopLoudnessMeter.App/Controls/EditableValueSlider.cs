@@ -1,5 +1,6 @@
 using System.Globalization;
 using System.Windows;
+using System.Windows.Automation.Peers;
 using System.Windows.Controls;
 using System.Windows.Input;
 using System.Windows.Media;
@@ -30,6 +31,20 @@ public sealed class EditableValueSlider : FrameworkElement
         SnapsToDevicePixels = true;
         AddVisualChild(_editor = CreateEditor());
         AddLogicalChild(_editor);
+    }
+
+    internal EditableValueSliderAutomationPeer? Peer { get; private set; }
+
+    internal EditableValueSliderAutomationPeer EnsurePeer()
+    {
+        return Peer ??= new EditableValueSliderAutomationPeer(this);
+    }
+
+    internal double EffectiveStepValue => EffectiveStep();
+
+    internal void SetAutomationValue(double value)
+    {
+        SetEditedValue(value);
     }
 
     public static readonly DependencyProperty MinimumProperty = DependencyProperty.Register(
@@ -140,6 +155,11 @@ public sealed class EditableValueSlider : FrameworkElement
         return index == 0 ? _editor : throw new ArgumentOutOfRangeException(nameof(index));
     }
 
+    protected override AutomationPeer OnCreateAutomationPeer()
+    {
+        return EnsurePeer();
+    }
+
     protected override void OnRender(DrawingContext drawingContext)
     {
         base.OnRender(drawingContext);
@@ -161,8 +181,13 @@ public sealed class EditableValueSlider : FrameworkElement
         DrawTrack(drawingContext, track, valueX, accent);
         DrawTicks(drawingContext, track, subtle);
         DrawEndpointLabels(drawingContext, track, subtle);
-        DrawThumb(drawingContext, new Point(valueX, centerY), accent, _isHot || _isDragging, text);
+        DrawThumb(drawingContext, new Point(valueX, centerY), accent, _isHot || _isDragging || IsKeyboardFocusWithin, text);
         drawingContext.Pop();
+
+        if (IsEnabled && IsKeyboardFocusWithin)
+        {
+            AccessibilityFocusVisuals.DrawFocusRing(this, drawingContext, new Rect(RenderSize));
+        }
     }
 
     protected override void OnMouseLeftButtonDown(MouseButtonEventArgs e)
@@ -242,9 +267,20 @@ public sealed class EditableValueSlider : FrameworkElement
         EndEdit(commit: true);
     }
 
+    protected override void OnIsKeyboardFocusWithinChanged(DependencyPropertyChangedEventArgs e)
+    {
+        base.OnIsKeyboardFocusWithinChanged(e);
+        InvalidateVisual();
+    }
+
     protected override void OnKeyDown(KeyEventArgs e)
     {
         base.OnKeyDown(e);
+        if (e.Handled || !IsEnabled || IsValueEditorOpen)
+        {
+            return;
+        }
+
         if (e.Key is Key.Left or Key.Down)
         {
             SetEditedValue(Value - EffectiveStep());
@@ -265,12 +301,14 @@ public sealed class EditableValueSlider : FrameworkElement
             SetEditedValue(Maximum);
             e.Handled = true;
         }
-        else if (e.Key == Key.Enter)
+        else if (e.Key is Key.Enter or Key.F2)
         {
             BeginEdit();
             e.Handled = true;
         }
     }
+
+    private bool IsValueEditorOpen => _editor.Visibility == Visibility.Visible;
 
     private void DrawTrack(DrawingContext drawingContext, Rect track, double valueX, Color accent)
     {
@@ -404,6 +442,11 @@ public sealed class EditableValueSlider : FrameworkElement
 
     private void BeginEdit()
     {
+        if (!IsEnabled)
+        {
+            return;
+        }
+
         if (IsMouseCaptured)
         {
             ReleaseMouseCapture();
@@ -445,7 +488,7 @@ public sealed class EditableValueSlider : FrameworkElement
 
     private void SetEditedValue(double value)
     {
-        SetCurrentValue(ValueProperty, Math.Clamp(Snap(value, EffectiveStep()), Minimum, Maximum));
+        SetCurrentValue(ValueProperty, value);
     }
 
     private void ArrangeEditor()
@@ -551,6 +594,7 @@ public sealed class EditableValueSlider : FrameworkElement
         slider.CoerceValue(ValueProperty);
         slider.ArrangeEditor();
         slider.InvalidateVisual();
+        slider.Peer?.Synchronize();
     }
 
     private static void OnValueChanged(DependencyObject dependencyObject, DependencyPropertyChangedEventArgs args)
@@ -559,6 +603,7 @@ public sealed class EditableValueSlider : FrameworkElement
         {
             slider.ArrangeEditor();
             slider.InvalidateVisual();
+            slider.Peer?.Synchronize();
         }
     }
 
@@ -567,7 +612,13 @@ public sealed class EditableValueSlider : FrameworkElement
         var slider = (EditableValueSlider)dependencyObject;
         var minimum = Math.Min(slider.Minimum, slider.Maximum);
         var maximum = Math.Max(slider.Minimum, slider.Maximum);
-        return Snap(Math.Clamp(AsFinite(baseValue, minimum), minimum, maximum), slider.EffectiveStep());
+        var clamped = Math.Clamp(AsFinite(baseValue, minimum), minimum, maximum);
+        if (clamped == minimum || clamped == maximum)
+        {
+            return clamped;
+        }
+
+        return Math.Clamp(Snap(clamped, slider.EffectiveStep()), minimum, maximum);
     }
 
     private static double AsFinite(object value, double fallback)

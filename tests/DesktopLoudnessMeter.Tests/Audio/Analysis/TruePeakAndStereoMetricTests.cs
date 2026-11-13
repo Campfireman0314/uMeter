@@ -155,6 +155,21 @@ public sealed class TruePeakAndStereoMetricTests
         Assert.True(eightXAmplitude > twoXAmplitude + 0.02, $"2x={twoXAmplitude:0.000}, 8x={eightXAmplitude:0.000}");
     }
 
+    [Theory]
+    [InlineData(44100)]
+    [InlineData(48000)]
+    [InlineData(96000)]
+    public void AnalyticallyKnownInterSamplePeakIsReportedAtEightTimesOversampling(int sampleRate)
+    {
+        AssertAnalyticQuarterRateTruePeak(sampleRate, oversampling: 8, toleranceDb: 0.1);
+    }
+
+    [Fact]
+    public void AnalyticallyKnownInterSamplePeakIsReportedAtFourTimesOversampling()
+    {
+        AssertAnalyticQuarterRateTruePeak(sampleRate: 48000, oversampling: 4, toleranceDb: 0.25);
+    }
+
     [Fact]
     public void NativeRfRapidTruePeakMatchesManagedEstimatorWhenAvailable()
     {
@@ -340,6 +355,58 @@ public sealed class TruePeakAndStereoMetricTests
     private static PcmMetricAnalyzer Analyzer()
     {
         return new PcmMetricAnalyzer(new PcmMetricAnalyzerOptions(SampleRate, 2, 4));
+    }
+
+    /// <summary>
+    /// Closed-form intersample-peak reference, independent of the estimator under test.
+    /// A sine of amplitude A at fs/4 sampled with phase pi/4 lands exactly midway between
+    /// its peaks, so every discrete sample is A * sin(pi/4 + n * pi/2) = +/- A / sqrt(2):
+    /// discrete peak 0.636396 (-3.9254 dBFS), while the continuous peak is exactly A = 0.9,
+    /// i.e. 20 * log10(0.9) = -0.91515 dBFS. The reconstruction can only sample the
+    /// inter-sample region on its oversampling grid, so a legitimate deviation remains:
+    /// at fs/4 the worst-case grid offset is 1 - cos(pi / (2 * 4 * oversampling)) in linear
+    /// terms, about 0.17 dB at 4x and 0.04 dB at 8x. The discrete peak sits 3.01 dB below
+    /// the true peak, so any reading at or below the discrete peak is a reconstruction failure.
+    /// </summary>
+    private static void AssertAnalyticQuarterRateTruePeak(int sampleRate, int oversampling, double toleranceDb)
+    {
+        const double amplitude = 0.9;
+        var expectedTruePeakDb = -0.9151498;
+        var discretePeakDb = 20 * Math.Log10(amplitude / Math.Sqrt(2));
+        var analyzer = new PcmMetricAnalyzer(new PcmMetricAnalyzerOptions(sampleRate, 2, oversampling));
+
+        analyzer.Process(SineAtRate(
+            sampleRate,
+            seconds: 0.3,
+            amplitude: amplitude,
+            frequency: sampleRate / 4d,
+            phaseRadians: Math.PI / 4));
+
+        var truePeakDb = Assert.IsType<double>(analyzer.Snapshot.TruePeakDb);
+        Assert.True(
+            Math.Abs(truePeakDb - expectedTruePeakDb) <= toleranceDb,
+            $"{sampleRate} Hz {oversampling}x: expected {expectedTruePeakDb:0.0000} dBFS +/- {toleranceDb:0.00} dB but measured {truePeakDb:0.0000} dBFS.");
+        Assert.InRange(truePeakDb - discretePeakDb, 2.5, 3.2);
+    }
+
+    private static float[] SineAtRate(
+        int sampleRate,
+        double seconds,
+        double amplitude,
+        double frequency,
+        double phaseRadians)
+    {
+        var frames = (int)Math.Round(seconds * sampleRate);
+        var samples = new float[frames * 2];
+        for (var frame = 0; frame < frames; frame++)
+        {
+            var phase = (2 * Math.PI * frequency * frame / sampleRate) + phaseRadians;
+            var value = (float)(Math.Sin(phase) * amplitude);
+            samples[frame * 2] = value;
+            samples[(frame * 2) + 1] = value;
+        }
+
+        return samples;
     }
 
     private static int DominantBucket(IReadOnlyList<double> spectrum)

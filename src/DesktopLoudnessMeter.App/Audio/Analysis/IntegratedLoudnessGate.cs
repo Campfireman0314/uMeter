@@ -10,6 +10,9 @@ internal sealed class IntegratedLoudnessGate
     private readonly List<double> _blockPowers = [];
     private double _windowSum;
     private int _framesSinceHop;
+    private long _blockVersion;
+    private long _cachedVersion = -1;
+    private double? _cachedLufs;
 
     public IntegratedLoudnessGate(int blockFrames, int hopFrames)
     {
@@ -43,11 +46,34 @@ internal sealed class IntegratedLoudnessGate
         {
             _blockPowers.Add(_windowSum / _blockFrames);
             _framesSinceHop = 0;
+            _blockVersion++;
         }
     }
 
+    /// <summary>
+    /// Number of times the BS.1770 gating pass actually ran. Test instrumentation only: production code
+    /// never reads it, and it is the observable that proves repeated queries reuse a cached answer.
+    /// </summary>
+    internal int EvaluationCount { get; private set; }
+
     public double? CalculateLufs()
     {
+        // The retained block set only changes when a block completes or the gate is reset, so the exact
+        // two-pass result is reused verbatim in between. A cached "unavailable" result is cached too.
+        if (_cachedVersion == _blockVersion)
+        {
+            return _cachedLufs;
+        }
+
+        var lufs = Evaluate();
+        _cachedLufs = lufs;
+        _cachedVersion = _blockVersion;
+        return lufs;
+    }
+
+    private double? Evaluate()
+    {
+        EvaluationCount++;
         var absoluteGatePower = PcmMetricAnalyzer.LufsToMeanSquare(AbsoluteGateLufs);
         var absoluteGatedSum = 0d;
         var absoluteGatedCount = 0;
@@ -94,5 +120,8 @@ internal sealed class IntegratedLoudnessGate
         _blockPowers.Clear();
         _windowSum = 0;
         _framesSinceHop = 0;
+        _blockVersion++;
+        _cachedLufs = null;
+        _cachedVersion = -1;
     }
 }

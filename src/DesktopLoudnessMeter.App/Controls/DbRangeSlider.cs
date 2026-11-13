@@ -1,5 +1,6 @@
 using System.Globalization;
 using System.Windows;
+using System.Windows.Automation.Peers;
 using System.Windows.Controls;
 using System.Windows.Input;
 using System.Windows.Media;
@@ -23,6 +24,8 @@ public sealed class DbRangeSlider : FrameworkElement
     private TextBox? _editor;
     private DragThumb? _editingThumb;
     private bool _isCommittingEditor;
+    private readonly RangeSliderEndpointHandle _lowerHandle;
+    private readonly RangeSliderEndpointHandle _upperHandle;
 
     public DbRangeSlider()
     {
@@ -31,6 +34,10 @@ public sealed class DbRangeSlider : FrameworkElement
         SnapsToDevicePixels = true;
         AddVisualChild(_editor = CreateEditor());
         AddLogicalChild(_editor);
+        _lowerHandle = new RangeSliderEndpointHandle(this, RangeSliderEndpoint.Lower);
+        _upperHandle = new RangeSliderEndpointHandle(this, RangeSliderEndpoint.Upper);
+        AddVisualChild(_lowerHandle);
+        AddVisualChild(_upperHandle);
     }
 
     public static readonly DependencyProperty MinimumProperty = DependencyProperty.Register(
@@ -69,6 +76,18 @@ public sealed class DbRangeSlider : FrameworkElement
         set => SetValue(StepProperty, value);
     }
 
+    public static readonly DependencyProperty ActiveEndpointProperty = DependencyProperty.Register(
+        nameof(ActiveEndpoint),
+        typeof(RangeSliderEndpoint),
+        typeof(DbRangeSlider),
+        new FrameworkPropertyMetadata(RangeSliderEndpoint.Lower, OnActiveEndpointChanged));
+
+    public RangeSliderEndpoint ActiveEndpoint
+    {
+        get => (RangeSliderEndpoint)GetValue(ActiveEndpointProperty);
+        set => SetValue(ActiveEndpointProperty, value);
+    }
+
     public static readonly DependencyProperty LowerValueProperty = DependencyProperty.Register(
         nameof(LowerValue),
         typeof(double),
@@ -105,22 +124,44 @@ public sealed class DbRangeSlider : FrameworkElement
     {
         var width = double.IsInfinity(availableSize.Width) ? PreferredWidth : availableSize.Width;
         _editor?.Measure(new Size(72, 26));
+        var handleSize = EndpointHandleSize();
+        _lowerHandle.Measure(new Size(handleSize, handleSize));
+        _upperHandle.Measure(new Size(handleSize, handleSize));
         return new Size(Math.Max(180, width), PreferredHeight);
     }
 
     protected override Size ArrangeOverride(Size finalSize)
     {
         ArrangeEditor();
+        ArrangeEndpointHandles(finalSize);
         return finalSize;
     }
 
-    protected override int VisualChildrenCount => _editor is null ? 0 : 1;
+    protected override int VisualChildrenCount => _editor is null ? 2 : 3;
 
     protected override Visual GetVisualChild(int index)
     {
-        return index == 0 && _editor is not null
-            ? _editor
-            : throw new ArgumentOutOfRangeException(nameof(index));
+        if (_editor is not null)
+        {
+            if (index == 0)
+            {
+                return _editor;
+            }
+
+            index--;
+        }
+
+        return index switch
+        {
+            0 => _lowerHandle,
+            1 => _upperHandle,
+            _ => throw new ArgumentOutOfRangeException(nameof(index))
+        };
+    }
+
+    protected override AutomationPeer OnCreateAutomationPeer()
+    {
+        return new DbRangeSliderAutomationPeer(this);
     }
 
     protected override void OnRender(DrawingContext drawingContext)
@@ -141,14 +182,46 @@ public sealed class DbRangeSlider : FrameworkElement
         var text = ThemedDrawing.GetBrush(this, "TextBrush", Color.FromRgb(238, 241, 245));
         var subtle = ThemedDrawing.GetBrush(this, "SubtleTextBrush", Color.FromRgb(174, 183, 194));
         var opacity = IsEnabled ? 1.0 : 0.48;
+        var isKeyboardActive = IsEnabled && IsKeyboardFocusWithin;
 
         drawingContext.PushOpacity(opacity);
         DrawTrack(drawingContext, track, lowerX, upperX, accent, warm);
         DrawTicks(drawingContext, track, subtle);
         DrawEndpointLabels(drawingContext, track, subtle);
-        DrawThumb(drawingContext, new Point(lowerX, centerY), accent, _hotThumb == DragThumb.Lower || _dragThumb == DragThumb.Lower, text);
-        DrawThumb(drawingContext, new Point(upperX, centerY), warm, _hotThumb == DragThumb.Upper || _dragThumb == DragThumb.Upper, text);
+        DrawThumb(
+            drawingContext,
+            new Point(lowerX, centerY),
+            accent,
+            _hotThumb == DragThumb.Lower || _dragThumb == DragThumb.Lower || (isKeyboardActive && ActiveEndpoint == RangeSliderEndpoint.Lower),
+            text);
+        DrawThumb(
+            drawingContext,
+            new Point(upperX, centerY),
+            warm,
+            _hotThumb == DragThumb.Upper || _dragThumb == DragThumb.Upper || (isKeyboardActive && ActiveEndpoint == RangeSliderEndpoint.Upper),
+            text);
         drawingContext.Pop();
+
+        if (isKeyboardActive)
+        {
+            DrawActiveEndpointMarker(drawingContext, new Point(lowerX, centerY), accent, RangeSliderEndpoint.Lower);
+            DrawActiveEndpointMarker(drawingContext, new Point(upperX, centerY), warm, RangeSliderEndpoint.Upper);
+            AccessibilityFocusVisuals.DrawFocusRing(this, drawingContext, new Rect(RenderSize));
+        }
+    }
+
+    private void DrawActiveEndpointMarker(DrawingContext drawingContext, Point center, Color accent, RangeSliderEndpoint endpoint)
+    {
+        if (ActiveEndpoint != endpoint)
+        {
+            return;
+        }
+
+        var marker = new Pen(new SolidColorBrush(ThemedDrawing.WithAlpha(accent, 255)), 2.5)
+        {
+            DashStyle = new DashStyle([2, 1.6], 0)
+        };
+        drawingContext.DrawEllipse(null, marker, center, HaloRadius - 1, HaloRadius - 1);
     }
 
     protected override void OnMouseLeftButtonDown(MouseButtonEventArgs e)
@@ -165,6 +238,7 @@ public sealed class DbRangeSlider : FrameworkElement
         EndEdit(commit: true);
         _dragThumb = ChooseThumb(e.GetPosition(this));
         _hotThumb = _dragThumb;
+        ActivateEndpoint(_dragThumb == DragThumb.Lower ? RangeSliderEndpoint.Lower : RangeSliderEndpoint.Upper);
         CaptureMouse();
         UpdateDrag(e.GetPosition(this));
         InvalidateVisual();
@@ -180,6 +254,12 @@ public sealed class DbRangeSlider : FrameworkElement
         }
 
         EndEdit(commit: true);
+    }
+
+    protected override void OnIsKeyboardFocusWithinChanged(DependencyPropertyChangedEventArgs e)
+    {
+        base.OnIsKeyboardFocusWithinChanged(e);
+        InvalidateVisual();
     }
 
     protected override void OnMouseMove(MouseEventArgs e)
@@ -277,6 +357,144 @@ public sealed class DbRangeSlider : FrameworkElement
         drawingContext.DrawText(maximum, new Point(track.Right - maximum.Width, track.Bottom + 12));
     }
 
+    protected override void OnKeyDown(KeyEventArgs e)
+    {
+        base.OnKeyDown(e);
+        if (e.Handled || !IsEnabled || IsValueEditorOpen)
+        {
+            return;
+        }
+
+        var step = EffectiveStep();
+        switch (e.Key)
+        {
+            case Key.Left:
+            case Key.Down:
+                NudgeActiveEndpoint(-step);
+                e.Handled = true;
+                break;
+            case Key.Right:
+            case Key.Up:
+                NudgeActiveEndpoint(step);
+                e.Handled = true;
+                break;
+            case Key.Home:
+                MoveActiveEndpointToLimit(lowest: true);
+                e.Handled = true;
+                break;
+            case Key.End:
+                MoveActiveEndpointToLimit(lowest: false);
+                e.Handled = true;
+                break;
+            case Key.Space:
+                ActivateEndpoint(ActiveEndpoint == RangeSliderEndpoint.Lower
+                    ? RangeSliderEndpoint.Upper
+                    : RangeSliderEndpoint.Lower);
+                e.Handled = true;
+                break;
+            case Key.Enter:
+            case Key.F2:
+                BeginEdit(ActiveEndpoint);
+                e.Handled = true;
+                break;
+        }
+    }
+
+    private bool IsValueEditorOpen => _editingThumb is not null;
+
+    private void NudgeActiveEndpoint(double delta)
+    {
+        SetEndpointValue(ActiveEndpoint, GetEndpointValue(ActiveEndpoint) + delta);
+    }
+
+    private void MoveActiveEndpointToLimit(bool lowest)
+    {
+        var separation = EffectiveStep();
+        if (ActiveEndpoint == RangeSliderEndpoint.Lower)
+        {
+            SetCurrentValue(
+                LowerValueProperty,
+                lowest ? Minimum : Math.Clamp(UpperValue - separation, Minimum, Maximum));
+        }
+        else
+        {
+            SetCurrentValue(
+                UpperValueProperty,
+                lowest ? Math.Clamp(LowerValue + separation, Minimum, Maximum) : Maximum);
+        }
+    }
+
+    internal void ActivateEndpoint(RangeSliderEndpoint endpoint)
+    {
+        if (ActiveEndpoint == endpoint)
+        {
+            InvalidateVisual();
+            return;
+        }
+
+        SetCurrentValue(ActiveEndpointProperty, endpoint);
+        InvalidateVisual();
+    }
+
+    internal double EffectiveStepValue => EffectiveStep();
+
+    internal double GetEndpointValue(RangeSliderEndpoint endpoint)
+    {
+        return endpoint == RangeSliderEndpoint.Lower ? LowerValue : UpperValue;
+    }
+
+    internal (double Minimum, double Maximum) GetEndpointBounds(RangeSliderEndpoint endpoint)
+    {
+        var separation = EffectiveStep();
+        return endpoint == RangeSliderEndpoint.Lower
+            ? (Minimum, Math.Max(Minimum, UpperValue - separation))
+            : (Math.Min(Maximum, LowerValue + separation), Maximum);
+    }
+
+    internal void SetEndpointValue(RangeSliderEndpoint endpoint, double value)
+    {
+        // Let dependency-property coercion handle every input path identically, including exact bounds
+        // that do not fall on a step. Pre-snapping here would make such endpoints unreachable.
+        SetCurrentValue(endpoint == RangeSliderEndpoint.Lower ? LowerValueProperty : UpperValueProperty, value);
+    }
+
+    internal IReadOnlyList<AutomationPeer> CreateEndpointPeers()
+    {
+        return [_lowerHandle.EnsurePeer(), _upperHandle.EnsurePeer()];
+    }
+
+    private static double EndpointHandleSize()
+    {
+        return (HaloRadius + 2) * 2;
+    }
+
+    private void ArrangeEndpointHandles(Size finalSize)
+    {
+        var track = TrackRect(finalSize.Width, finalSize.Height);
+        var size = EndpointHandleSize();
+        var centerY = track.Top + (track.Height / 2);
+        ArrangeEndpointHandle(_lowerHandle, ValueToX(track, LowerValue), centerY, size, finalSize);
+        ArrangeEndpointHandle(_upperHandle, ValueToX(track, UpperValue), centerY, size, finalSize);
+    }
+
+    private static void ArrangeEndpointHandle(
+        RangeSliderEndpointHandle handle,
+        double centerX,
+        double centerY,
+        double size,
+        Size finalSize)
+    {
+        var left = Math.Clamp(centerX - (size / 2), 0, Math.Max(0, finalSize.Width - size));
+        var top = Math.Clamp(centerY - (size / 2), 0, Math.Max(0, finalSize.Height - size));
+        handle.Arrange(new Rect(left, top, size, size));
+    }
+
+    private void SynchronizeEndpointAutomation()
+    {
+        _lowerHandle.Peer?.Synchronize();
+        _upperHandle.Peer?.Synchronize();
+    }
+
     private void DrawThumb(DrawingContext drawingContext, Point center, Color accent, bool isHot, Brush fill)
     {
         var haloAlpha = isHot ? (byte)58 : (byte)34;
@@ -302,14 +520,23 @@ public sealed class DbRangeSlider : FrameworkElement
 
     private Rect TrackRect()
     {
-        var width = Math.Max(1, ActualWidth - (HorizontalPadding * 2));
-        var centerY = Math.Clamp(ActualHeight * 0.43, HaloRadius + 2, Math.Max(HaloRadius + 2, ActualHeight - 24));
-        return new Rect(HorizontalPadding, centerY - (TrackHeight / 2), width, TrackHeight);
+        return TrackRect(ActualWidth, ActualHeight);
+    }
+
+    private Rect TrackRect(double width, double height)
+    {
+        var trackWidth = Math.Max(1, width - (HorizontalPadding * 2));
+        var centerY = Math.Clamp(height * 0.43, HaloRadius + 2, Math.Max(HaloRadius + 2, height - 24));
+        return new Rect(HorizontalPadding, centerY - (TrackHeight / 2), trackWidth, TrackHeight);
     }
 
     private double ValueToX(double value)
     {
-        var track = TrackRect();
+        return ValueToX(TrackRect(), value);
+    }
+
+    private double ValueToX(Rect track, double value)
+    {
         var span = Math.Max(0.0001, Maximum - Minimum);
         var ratio = Math.Clamp((value - Minimum) / span, 0, 1);
         return track.Left + (track.Width * ratio);
@@ -351,16 +578,9 @@ public sealed class DbRangeSlider : FrameworkElement
             return;
         }
 
-        var value = Snap(XToValue(position.X), EffectiveStep());
-        var separation = EffectiveStep();
-        if (_dragThumb == DragThumb.Lower)
-        {
-            SetCurrentValue(LowerValueProperty, Math.Clamp(value, Minimum, UpperValue - separation));
-        }
-        else
-        {
-            SetCurrentValue(UpperValueProperty, Math.Clamp(value, LowerValue + separation, Maximum));
-        }
+        SetEndpointValue(
+            _dragThumb == DragThumb.Lower ? RangeSliderEndpoint.Lower : RangeSliderEndpoint.Upper,
+            XToValue(position.X));
     }
 
     private TextBox CreateEditor()
@@ -389,11 +609,18 @@ public sealed class DbRangeSlider : FrameworkElement
 
     private void BeginEdit(DragThumb thumb)
     {
-        if (_editor is null)
+        BeginEdit(thumb == DragThumb.Lower ? RangeSliderEndpoint.Lower : RangeSliderEndpoint.Upper);
+    }
+
+    private void BeginEdit(RangeSliderEndpoint endpoint)
+    {
+        if (_editor is null || !IsEnabled)
         {
             return;
         }
 
+        ActivateEndpoint(endpoint);
+        var thumb = endpoint == RangeSliderEndpoint.Lower ? DragThumb.Lower : DragThumb.Upper;
         if (IsMouseCaptured)
         {
             ReleaseMouseCapture();
@@ -437,16 +664,7 @@ public sealed class DbRangeSlider : FrameworkElement
 
     private void SetEditedValue(DragThumb thumb, double value)
     {
-        var separation = EffectiveStep();
-        var snapped = Snap(value, separation);
-        if (thumb == DragThumb.Lower)
-        {
-            SetCurrentValue(LowerValueProperty, Math.Clamp(snapped, Minimum, UpperValue - separation));
-        }
-        else
-        {
-            SetCurrentValue(UpperValueProperty, Math.Clamp(snapped, LowerValue + separation, Maximum));
-        }
+        SetEndpointValue(thumb == DragThumb.Lower ? RangeSliderEndpoint.Lower : RangeSliderEndpoint.Upper, value);
     }
 
     private void ArrangeEditor()
@@ -510,10 +728,20 @@ public sealed class DbRangeSlider : FrameworkElement
             return;
         }
 
-        slider.CoerceValue(LowerValueProperty);
+        // Coerce the endpoints in dependency order: a shrunken Maximum (or a raised Minimum) can leave the
+        // pair crossing the minimum separation, so re-coerce after both so every advertised endpoint range
+        // still contains its own value.
         slider.CoerceValue(UpperValueProperty);
+        slider.CoerceValue(LowerValueProperty);
+        if (slider.LowerValue + slider.EffectiveStep() > slider.UpperValue)
+        {
+            slider.CoerceValue(UpperValueProperty);
+        }
+
         slider.ArrangeEditor();
+        slider.InvalidateArrange();
         slider.InvalidateVisual();
+        slider.SynchronizeEndpointAutomation();
     }
 
     private static void OnValueChanged(DependencyObject dependencyObject, DependencyPropertyChangedEventArgs args)
@@ -521,8 +749,23 @@ public sealed class DbRangeSlider : FrameworkElement
         if (dependencyObject is DbRangeSlider slider)
         {
             slider.ArrangeEditor();
+            slider.InvalidateArrange();
             slider.InvalidateVisual();
+            slider.SynchronizeEndpointAutomation();
         }
+    }
+
+    private static void OnActiveEndpointChanged(DependencyObject dependencyObject, DependencyPropertyChangedEventArgs args)
+    {
+        if (dependencyObject is not DbRangeSlider slider)
+        {
+            return;
+        }
+
+        var activated = (RangeSliderEndpoint)args.NewValue;
+        var peer = activated == RangeSliderEndpoint.Lower ? slider._lowerHandle.Peer : slider._upperHandle.Peer;
+        peer?.NotifyActivated();
+        slider.InvalidateVisual();
     }
 
     private static object CoerceLowerValue(DependencyObject dependencyObject, object baseValue)
@@ -531,7 +774,7 @@ public sealed class DbRangeSlider : FrameworkElement
         var separation = slider.EffectiveStep();
         var minimum = Math.Min(slider.Minimum, slider.Maximum - separation);
         var maximum = Math.Max(minimum, slider.UpperValue - separation);
-        return Snap(Math.Clamp(AsFinite(baseValue, minimum), minimum, maximum), separation);
+        return SnapWithinBounds(AsFinite(baseValue, minimum), minimum, maximum, separation);
     }
 
     private static object CoerceUpperValue(DependencyObject dependencyObject, object baseValue)
@@ -540,7 +783,7 @@ public sealed class DbRangeSlider : FrameworkElement
         var separation = slider.EffectiveStep();
         var maximum = Math.Max(slider.Maximum, slider.Minimum + separation);
         var minimum = Math.Min(maximum, slider.LowerValue + separation);
-        return Snap(Math.Clamp(AsFinite(baseValue, maximum), minimum, maximum), separation);
+        return SnapWithinBounds(AsFinite(baseValue, maximum), minimum, maximum, separation);
     }
 
     private static double AsFinite(object value, double fallback)
@@ -548,9 +791,16 @@ public sealed class DbRangeSlider : FrameworkElement
         return value is double number && double.IsFinite(number) ? number : fallback;
     }
 
-    private static double Snap(double value, double step)
+    private static double SnapWithinBounds(double value, double minimum, double maximum, double step)
     {
-        return Math.Round(value / step, 0, MidpointRounding.AwayFromZero) * step;
+        var clamped = Math.Clamp(value, minimum, maximum);
+        if (clamped == minimum || clamped == maximum)
+        {
+            return clamped;
+        }
+
+        var snapped = Math.Round(clamped / step, 0, MidpointRounding.AwayFromZero) * step;
+        return Math.Clamp(snapped, minimum, maximum);
     }
 
     private enum DragThumb

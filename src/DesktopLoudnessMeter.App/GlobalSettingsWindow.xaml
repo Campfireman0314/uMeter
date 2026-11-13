@@ -46,6 +46,7 @@
                             Style="{StaticResource ChromeIconButton}"
                             Click="CloseButton_OnClick"
                             Content="X"
+                            AutomationProperties.Name="Close"
                             ToolTip="Close" />
                 </Grid>
             </Border>
@@ -81,6 +82,7 @@
                                Text="Language" />
                     <ComboBox Grid.Column="1"
                               Height="28"
+                              AutomationProperties.Name="Language"
                               ItemsSource="{Binding LanguageOptions}"
                               DisplayMemberPath="DisplayName"
                               SelectedItem="{Binding SelectedLanguage, Mode=TwoWay}" />
@@ -99,6 +101,7 @@
                              Height="26"
                              MinHeight="26"
                              Padding="4,0"
+                             AutomationProperties.Name="Maximum event entries"
                              HorizontalContentAlignment="Right"
                              VerticalContentAlignment="Center"
                              Style="{StaticResource NamingTextEditor}"

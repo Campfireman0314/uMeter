@@ -40,7 +40,7 @@ public sealed class PcmMetricAnalyzer : IDisposable
     {
         _options = options;
         _kWeightingFilters = Enumerable.Range(0, options.Channels)
-            .Select(_ => new KWeightingFilter())
+            .Select(_ => new KWeightingFilter(options.SampleRate))
             .ToArray();
         _momentaryWindow = new SlidingPowerWindow(MillisecondsToFrames(400));
         _shortTermWindow = new SlidingPowerWindow(MillisecondsToFrames(3000));

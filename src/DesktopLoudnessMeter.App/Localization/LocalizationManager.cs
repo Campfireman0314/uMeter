@@ -1,6 +1,7 @@
 using System.Globalization;
 using System.Runtime.CompilerServices;
 using System.Windows;
+using System.Windows.Automation;
 using System.Windows.Controls;
 using System.Windows.Controls.Primitives;
 using System.Windows.Data;
@@ -210,7 +211,18 @@ public static class LocalizationManager
         new("Layout load failed: {0}", "布局加载失败：{0}", "レイアウトの読み込みに失敗しました: {0}", "Ошибка загрузки макета: {0}"),
         new("Ignores frequency bins unless both the focused source and comparison source are at or above this level.", "仅当当前信号源和对比信号源都达到或超过此电平时才分析该频点。", "対象ソースと比較ソースの両方がこのレベル以上の場合のみ周波数ビンを解析します。", "Частотные полосы учитываются, только если оба источника достигают этого уровня."),
         new("Maximum normalized level difference allowed between two prominent frequency bins.", "两个显著频点之间允许的最大归一化电平差。", "2 つの顕著な周波数ビン間で許容する正規化レベル差の上限です。", "Максимально допустимая нормализованная разница уровней двух выраженных частотных полос."),
-        new("Requires both sources to rise above their nearby spectrum background before a frequency is treated as a collision.", "只有两个信号源都高于附近的频谱背景时，才将该频率视为冲突。", "両方のソースが周辺のスペクトル背景を上回った場合のみ、その周波数を衝突として扱います。", "Частота считается конфликтной, только если оба источника выделяются над соседним фоном спектра.")
+        new("Requires both sources to rise above their nearby spectrum background before a frequency is treated as a collision.", "只有两个信号源都高于附近的频谱背景时，才将该频率视为冲突。", "両方のソースが周辺のスペクトル背景を上回った場合のみ、その周波数を衝突として扱います。", "Частота считается конфликтной, только если оба источника выделяются над соседним фоном спектра."),
+        new("Lower limit", "下限", "下限", "Нижний предел"),
+        new("Upper limit", "上限", "上限", "Верхний предел"),
+        new("Theme", "主题", "テーマ", "Тема"),
+        new("Momentary loudness measurement mode", "瞬时响度测量模式", "モーメンタリーラウドネス測定モード", "Режим измерения мгновенной громкости"),
+        new("Short-term loudness measurement mode", "短期响度测量模式", "ショートタームラウドネス測定モード", "Режим измерения кратковременной громкости"),
+        new("Integrated loudness measurement mode", "综合响度测量模式", "インテグレーテッドラウドネス測定モード", "Режим измерения интегральной громкости"),
+        new("True-peak level measurement mode", "真峰值电平测量模式", "トゥルーピークレベル測定モード", "Режим измерения истинного пика"),
+        new("100 ms RMS level measurement mode", "100 毫秒 RMS 电平测量模式", "100 ms RMS レベル測定モード", "Режим измерения уровня RMS за 100 мс"),
+        new("Waveform display mode", "波形显示模式", "波形表示モード", "Режим отображения формы волны"),
+        new("Spectrum display mode", "频谱显示模式", "スペクトラム表示モード", "Режим отображения спектра"),
+        new("Frequency collision source", "频率冲突对比源", "周波数衝突の比較ソース", "Источник сравнения частотных конфликтов")
     ];
 
     private static readonly Dictionary<string, TranslationEntry> EntriesBySource =
@@ -373,6 +385,7 @@ public static class LocalizationManager
         {
             LocalizeProperty(target, ToolTipService.ToolTipProperty, languageCode);
             LocalizeProperty(target, HoverHintBehavior.TextProperty, languageCode);
+            LocalizeProperty(target, AutomationProperties.NameProperty, languageCode);
         }
 
         if (target is CorrelationMeter)

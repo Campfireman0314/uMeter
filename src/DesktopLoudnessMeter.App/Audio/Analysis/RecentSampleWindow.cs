@@ -1,5 +1,3 @@
-using System.Collections;
-
 namespace DesktopLoudnessMeter.App.Audio.Analysis;
 
 internal sealed class RecentSampleWindow
@@ -13,15 +11,13 @@ internal sealed class RecentSampleWindow
     private readonly int _sampleRate;
     private readonly int _displaySampleRate;
     private readonly int _capacityFrames;
-    private readonly Queue<FrameMetrics> _frames;
+    private readonly FrameMetrics[] _frameSlots;
+    private int _frameStartIndex;
+    private int _frameCount;
     private readonly double[] _spectrumSamples;
     private readonly double[][] _channelSpectrumSamples;
     private readonly double[] _displaySamples;
     private readonly double[][] _channelDisplaySamples;
-    private readonly SampleBuffer[] _waveformBuffers = [new(MaximumWaveformPoints), new(MaximumWaveformPoints)];
-    private readonly SampleBuffer[][] _channelWaveformBuffers;
-    private readonly SampleBuffer[] _spectrumBuffers = [new(SpectrumScale.BucketCount), new(SpectrumScale.BucketCount)];
-    private readonly SampleBuffer[][] _channelSpectrumBuffers;
     private readonly ISpectrumFft _spectrumFft;
     private int _spectrumStartIndex;
     private int _spectrumSampleCount;
@@ -37,14 +33,13 @@ internal sealed class RecentSampleWindow
     private long _channelWaveformEligibleFrameVersion = -1;
     private long _spectrumEligibleFrameVersion = -1;
     private long _channelSpectrumEligibleFrameVersion = -1;
-    private int _waveformBufferIndex;
-    private int _channelWaveformBufferIndex;
-    private int _spectrumBufferIndex;
-    private int _channelSpectrumBufferIndex;
-    private SampleBuffer? _waveformCache;
+    private long _stereoImageVersion = -1;
+    private long _stereoImageEligibleFrameVersion = -1;
+    private IReadOnlyList<double>? _waveformCache;
     private IReadOnlyList<IReadOnlyList<double>>? _channelWaveformCache;
-    private SampleBuffer? _spectrumCache;
+    private IReadOnlyList<double>? _spectrumCache;
     private IReadOnlyList<IReadOnlyList<double>>? _channelSpectrumCache;
+    private IReadOnlyList<StereoImagePoint>? _stereoImageCache;
     private double[] _fftInput = [];
     private double[] _fftMagnitudes = [];
     private double[] _fftWindow = [];
@@ -94,7 +89,7 @@ internal sealed class RecentSampleWindow
         _displaySampleRate = sampleRate * oversampling;
         _capacityFrames = capacityFrames;
         _spectrumFft = spectrumFft;
-        _frames = new Queue<FrameMetrics>(capacityFrames);
+        _frameSlots = new FrameMetrics[capacityFrames];
         _spectrumSamples = new double[capacityFrames];
         _channelSpectrumSamples = Enumerable.Range(0, channels)
             .Select(_ => new double[capacityFrames])
@@ -103,21 +98,15 @@ internal sealed class RecentSampleWindow
         _channelDisplaySamples = Enumerable.Range(0, channels)
             .Select(_ => new double[capacityFrames * oversampling])
             .ToArray();
-        _channelWaveformBuffers = Enumerable.Range(0, channels)
-            .Select(_ => new[] { new SampleBuffer(MaximumWaveformPoints), new SampleBuffer(MaximumWaveformPoints) })
-            .ToArray();
-        _channelSpectrumBuffers = Enumerable.Range(0, channels)
-            .Select(_ => new[] { new SampleBuffer(SpectrumScale.BucketCount), new SampleBuffer(SpectrumScale.BucketCount) })
-            .ToArray();
     }
 
-    public bool IsFull => _frames.Count == _capacityFrames;
+    public bool IsFull => _frameCount == _capacityFrames;
 
     public double Rms
     {
         get
         {
-            var sampleCount = _frames.Count * _channels;
+            var sampleCount = _frameCount * _channels;
             return sampleCount == 0 ? 0 : Math.Sqrt(_sampleSquareSum / sampleCount);
         }
     }
@@ -147,8 +136,8 @@ internal sealed class RecentSampleWindow
                 return null;
             }
 
-            var leftRms = Math.Sqrt(_leftSquareSum / _frames.Count);
-            var rightRms = Math.Sqrt(_rightSquareSum / _frames.Count);
+            var leftRms = Math.Sqrt(_leftSquareSum / _frameCount);
+            var rightRms = Math.Sqrt(_rightSquareSum / _frameCount);
             var sum = leftRms + rightRms;
             return sum <= double.Epsilon ? 0 : Math.Clamp((rightRms - leftRms) / sum, -1, 1);
         }
@@ -163,13 +152,18 @@ internal sealed class RecentSampleWindow
                 return null;
             }
 
-            var midRms = Math.Sqrt(_midSquareSum / _frames.Count);
-            var sideRms = Math.Sqrt(_sideSquareSum / _frames.Count);
+            var midRms = Math.Sqrt(_midSquareSum / _frameCount);
+            var sideRms = Math.Sqrt(_sideSquareSum / _frameCount);
             var sum = midRms + sideRms;
             return sum <= double.Epsilon ? 0 : Math.Clamp((midRms - sideRms) / sum, -1, 1);
         }
     }
 
+    /// <summary>
+    /// Lissajous point cloud for the recent window. This is display data, so it is rebuilt on the same
+    /// frame-based cadence as the waveform and spectrum rolls instead of on every processed block, and each
+    /// published view is an independent read-only snapshot that later refreshes never mutate.
+    /// </summary>
     public IReadOnlyList<StereoImagePoint>? StereoImagePoints
     {
         get
@@ -179,21 +173,43 @@ internal sealed class RecentSampleWindow
                 return null;
             }
 
-            var stride = Math.Max(1, _frames.Count / MaximumStereoImagePoints);
-            var points = new List<StereoImagePoint>(Math.Min(MaximumStereoImagePoints, _frames.Count));
-            var index = 0;
-            foreach (var frame in _frames)
+            if (_stereoImageVersion == _displayFrameVersion)
             {
-                if (index++ % stride == 0)
-                {
-                    points.Add(new StereoImagePoint(frame.PolarAngle, frame.PolarRadius));
-                }
+                return _stereoImageCache;
             }
 
-            return points;
+            if (!ShouldRefresh(_performanceSettings.StereoImageRefreshIntervalFrames, ref _stereoImageEligibleFrameVersion, _stereoImageCache is not null))
+            {
+                _stereoImageVersion = _displayFrameVersion;
+                return _stereoImageCache;
+            }
+
+            _stereoImageCache = BuildStereoImagePoints();
+            _stereoImageVersion = _displayFrameVersion;
+            return _stereoImageCache;
         }
     }
 
+    private IReadOnlyList<StereoImagePoint> BuildStereoImagePoints()
+    {
+        // Frames live in a ring buffer, so only the sampled frames are touched: the stride keeps the cloud at
+        // or below MaximumStereoImagePoints without walking every retained frame.
+        var stride = Math.Max(1, _frameCount / MaximumStereoImagePoints);
+        var points = new StereoImagePoint[(_frameCount + stride - 1) / stride];
+        var output = 0;
+        for (var offset = 0; offset < _frameCount; offset += stride)
+        {
+            var frame = _frameSlots[(_frameStartIndex + offset) % _capacityFrames];
+            points[output++] = new StereoImagePoint(frame.PolarAngle, frame.PolarRadius);
+        }
+
+        return Array.AsReadOnly(points);
+    }
+
+    /// <summary>
+    /// Downsampled waveform for display. Every published view is a read-only snapshot: a consumer that keeps
+    /// the reference keeps the samples it was given, even after later refreshes or a reset.
+    /// </summary>
     public IReadOnlyList<double>? WaveformSamples
     {
         get
@@ -214,12 +230,9 @@ internal sealed class RecentSampleWindow
                 return _waveformCache;
             }
 
-            _waveformBufferIndex ^= 1;
-            var buffer = _waveformBuffers[_waveformBufferIndex];
-            FillWaveformBuffer(buffer);
-            _waveformCache = buffer;
+            _waveformCache = Array.AsReadOnly(BuildWaveform(sourceChannel: null));
             _waveformVersion = _displayVersion;
-            return buffer;
+            return _waveformCache;
         }
     }
 
@@ -243,18 +256,15 @@ internal sealed class RecentSampleWindow
                 return _channelWaveformCache;
             }
 
-            _channelWaveformBufferIndex ^= 1;
             var buffers = new IReadOnlyList<double>[_channels];
             for (var channel = 0; channel < _channels; channel++)
             {
-                var buffer = _channelWaveformBuffers[channel][_channelWaveformBufferIndex];
-                FillWaveformBuffer(buffer, channel);
-                buffers[channel] = buffer;
+                buffers[channel] = Array.AsReadOnly(BuildWaveform(channel));
             }
 
-            _channelWaveformCache = buffers;
+            _channelWaveformCache = Array.AsReadOnly(buffers);
             _channelWaveformVersion = _displayVersion;
-            return buffers;
+            return _channelWaveformCache;
         }
     }
 
@@ -277,12 +287,9 @@ internal sealed class RecentSampleWindow
                 return _spectrumCache;
             }
 
-            _spectrumBufferIndex ^= 1;
-            var buffer = _spectrumBuffers[_spectrumBufferIndex];
-            FillSpectrumBuffer(buffer);
-            _spectrumCache = buffer;
+            _spectrumCache = BuildSpectrum(sourceChannel: null);
             _spectrumVersion = _displayVersion;
-            return buffer;
+            return _spectrumCache;
         }
     }
 
@@ -305,18 +312,15 @@ internal sealed class RecentSampleWindow
                 return _channelSpectrumCache;
             }
 
-            _channelSpectrumBufferIndex ^= 1;
             var buffers = new IReadOnlyList<double>[_channels];
             for (var channel = 0; channel < _channels; channel++)
             {
-                var buffer = _channelSpectrumBuffers[channel][_channelSpectrumBufferIndex];
-                FillSpectrumBuffer(buffer, channel);
-                buffers[channel] = buffer;
+                buffers[channel] = BuildSpectrum(channel);
             }
 
-            _channelSpectrumCache = buffers;
+            _channelSpectrumCache = Array.AsReadOnly(buffers);
             _channelSpectrumVersion = _displayVersion;
-            return buffers;
+            return _channelSpectrumCache;
         }
     }
 
@@ -340,6 +344,8 @@ internal sealed class RecentSampleWindow
         _channelWaveformEligibleFrameVersion = -1;
         _spectrumEligibleFrameVersion = -1;
         _channelSpectrumEligibleFrameVersion = -1;
+        _stereoImageVersion = -1;
+        _stereoImageEligibleFrameVersion = -1;
     }
 
     public void Add(ReadOnlySpan<double> samples)
@@ -382,18 +388,28 @@ internal sealed class RecentSampleWindow
             PolarAngle: polarAngle,
             PolarRadius: polarRadius);
 
-        _frames.Enqueue(frame);
-        Add(frame);
+        AddFrame(frame);
+    }
 
-        if (_frames.Count > _capacityFrames)
+    private void AddFrame(FrameMetrics frame)
+    {
+        if (_frameCount == _capacityFrames)
         {
-            Subtract(_frames.Dequeue());
+            Subtract(_frameSlots[_frameStartIndex]);
+            _frameStartIndex = (_frameStartIndex + 1) % _capacityFrames;
+            _frameCount--;
         }
+
+        _frameSlots[(_frameStartIndex + _frameCount) % _capacityFrames] = frame;
+        Add(frame);
+        _frameCount++;
     }
 
     public void Reset()
     {
-        _frames.Clear();
+        Array.Clear(_frameSlots);
+        _frameStartIndex = 0;
+        _frameCount = 0;
         _sampleSquareSum = 0;
         _leftSquareSum = 0;
         _rightSquareSum = 0;
@@ -426,35 +442,13 @@ internal sealed class RecentSampleWindow
         _channelWaveformEligibleFrameVersion = -1;
         _spectrumEligibleFrameVersion = -1;
         _channelSpectrumEligibleFrameVersion = -1;
+        _stereoImageVersion = -1;
+        _stereoImageEligibleFrameVersion = -1;
         _waveformCache = null;
         _channelWaveformCache = null;
         _spectrumCache = null;
         _channelSpectrumCache = null;
-        foreach (var buffer in _waveformBuffers)
-        {
-            buffer.SetCount(0);
-        }
-
-        foreach (var buffer in _spectrumBuffers)
-        {
-            buffer.SetCount(0);
-        }
-
-        foreach (var buffers in _channelWaveformBuffers)
-        {
-            foreach (var buffer in buffers)
-            {
-                buffer.SetCount(0);
-            }
-        }
-
-        foreach (var buffers in _channelSpectrumBuffers)
-        {
-            foreach (var buffer in buffers)
-            {
-                buffer.SetCount(0);
-            }
-        }
+        _stereoImageCache = null;
     }
 
     private void Add(FrameMetrics frame)
@@ -569,28 +563,24 @@ internal sealed class RecentSampleWindow
         return _channelSpectrumSamples[channel][(_spectrumStartIndex + offset) % _spectrumSamples.Length];
     }
 
-    private void FillWaveformBuffer(SampleBuffer target)
-    {
-        FillWaveformBuffer(target, sourceChannel: null);
-    }
-
-    private void FillWaveformBuffer(SampleBuffer target, int? sourceChannel)
+    /// <summary>
+    /// Builds one waveform view into a freshly allocated array, so the returned view is never written again.
+    /// </summary>
+    private double[] BuildWaveform(int? sourceChannel)
     {
         if (_displaySampleCount <= MaximumWaveformPoints)
         {
-            for (var index = 0; index < _displaySampleCount; index++)
+            var samples = new double[_displaySampleCount];
+            for (var index = 0; index < samples.Length; index++)
             {
-                var sample = sourceChannel is int channel
-                    ? GetChannelDisplaySample(channel, index)
-                    : GetDisplaySample(index);
-                target.Values[index] = Math.Clamp(sample, -1.5, 1.5);
+                samples[index] = Math.Clamp(DisplaySample(sourceChannel, index), -1.5, 1.5);
             }
 
-            target.SetCount(_displaySampleCount);
-            return;
+            return samples;
         }
 
         var bucketCount = MaximumWaveformPoints / 2;
+        var values = new double[bucketCount * 2];
         var outputIndex = 0;
         for (var bucket = 0; bucket < bucketCount; bucket++)
         {
@@ -603,10 +593,7 @@ internal sealed class RecentSampleWindow
 
             for (var index = start; index < end && index < _displaySampleCount; index++)
             {
-                var sample = sourceChannel is int channel
-                    ? GetChannelDisplaySample(channel, index)
-                    : GetDisplaySample(index);
-                var value = Math.Clamp(sample, -1.5, 1.5);
+                var value = Math.Clamp(DisplaySample(sourceChannel, index), -1.5, 1.5);
                 if (value < minimumValue)
                 {
                     minimumValue = value;
@@ -622,31 +609,35 @@ internal sealed class RecentSampleWindow
 
             if (minimumIndex <= maximumIndex)
             {
-                target.Values[outputIndex++] = minimumValue;
-                target.Values[outputIndex++] = maximumValue;
+                values[outputIndex++] = minimumValue;
+                values[outputIndex++] = maximumValue;
             }
             else
             {
-                target.Values[outputIndex++] = maximumValue;
-                target.Values[outputIndex++] = minimumValue;
+                values[outputIndex++] = maximumValue;
+                values[outputIndex++] = minimumValue;
             }
         }
 
-        target.SetCount(outputIndex);
+        return outputIndex == values.Length ? values : values[..outputIndex];
     }
 
-    private void FillSpectrumBuffer(SampleBuffer target)
+    private double DisplaySample(int? sourceChannel, int index)
     {
-        FillSpectrumBuffer(target, sourceChannel: null);
+        return sourceChannel is int channel
+            ? GetChannelDisplaySample(channel, index)
+            : GetDisplaySample(index);
     }
 
-    private void FillSpectrumBuffer(SampleBuffer target, int? sourceChannel)
+    /// <summary>
+    /// Builds one spectrum view into a freshly allocated array, so the returned view is never written again.
+    /// </summary>
+    private IReadOnlyList<double> BuildSpectrum(int? sourceChannel)
     {
         var fftSize = PreviousPowerOfTwo(Math.Min(_spectrumSampleCount, _performanceSettings.SpectrumAnalysisSamples));
         if (fftSize < 128)
         {
-            target.SetCount(0);
-            return;
+            return Array.Empty<double>();
         }
 
         EnsureFftWorkspace(fftSize);
@@ -663,35 +654,33 @@ internal sealed class RecentSampleWindow
         var magnitudeCount = (fftSize / 2) + 1;
         var minimumMel = SpectrumScale.HertzToMel(SpectrumScale.MinimumFrequencyHz);
         var maximumMel = SpectrumScale.HertzToMel(Math.Min(SpectrumScale.MaximumFrequencyHz, _sampleRate * 0.49));
+        var values = new double[SpectrumScale.BucketCount];
         for (var bucket = 0; bucket < SpectrumScale.BucketCount; bucket++)
         {
             var ratio = SpectrumScale.BucketCount == 1 ? 0 : (double)bucket / (SpectrumScale.BucketCount - 1);
             var frequency = SpectrumScale.MelToHertz(minimumMel + ((maximumMel - minimumMel) * ratio));
             var binPosition = frequency * fftSize / _sampleRate;
-            target.Values[bucket] = MagnitudeToDisplayLevel(InterpolateMagnitude(_fftMagnitudes, magnitudeCount, binPosition));
+            values[bucket] = MagnitudeToDisplayLevel(InterpolateMagnitude(_fftMagnitudes, magnitudeCount, binPosition));
         }
 
-        target.SetCount(SpectrumScale.BucketCount);
+        return Array.AsReadOnly(values);
     }
 
     private bool ShouldRefreshSpectrum(ref long eligibleFrameVersion, bool hasCache)
     {
-        if (!hasCache || eligibleFrameVersion < 0)
-        {
-            eligibleFrameVersion = _displayFrameVersion;
-            return true;
-        }
-
-        if (_displayFrameVersion - eligibleFrameVersion < _performanceSettings.SpectrumRefreshIntervalFrames)
-        {
-            return false;
-        }
-
-        eligibleFrameVersion = _displayFrameVersion;
-        return true;
+        return ShouldRefresh(_performanceSettings.SpectrumRefreshIntervalFrames, ref eligibleFrameVersion, hasCache);
     }
 
     private bool ShouldRefreshWaveform(ref long eligibleFrameVersion, bool hasCache)
+    {
+        return ShouldRefresh(_performanceSettings.WaveformRefreshIntervalFrames, ref eligibleFrameVersion, hasCache);
+    }
+
+    /// <summary>
+    /// Frame-based display cadence shared by the waveform, spectrum, and stereo-image rolls: display data is
+    /// rebuilt at most once per interval, and the first read after a reset or mode change always rebuilds.
+    /// </summary>
+    private bool ShouldRefresh(int intervalFrames, ref long eligibleFrameVersion, bool hasCache)
     {
         if (!hasCache || eligibleFrameVersion < 0)
         {
@@ -699,7 +688,7 @@ internal sealed class RecentSampleWindow
             return true;
         }
 
-        if (_displayFrameVersion - eligibleFrameVersion < _performanceSettings.WaveformRefreshIntervalFrames)
+        if (_displayFrameVersion - eligibleFrameVersion < intervalFrames)
         {
             return false;
         }
@@ -780,38 +769,4 @@ internal sealed class RecentSampleWindow
         double SideSquare,
         double PolarAngle,
         double PolarRadius);
-
-    private sealed class SampleBuffer : IReadOnlyList<double>
-    {
-        public SampleBuffer(int capacity)
-        {
-            Values = new double[capacity];
-        }
-
-        public double[] Values { get; }
-
-        public int Count { get; private set; }
-
-        public double this[int index] => index >= 0 && index < Count
-            ? Values[index]
-            : throw new ArgumentOutOfRangeException(nameof(index));
-
-        public void SetCount(int count)
-        {
-            Count = Math.Clamp(count, 0, Values.Length);
-        }
-
-        public IEnumerator<double> GetEnumerator()
-        {
-            for (var index = 0; index < Count; index++)
-            {
-                yield return Values[index];
-            }
-        }
-
-        IEnumerator IEnumerable.GetEnumerator()
-        {
-            return GetEnumerator();
-        }
-    }
 }

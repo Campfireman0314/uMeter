@@ -57,6 +57,7 @@
                             Style="{StaticResource ChromeIconButton}"
                             Click="CloseButton_OnClick"
                             Content="X"
+                            AutomationProperties.Name="Close"
                             ToolTip="Close" />
                 </Grid>
             </Border>
@@ -131,6 +132,7 @@
                                 FontFamily="Segoe MDL2 Assets"
                                 FontSize="14"
                                 Content="&#xE74E;"
+                                AutomationProperties.Name="Save detail layout"
                                 ToolTip="Save detail layout"
                                 Click="SaveDetailLayoutButton_OnClick" />
                         <Button x:Name="LoadDetailLayoutButton"
@@ -139,6 +141,7 @@
                                 FontFamily="Segoe MDL2 Assets"
                                 FontSize="14"
                                 Content="&#xE8E5;"
+                                AutomationProperties.Name="Load detail layout"
                                 ToolTip="Load detail layout"
                                 Click="LoadDetailLayoutButton_OnClick" />
                         <TextBlock Margin="0,0,8,0"
@@ -148,6 +151,7 @@
                                    Text="True Peak" />
                         <ComboBox Width="148"
                                   Height="26"
+                                  AutomationProperties.Name="True Peak"
                                   ItemsSource="{Binding TruePeakOversamplingOptions}"
                                   SelectedItem="{Binding Session.TruePeakOversampling, Mode=TwoWay}" />
                     </StackPanel>
@@ -189,7 +193,7 @@
                                             Panel.ZIndex="1" Background="Transparent"
                                             controls:HoverHintBehavior.IsEnabled="{Binding EnableDetailHoverHints}"
                                             controls:HoverHintBehavior.Text="Momentary loudness shows the K-weighted loudness over the latest 400 ms. Mid = (L + R) / 2 and Side = (L - R) / 2." />
-                                    <ComboBox Width="24" Height="24" HorizontalAlignment="Left" VerticalAlignment="Top" Panel.ZIndex="2" FontSize="10" Style="{StaticResource SignalMeasurementModeComboBox}" ItemsSource="{Binding SignalMeasurementModeOptions}" SelectedItem="{Binding Session.MomentaryMeasurementMode, Mode=TwoWay}" />
+                                    <ComboBox Width="24" Height="24" HorizontalAlignment="Left" VerticalAlignment="Top" Panel.ZIndex="2" FontSize="10" Style="{StaticResource SignalMeasurementModeComboBox}" ItemsSource="{Binding SignalMeasurementModeOptions}" SelectedItem="{Binding Session.MomentaryMeasurementMode, Mode=TwoWay}" AutomationProperties.Name="Momentary loudness measurement mode" />
                                 </Grid>
 
                                 <Grid Margin="0,0,0,6">
@@ -205,7 +209,7 @@
                                             Panel.ZIndex="1" Background="Transparent"
                                             controls:HoverHintBehavior.IsEnabled="{Binding EnableDetailHoverHints}"
                                             controls:HoverHintBehavior.Text="Short-term loudness averages the selected signal over the latest 3 seconds for a steadier program-level view." />
-                                    <ComboBox Width="24" Height="24" HorizontalAlignment="Left" VerticalAlignment="Top" Panel.ZIndex="2" FontSize="10" Style="{StaticResource SignalMeasurementModeComboBox}" ItemsSource="{Binding SignalMeasurementModeOptions}" SelectedItem="{Binding Session.ShortTermMeasurementMode, Mode=TwoWay}" />
+                                    <ComboBox Width="24" Height="24" HorizontalAlignment="Left" VerticalAlignment="Top" Panel.ZIndex="2" FontSize="10" Style="{StaticResource SignalMeasurementModeComboBox}" ItemsSource="{Binding SignalMeasurementModeOptions}" SelectedItem="{Binding Session.ShortTermMeasurementMode, Mode=TwoWay}" AutomationProperties.Name="Short-term loudness measurement mode" />
                                 </Grid>
 
                                 <Grid Margin="0,0,0,6">
@@ -221,7 +225,7 @@
                                             Panel.ZIndex="1" Background="Transparent"
                                             controls:HoverHintBehavior.IsEnabled="{Binding EnableDetailHoverHints}"
                                             controls:HoverHintBehavior.Text="Integrated loudness applies BS.1770-style absolute and relative gating across the selected signal since the last reset." />
-                                    <ComboBox Width="24" Height="24" HorizontalAlignment="Left" VerticalAlignment="Top" Panel.ZIndex="2" FontSize="10" Style="{StaticResource SignalMeasurementModeComboBox}" ItemsSource="{Binding SignalMeasurementModeOptions}" SelectedItem="{Binding Session.IntegratedMeasurementMode, Mode=TwoWay}" />
+                                    <ComboBox Width="24" Height="24" HorizontalAlignment="Left" VerticalAlignment="Top" Panel.ZIndex="2" FontSize="10" Style="{StaticResource SignalMeasurementModeComboBox}" ItemsSource="{Binding SignalMeasurementModeOptions}" SelectedItem="{Binding Session.IntegratedMeasurementMode, Mode=TwoWay}" AutomationProperties.Name="Integrated loudness measurement mode" />
                                 </Grid>
 
                                 <Grid Margin="0,0,0,6">
@@ -239,7 +243,7 @@
                                             Panel.ZIndex="1" Background="Transparent"
                                             controls:HoverHintBehavior.IsEnabled="{Binding EnableDetailHoverHints}"
                                             controls:HoverHintBehavior.Text="True peak estimates inter-sample peaks over the latest 100 ms. The max readout holds the highest selected-signal value until reset." />
-                                    <ComboBox Width="24" Height="24" HorizontalAlignment="Left" VerticalAlignment="Top" Panel.ZIndex="2" FontSize="10" Style="{StaticResource SignalMeasurementModeComboBox}" ItemsSource="{Binding SignalMeasurementModeOptions}" SelectedItem="{Binding Session.TruePeakMeasurementMode, Mode=TwoWay}" />
+                                    <ComboBox Width="24" Height="24" HorizontalAlignment="Left" VerticalAlignment="Top" Panel.ZIndex="2" FontSize="10" Style="{StaticResource SignalMeasurementModeComboBox}" ItemsSource="{Binding SignalMeasurementModeOptions}" SelectedItem="{Binding Session.TruePeakMeasurementMode, Mode=TwoWay}" AutomationProperties.Name="True-peak level measurement mode" />
                                 </Grid>
 
                                 <Grid Margin="0,0,0,6">
@@ -255,7 +259,7 @@
                                             Panel.ZIndex="1" Background="Transparent"
                                             controls:HoverHintBehavior.IsEnabled="{Binding EnableDetailHoverHints}"
                                             controls:HoverHintBehavior.Text="100 ms RMS shows the recent average signal energy. Use Mid to inspect centered content and Side to inspect stereo difference content." />
-                                    <ComboBox Width="24" Height="24" HorizontalAlignment="Left" VerticalAlignment="Top" Panel.ZIndex="2" FontSize="10" Style="{StaticResource SignalMeasurementModeComboBox}" ItemsSource="{Binding SignalMeasurementModeOptions}" SelectedItem="{Binding Session.RmsMeasurementMode, Mode=TwoWay}" />
+                                    <ComboBox Width="24" Height="24" HorizontalAlignment="Left" VerticalAlignment="Top" Panel.ZIndex="2" FontSize="10" Style="{StaticResource SignalMeasurementModeComboBox}" ItemsSource="{Binding SignalMeasurementModeOptions}" SelectedItem="{Binding Session.RmsMeasurementMode, Mode=TwoWay}" AutomationProperties.Name="100 ms RMS level measurement mode" />
                                 </Grid>
                             </StackPanel>
 
@@ -289,7 +293,7 @@
                                     <ComboBox Margin="0,3,0,10"
                                               Height="26"
                                               ItemsSource="{Binding CollisionFrequencyScaleOptions}"
-                                              SelectedItem="{Binding CollisionFrequencyScale, Mode=TwoWay}" />
+                                              SelectedItem="{Binding CollisionFrequencyScale, Mode=TwoWay}" AutomationProperties.Name="Scale" />
 
                                     <Grid>
                                         <Grid.ColumnDefinitions>
@@ -311,7 +315,7 @@
                                                                   DisplaySuffix=" dB"
                                                                   ToolTipService.InitialShowDelay="1000"
                                                                   ToolTip="Ignores frequency bins unless both the focused source and comparison source are at or above this level."
-                                                                  Value="{Binding CollisionLevelFloorDb, Mode=TwoWay, UpdateSourceTrigger=PropertyChanged}" />
+                                                                  Value="{Binding CollisionLevelFloorDb, Mode=TwoWay, UpdateSourceTrigger=PropertyChanged}" AutomationProperties.Name="Level floor" />
 
                                     <Grid Margin="0,10,0,0">
                                         <Grid.ColumnDefinitions>
@@ -333,7 +337,7 @@
                                                                   DisplaySuffix=" dB"
                                                                   ToolTipService.InitialShowDelay="1000"
                                                                   ToolTip="Requires both sources to rise above their nearby spectrum background before a frequency is treated as a collision."
-                                                                  Value="{Binding CollisionProminenceThresholdDb, Mode=TwoWay, UpdateSourceTrigger=PropertyChanged}" />
+                                                                  Value="{Binding CollisionProminenceThresholdDb, Mode=TwoWay, UpdateSourceTrigger=PropertyChanged}" AutomationProperties.Name="Prominence" />
 
                                     <Grid Margin="0,10,0,0">
                                         <Grid.ColumnDefinitions>
@@ -356,7 +360,7 @@
                                                                   DisplaySuffix="%"
                                                                   ToolTipService.InitialShowDelay="1000"
                                                                   ToolTip="Maximum normalized level difference allowed between two prominent frequency bins."
-                                                                  Value="{Binding CollisionRelativeThreshold, Mode=TwoWay, UpdateSourceTrigger=PropertyChanged}" />
+                                                                  Value="{Binding CollisionRelativeThreshold, Mode=TwoWay, UpdateSourceTrigger=PropertyChanged}" AutomationProperties.Name="Match tolerance" />
                                 </StackPanel>
                             </Border>
                         </Popup>
@@ -388,7 +392,7 @@
                                                             Maximum="0"
                                                             Step="1"
                                                             LowerValue="{Binding LoudnessClockMinimumDb, Mode=TwoWay, UpdateSourceTrigger=PropertyChanged}"
-                                                            UpperValue="{Binding LoudnessClockMaximumDb, Mode=TwoWay, UpdateSourceTrigger=PropertyChanged}" />
+                                                            UpperValue="{Binding LoudnessClockMaximumDb, Mode=TwoWay, UpdateSourceTrigger=PropertyChanged}" AutomationProperties.Name="Range" />
                                     <Grid Margin="0,10,0,0">
                                         <Grid.ColumnDefinitions>
                                             <ColumnDefinition Width="*" />
@@ -402,7 +406,7 @@
                                                                   Step="1"
                                                                   DisplayFormat="0"
                                                                   DisplaySuffix=" LUFS"
-                                                                  Value="{Binding LoudnessClockWarningDb, Mode=TwoWay, UpdateSourceTrigger=PropertyChanged}" />
+                                                                  Value="{Binding LoudnessClockWarningDb, Mode=TwoWay, UpdateSourceTrigger=PropertyChanged}" AutomationProperties.Name="Warning" />
                                     <Grid Margin="0,10,0,0">
                                         <Grid.ColumnDefinitions>
                                             <ColumnDefinition Width="*" />
@@ -416,7 +420,7 @@
                                                                   Step="5"
                                                                   DisplayFormat="0"
                                                                   DisplaySuffix=" s"
-                                                                  Value="{Binding LoudnessClockCycleSeconds, Mode=TwoWay, UpdateSourceTrigger=PropertyChanged}" />
+                                                                  Value="{Binding LoudnessClockCycleSeconds, Mode=TwoWay, UpdateSourceTrigger=PropertyChanged}" AutomationProperties.Name="Cycle" />
                                 </StackPanel>
                             </Border>
                         </Popup>
@@ -437,7 +441,7 @@
                                 <ComboBox Width="128"
                                           Height="26"
                                           ItemsSource="{Binding WaveformDisplayModeOptions}"
-                                          SelectedItem="{Binding Session.WaveformDisplayMode, Mode=TwoWay}" />
+                                          SelectedItem="{Binding Session.WaveformDisplayMode, Mode=TwoWay}" AutomationProperties.Name="Waveform display mode" />
                             </Border>
                         </Popup>
 
@@ -458,7 +462,7 @@
                                     <ComboBox Width="128"
                                               Height="26"
                                               ItemsSource="{Binding SpectrumDisplayModeOptions}"
-                                              SelectedItem="{Binding Session.SpectrumDisplayMode, Mode=TwoWay}" />
+                                              SelectedItem="{Binding Session.SpectrumDisplayMode, Mode=TwoWay}" AutomationProperties.Name="Spectrum display mode" />
                                     <Grid Margin="0,12,0,0">
                                         <Grid.ColumnDefinitions>
                                             <ColumnDefinition Width="*" />
@@ -472,7 +476,7 @@
                                                             Maximum="0"
                                                             Step="1"
                                                             LowerValue="{Binding SpectrumDisplayFloorDb, Mode=TwoWay, UpdateSourceTrigger=PropertyChanged}"
-                                                            UpperValue="{Binding SpectrumDisplayCeilingDb, Mode=TwoWay, UpdateSourceTrigger=PropertyChanged}" />
+                                                            UpperValue="{Binding SpectrumDisplayCeilingDb, Mode=TwoWay, UpdateSourceTrigger=PropertyChanged}" AutomationProperties.Name="Range" />
                                 </StackPanel>
                             </Border>
                         </Popup>
@@ -541,7 +545,7 @@
                                              <ToggleButton Grid.Column="2"
                                                            Style="{StaticResource DetailModuleToggleButton}"
                                                            IsChecked="{Binding IsStereoVisible, Mode=TwoWay}"
-                                                           ToolTip="Show stereo image" />
+                                                           ToolTip="Show stereo image" AutomationProperties.Name="Show stereo image" />
                                              <TextBlock Grid.Column="4"
                                                         VerticalAlignment="Center"
                                                         Foreground="{DynamicResource SubtleTextBrush}"
@@ -561,7 +565,7 @@
                                                     FontSize="14"
                                                     Click="StereoSettingsButton_OnClick"
                                                     Content="&#xE713;"
-                                                    ToolTip="Stereo image scale settings" />
+                                                    ToolTip="Stereo image scale settings" AutomationProperties.Name="Stereo image scale settings" />
                                         </Grid>
                                         <controls:StereoFanView Grid.Row="1"
                                                                 MinHeight="120"
@@ -682,7 +686,7 @@
                                             <ToggleButton Grid.Column="2"
                                                           Style="{StaticResource DetailModuleToggleButton}"
                                                           IsChecked="{Binding IsCollisionVisible, Mode=TwoWay}"
-                                                          ToolTip="Show frequency collision" />
+                                                          ToolTip="Show frequency collision" AutomationProperties.Name="Show frequency collision" />
                                             <TextBlock Grid.Column="4"
                                                        VerticalAlignment="Center"
                                                        Foreground="{DynamicResource SubtleTextBrush}"
@@ -695,7 +699,8 @@
                                                     MinWidth="118"
                                                     HorizontalContentAlignment="Stretch"
                                                     IsEnabled="{Binding HasFrequencyCollisionSources}"
-                                                    Click="DetailCollisionSourceButton_OnClick">
+                                                    Click="DetailCollisionSourceButton_OnClick"
+                                                    AutomationProperties.Name="Frequency collision source">
                                                 <Grid>
                                                     <Grid.ColumnDefinitions>
                                                         <ColumnDefinition Width="*" />
@@ -737,7 +742,7 @@
                                                     FontSize="14"
                                                     Content="&#xE713;"
                                                     ToolTip="Collision settings"
-                                                    Click="DetailCollisionSettingsButton_OnClick" />
+                                                    Click="DetailCollisionSettingsButton_OnClick" AutomationProperties.Name="Collision settings" />
                                         </Grid>
 
                                         <controls:FrequencyCollisionBar Grid.Row="1"
@@ -818,7 +823,7 @@
                                             <ToggleButton Grid.Column="2"
                                                           Style="{StaticResource DetailModuleToggleButton}"
                                                           IsChecked="{Binding IsLoudnessClockVisible, Mode=TwoWay}"
-                                                          ToolTip="Show clock" />
+                                                          ToolTip="Show clock" AutomationProperties.Name="Show clock" />
                                             <TextBlock Grid.Column="4"
                                                        VerticalAlignment="Center"
                                                        Foreground="{DynamicResource SubtleTextBrush}"
@@ -833,7 +838,7 @@
                                                     FontSize="14"
                                                     Content="&#xE713;"
                                                     ToolTip="Clock settings"
-                                                    Click="DetailClockSettingsButton_OnClick" />
+                                                    Click="DetailClockSettingsButton_OnClick" AutomationProperties.Name="Clock settings" />
                                         </Grid>
                                         <controls:LoudnessClockView Grid.Row="1"
                                                                     CurrentLoudnessDb="{Binding Session.LoudnessClockMomentaryDb, Mode=OneWay}"
@@ -929,7 +934,7 @@
                                             <ToggleButton Grid.Column="2"
                                                           Style="{StaticResource DetailModuleToggleButton}"
                                                           IsChecked="{Binding IsWaveformVisible, Mode=TwoWay}"
-                                                          ToolTip="Show waveform" />
+                                                          ToolTip="Show waveform" AutomationProperties.Name="Show waveform" />
                                             <TextBlock Grid.Column="4"
                                                        VerticalAlignment="Center"
                                                        Foreground="{DynamicResource SubtleTextBrush}"
@@ -944,7 +949,7 @@
                                                     FontSize="14"
                                                     Content="&#xE713;"
                                                     ToolTip="Waveform settings"
-                                                    Click="DetailWaveformSettingsButton_OnClick" />
+                                                    Click="DetailWaveformSettingsButton_OnClick" AutomationProperties.Name="Waveform settings" />
                                         </Grid>
                                         <Grid Grid.Row="1" Margin="0,8,0,0">
                                             <Grid.Style>
@@ -1075,7 +1080,7 @@
                                             <ToggleButton Grid.Column="2"
                                                           Style="{StaticResource DetailModuleToggleButton}"
                                                           IsChecked="{Binding IsSpectrumVisible, Mode=TwoWay}"
-                                                          ToolTip="Show spectrum" />
+                                                          ToolTip="Show spectrum" AutomationProperties.Name="Show spectrum" />
                                             <TextBlock Grid.Column="4"
                                                        VerticalAlignment="Center"
                                                        Foreground="{DynamicResource SubtleTextBrush}"
@@ -1090,7 +1095,7 @@
                                                     FontSize="14"
                                                     Content="&#xE713;"
                                                     ToolTip="Spectrum settings"
-                                                    Click="DetailSpectrumSettingsButton_OnClick" />
+                                                    Click="DetailSpectrumSettingsButton_OnClick" AutomationProperties.Name="Spectrum settings" />
                                         </Grid>
                                         <Grid Grid.Row="1" Margin="0,8,0,0">
                                             <Grid.Style>

@@ -30,7 +30,20 @@ Windows Core Audio exposes render sessions and session peak meters through WASAP
 - Polar stereo image sample points for the semi-circle fan display.
 - Correlation in the `[-1, 1]` range.
 
-The analyzer is standards-inspired and ready for synthetic-signal testing, but it is not yet certified against official reference vectors. The current K-weighting coefficients are the common 48 kHz coefficient set; non-48 kHz capture paths should be treated as approximate until a sample-rate-specific filter design or resampling step is added.
+The analyzer is standards-inspired and ready for synthetic-signal testing, but it is not yet certified against official reference vectors.
+
+K-weighting follows ITU-R BS.1770-4 and is designed for the configured input rate rather than being fixed at 48 kHz. BS.1770-4 prints only a 48 kHz coefficient set, but that set is a bilinear transform of a rate-independent analog prototype (high shelf `f0 = 1681.974450955533 Hz`, `G = 3.999843853973347 dB`, `Q = 0.7071752369554196`; RLB high-pass `f0 = 38.13547087602444 Hz`, `Q = 0.5003270373238773`). `KWeightingFilter` evaluates that prototype at the analyzer's sample rate, so 44.1 kHz and 96 kHz sources are no longer measured with a filter whose corner frequencies have slid off the intended curve. Only the shelf and high-pass design frequencies are clamped below Nyquist (`f <= 0.49 * fs`) so unusually low but positive sample rates still produce a stable biquad; the positive-sample-rate API is unchanged.
+
+48 kHz calibration is preserved: the derived 48 kHz coefficients reproduce the published BS.1770-4 coefficient set to within double rounding (`1.53512485958697, -2.69169618940638, 1.19839281085285, -1.69065929318241, 0.73248077421585` and `1, -2, 1, -1.99004745483398, 0.99007225036621`), and the measured loudness difference against the previously hard-coded 48 kHz coefficients is at most `3.5e-12 dB`.
+
+Numerical trust checks live in `tests/DesktopLoudnessMeter.Tests/Audio/Analysis/KWeightingRateResponseTests.cs`:
+
+- Published reference: EBU Tech 3341's stereo 1 kHz sine at -23.0 dBFS must read -23.0 LUFS at 44.1, 48, and 96 kHz (xunit tolerance 0.1 LU; measured -22.9905 / -22.9933 / -23.0106 LUFS).
+- Precomputed reference literals at 100 Hz, 1 kHz, 2 kHz, and 10 kHz for 44.1, 48, and 96 kHz, produced offline by a NumPy implementation written from the BS.1770-4 analog prototype parameters above, never by the production filter. Expected steady-state stereo loudness is `-0.691 + 10*log10(|H(f)|^2 * A^2)` for a sine of peak amplitude `A` duplicated to both channels (xunit tolerance 0.1 LU; measured deviation `<= 0.0001 LU`).
+- Streaming and reset checks: the same signal fed as one block or as 37/512-frame chunks must produce the same reading, and a reset must restore both the unavailable state and the rate-correct steady-state reading.
+- True peak has one closed-form fixture in addition to the native/managed agreement test: a sine at `fs/4` with phase `pi/4` has discrete samples of `A/sqrt(2)` but a true peak of exactly `A`, so a 0.9-amplitude tone must read `-0.9151 dBFS` (measured `-0.9134 dBFS`, i.e. 3.01 dB above the discrete peak, which is the analytically expected 3.01 dB).
+
+Stated tolerances cover the finite 400 ms observation window (single-tone mean-square ripple of about `1/(2*pi*f*T)`, roughly 0.017 LU at 100 Hz) and float32 input rounding. This is still not an ITU/EBU certification claim: the suite covers synthesised steady-state tones, not the full official compliance material, and no resampling is applied to non-48 kHz sources.
 
 True-peak reconstruction uses the same Hann-windowed sinc kernel shape in both managed and native paths. When `DesktopLoudnessMeter.Native.dll` is available, the analyzer batches each incoming audio block through the RfRapid C++ backend and receives per-frame oversampled display samples plus rolling true-peak state. If the native DLL or exports are unavailable, it falls back to the managed estimator. A local 30 s stereo 48 kHz benchmark measured the 8x estimator at about `5.00 Mframes/s` native versus about `1.97 Mframes/s` managed with matching peak output.
 

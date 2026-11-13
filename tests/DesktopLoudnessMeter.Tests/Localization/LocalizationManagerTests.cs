@@ -112,6 +112,77 @@ public sealed class LocalizationManagerTests
     }
 
     [Fact]
+    public void AccessibleNamesFollowTheDisplayedLanguage()
+    {
+        Exception? failure = null;
+        var thread = new Thread(() =>
+        {
+            try
+            {
+                var button = new Button { Content = "X" };
+                System.Windows.Automation.AutomationProperties.SetName(button, "Clock settings");
+
+                LocalizationManager.LocalizeTree(button, LocalizationManager.EnglishLanguageCode);
+                Assert.Equal("Clock settings", System.Windows.Automation.AutomationProperties.GetName(button));
+
+                LocalizationManager.LocalizeTree(button, LocalizationManager.ChineseLanguageCode);
+                Assert.Equal("响度时钟设置", System.Windows.Automation.AutomationProperties.GetName(button));
+
+                LocalizationManager.LocalizeTree(button, LocalizationManager.RussianLanguageCode);
+                Assert.Equal("Настройки часов громкости", System.Windows.Automation.AutomationProperties.GetName(button));
+            }
+            catch (Exception ex)
+            {
+                failure = ex;
+            }
+        });
+        thread.SetApartmentState(ApartmentState.STA);
+        thread.Start();
+        thread.Join();
+
+        Assert.Null(failure);
+    }
+
+    [Fact]
+    public void AccessibleNamesSkipsBoundValuesAndUnknownText()
+    {
+        Exception? failure = null;
+        var thread = new Thread(() =>
+        {
+            try
+            {
+                var bound = new Button();
+                System.Windows.Automation.AutomationProperties.SetName(bound, "Clock settings");
+                System.Windows.Data.BindingOperations.SetBinding(
+                    bound,
+                    System.Windows.Automation.AutomationProperties.NameProperty,
+                    new System.Windows.Data.Binding(nameof(BoundLabel.Text))
+                    {
+                        Source = new BoundLabel { Text = "Bound" }
+                    });
+
+                var unknown = new Button();
+                System.Windows.Automation.AutomationProperties.SetName(unknown, "Not in the catalog");
+
+                LocalizationManager.LocalizeTree(bound, LocalizationManager.ChineseLanguageCode);
+                LocalizationManager.LocalizeTree(unknown, LocalizationManager.ChineseLanguageCode);
+
+                Assert.Equal("Bound", System.Windows.Automation.AutomationProperties.GetName(bound));
+                Assert.Equal("Not in the catalog", System.Windows.Automation.AutomationProperties.GetName(unknown));
+            }
+            catch (Exception ex)
+            {
+                failure = ex;
+            }
+        });
+        thread.SetApartmentState(ApartmentState.STA);
+        thread.Start();
+        thread.Join();
+
+        Assert.Null(failure);
+    }
+
+    [Fact]
     public void DetailSurfaceTextLiteralsAreCatalogued()
     {
         var repositoryRoot = FindRepositoryRoot();
@@ -186,5 +257,10 @@ public sealed class LocalizationManagerTests
 
         return directory?.FullName
             ?? throw new DirectoryNotFoundException("Could not locate the repository root from the test output directory.");
+    }
+
+    private sealed class BoundLabel
+    {
+        public string Text { get; set; } = string.Empty;
     }
 }
