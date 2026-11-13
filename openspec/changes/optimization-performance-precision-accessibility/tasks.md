@@ -48,7 +48,7 @@ Dependencies: T1, T2, T3.
 - [x] Actual changed paths are reviewed against ownership and unrelated user files remain untouched.
 - [x] test-report.md contains observed commands, results, matched final benchmarks, review disposition, and honest limitations.
 - [x] Normative capability deltas are present under specs/; OpenSpec strict validation passes with zero issues. The task-owned temporary benchmark worktree is removed.
-- [ ] Scoped work is committed locally; no push, PR, merge, installer build, or external publication.
+- [x] Scoped work is committed locally in implementation commit `5388ea6`; no push, PR, merge, installer build, or external publication.
 
 ## Human and real-device acceptance — remains open until observed
 
@@ -59,4 +59,4 @@ Dependencies: T1, T2, T3.
 
 ## Status
 
-Implementation, final verification, and independent review are complete; local commit is the remaining delivery action. Parent verified 492 full-suite tests and 81 analysis tests from a native-DLL-free output copy. Both reviewers explicitly closed the fractional-bound finding after six parent regression cases were RED and then GREEN. The earlier test-host hang is resolved and is not counted as passing. Final baseline-to-final benchmarks supersede the early worker figures: Normal processing time improves about 4–6%, Eco about 7–9%, and the small-block case about 18%; immutable display publication increases longer Normal-mode allocations, while Eco and small-block allocations decrease. See [test-report.md](test-report.md) for parameters, raw elapsed repeats, tradeoffs, and review disposition. Human/real-device acceptance remains open; no compliance or end-to-end accessibility claim is made.
+Engineering complete and committed locally (`5388ea6` implementation, followed by this delivery-status reconciliation); awaiting human/real-device acceptance. Parent verified 492 full-suite tests and 81 analysis tests from a native-DLL-free output copy. Both reviewers explicitly closed the fractional-bound finding after six parent regression cases were RED and then GREEN. The earlier test-host hang is resolved and is not counted as passing. Final baseline-to-final benchmarks supersede the early worker figures: Normal processing time improves about 4–6%, Eco about 7–9%, and the small-block case about 18%; immutable display publication increases longer Normal-mode allocations, while Eco and small-block allocations decrease. See [test-report.md](test-report.md) for parameters, raw elapsed repeats, tradeoffs, and review disposition. Human/real-device acceptance remains open; no compliance or end-to-end accessibility claim is made.

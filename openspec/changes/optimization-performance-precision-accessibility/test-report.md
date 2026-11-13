@@ -6,7 +6,7 @@
 - Original baseline: `396774a56f086a169059035cada64f1dd2d52478` (`main`).
 - Scope: the existing WPF application/shared DSP, existing managed tests and benchmark executable, metering notes, and this OpenSpec change. No transport, plugin-editor, installer, release-version, dependency, or global-configuration changes were authored.
 - User-owned untracked `.claude/`, `.codex/`, `output/`, and `tmp/` are excluded from delivery. Existing other worktrees are untouched.
-- Engineering implementation and automated verification are complete; local commit recording is the final delivery step. Human and real-device acceptance remains open below. No push, PR, merge, deployment, or external tracker publication.
+- Engineering implementation, review, automated verification, and local delivery are complete. Implementation commit: `5388ea6ac2c5bfc252b815b46f798ed0ef591d3c`; the subsequent documentation-only commit reconciles these observed delivery facts. Human and real-device acceptance remains open below. No push, PR, merge, deployment, or external tracker publication.
 
 ## Observed final commands
 
