@@ -5,7 +5,7 @@
 - Follow-up baseline: `35f713f1c4139be3f9b449a932da16f4192f6c17` on `optimization/performance-precision-accessibility`.
 - Scope: analyzer window/gate storage, dependency-free benchmark configuration, shared spectrum history/cursor control, targeted tests, metering/rendering notes, and this OpenSpec change. No transport, public snapshot schema, plugin, installer, dependency, global configuration, or remote publication changes.
 - Existing user untracked `.claude/`, `.codex/`, `output/`, and `tmp/` remain excluded. Prior delivery and its human acceptance gates remain intact.
-- Implementation, review remediation, and final automated verification are complete. Local commit is the final delivery action; human visual/live-device acceptance remains open.
+- Engineering implementation, review remediation, final verification, and local delivery are complete. Implementation commit: `0f0bb2b58ab3f90fc029d1d91f1d6bf5014e24e4`; the subsequent documentation-only commit reconciles these observed facts. Human visual/live-device acceptance remains open.
 
 ## Final observed verification
 
@@ -143,4 +143,4 @@ The task-owned temporary baseline worktree was removed after capture. The origin
 - Human visual check of the frequency+dB label at narrow sizes, pan/zoom, and mixed-DPI monitors.
 - Prior Narrator/high-contrast/live WASAPI/DAW acceptance gates remain open in the preceding change; this follow-up does not close them.
 
-Engineering implementation/verification is complete, awaiting local commit recording and human/real-device acceptance. No push, PR, merge, installer build, or release was performed.
+Engineering complete and committed locally, awaiting human/real-device acceptance. No push, PR, merge, installer build, or release was performed.
